@@ -15,8 +15,8 @@ export default async function PickingPage({
   searchParams,
 }: { searchParams: Promise<{ status?: string; search?: string }> }) {
   const sp = await searchParams;
-  const rows = listPicking({ status: sp.status, search: sp.search });
-  const m = pickingMetrics();
+  const rows = await listPicking({ status: sp.status, search: sp.search });
+  const m = await pickingMetrics();
 
   return (
     <>

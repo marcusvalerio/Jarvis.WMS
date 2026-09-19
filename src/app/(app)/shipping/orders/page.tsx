@@ -17,12 +17,12 @@ export default async function OrdersPage({
   searchParams,
 }: { searchParams: Promise<{ status?: string; search?: string; priority?: string }> }) {
   const sp = await searchParams;
-  const rows = listOrders({ status: sp.status, search: sp.search, priority: sp.priority });
-  const counts = orderCounts();
-  const customers = listCustomers().map((c: any) => ({
+  const rows = await listOrders({ status: sp.status, search: sp.search, priority: sp.priority });
+  const counts = await orderCounts();
+  const customers = (await listCustomers()).map((c: any) => ({
     id: c.id, name: c.name, city: c.city, state: c.state,
   }));
-  const products = stockByProduct().map((p) => ({
+  const products = (await stockByProduct()).map((p) => ({
     id: p.product_id, sku: p.sku, description: p.description,
     unit: p.unit, available: p.available,
   }));

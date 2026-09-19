@@ -25,36 +25,36 @@ export class ShippingError extends Error {
  * Enquanto houver divergencia nao tratada o pedido nao avanca para
  * READY_TO_LOAD — e este o portao que impede expedir errado.
  */
-export function startShippingCheck(orderId: string, operatorId: string): string {
-  return tx(() => {
+export async function startShippingCheck(orderId: string, operatorId: string): Promise<string> {
+  return await tx(async () => {
     const at = nowIso();
-    const existing = one<any>(
+    const existing = await one<any>(
       `SELECT * FROM shipping_checks WHERE sales_order_id = ? AND status = 'IN_PROGRESS'`,
       orderId,
     );
     if (existing) return existing.id;
 
-    const items = all<any>(
+    const items = await all<any>(
       `SELECT si.*, p.sku FROM sales_order_items si JOIN products p ON p.id = si.product_id
         WHERE si.sales_order_id = ? ORDER BY si.line_no`,
       orderId,
     );
     if (items.length === 0) throw new ShippingError("Pedido sem itens", "NO_ITEMS");
 
-    const id = nextId(PREFIX.SHIPPING_CHECK);
-    insert("shipping_checks", {
+    const id = await nextId(PREFIX.SHIPPING_CHECK);
+    await insert("shipping_checks", {
       id, sales_order_id: orderId, status: "IN_PROGRESS",
       operator_id: operatorId, started_at: at, divergence_count: 0,
     });
     for (const it of items) {
-      insert("shipping_check_items", {
+      await insert("shipping_check_items", {
         id: `${id}-${it.product_id}`,
         check_id: id, product_id: it.product_id,
         ordered_qty: it.quantity, picked_qty: it.picked_qty, packed_qty: it.packed_qty,
         checked_qty: 0, divergence: 0, status: "PENDING",
       });
     }
-    audit({
+    await audit({
       actor: operatorId, action: "CHECK", entity: "shipping_check", entityId: id,
       after: { order: orderId, lines: items.length },
       detail: `Conferencia de expedicao iniciada para ${orderId}`,
@@ -63,8 +63,8 @@ export function startShippingCheck(orderId: string, operatorId: string): string 
   });
 }
 
-export function getShippingCheck(id: string) {
-  const check = one<any>(
+export async function getShippingCheck(id: string) {
+  const check = await one<any>(
     `SELECT sc.*, so.id AS order_id, c.name AS customer_name, o.name AS operator_name
        FROM shipping_checks sc
        JOIN sales_orders so ON so.id = sc.sales_order_id
@@ -74,12 +74,12 @@ export function getShippingCheck(id: string) {
     id,
   );
   if (!check) return null;
-  const items = all<any>(
+  const items = await all<any>(
     `SELECT ci.*, p.sku, p.description, p.unit FROM shipping_check_items ci
        JOIN products p ON p.id = ci.product_id WHERE ci.check_id = ?`,
     id,
   );
-  const volumes = all<any>(
+  const volumes = await all<any>(
     `SELECT * FROM volumes WHERE sales_order_id = ? AND status <> 'CANCELLED' ORDER BY sequence`,
     check.sales_order_id,
   );
@@ -87,21 +87,21 @@ export function getShippingCheck(id: string) {
 }
 
 /** BIP de volume na conferencia de expedicao: soma o conteudo do volume. */
-export function checkVolume(params: {
+export async function checkVolume(params: {
   checkId: string; volumeCode: string; operatorId: string;
 }) {
-  return tx(() => {
+  return await tx(async () => {
     const at = nowIso();
-    const check = one<any>(`SELECT * FROM shipping_checks WHERE id = ?`, params.checkId);
+    const check = await one<any>(`SELECT * FROM shipping_checks WHERE id = ?`, params.checkId);
     if (!check) throw new ShippingError("Conferencia inexistente", "NOT_FOUND");
 
     const code = params.volumeCode.trim().toUpperCase();
-    const vol = one<any>(`SELECT * FROM volumes WHERE id = ?`, code);
+    const vol = await one<any>(`SELECT * FROM volumes WHERE id = ?`, code);
     if (!vol) {
       return { ok: false, code: "UNKNOWN_VOLUME", message: `Volume "${code}" nao existe.` };
     }
     if (vol.sales_order_id !== check.sales_order_id) {
-      audit({
+      await audit({
         actor: params.operatorId, action: "SCAN", entity: "shipping_check", entityId: params.checkId,
         after: { volume: code, expectedOrder: check.sales_order_id, result: "REJECTED" }, origin: "RF",
         detail: `VOLUME DE OUTRO PEDIDO: ${code} pertence a ${vol.sales_order_id}`,
@@ -115,22 +115,22 @@ export function checkVolume(params: {
       return { ok: false, code: "ALREADY_CHECKED", message: `Volume ${code} ja conferido.` };
     }
 
-    const items = all<any>(`SELECT * FROM volume_items WHERE volume_id = ?`, code);
+    const items = await all<any>(`SELECT * FROM volume_items WHERE volume_id = ?`, code);
     for (const it of items) {
-      run(
+      await run(
         `UPDATE shipping_check_items SET checked_qty = checked_qty + ? WHERE check_id = ? AND product_id = ?`,
         it.quantity, params.checkId, it.product_id,
       );
     }
-    run(`UPDATE volumes SET status = 'CHECKED', checked_at = ? WHERE id = ?`, at, code);
+    await run(`UPDATE volumes SET status = 'CHECKED', checked_at = ? WHERE id = ?`, at, code);
 
-    audit({
+    await audit({
       actor: params.operatorId, action: "CHECK", entity: "volume", entityId: code,
       after: { checked: true, lines: items.length }, origin: "RF",
       detail: `Volume ${code} conferido na expedicao`,
     });
 
-    const remaining = scalar<number>(
+    const remaining = await scalar<number>(
       `SELECT COUNT(*) FROM volumes WHERE sales_order_id = ? AND status = 'CLOSED'`,
       check.sales_order_id,
     ) ?? 0;
@@ -142,13 +142,13 @@ export function checkVolume(params: {
   });
 }
 
-export function finishShippingCheck(checkId: string, operatorId: string) {
-  return tx(() => {
+export async function finishShippingCheck(checkId: string, operatorId: string) {
+  return await tx(async () => {
     const at = nowIso();
-    const check = one<any>(`SELECT * FROM shipping_checks WHERE id = ?`, checkId);
+    const check = await one<any>(`SELECT * FROM shipping_checks WHERE id = ?`, checkId);
     if (!check) throw new ShippingError("Conferencia inexistente", "NOT_FOUND");
 
-    const items = all<any>(
+    const items = await all<any>(
       `SELECT ci.*, p.sku FROM shipping_check_items ci JOIN products p ON p.id = ci.product_id
         WHERE ci.check_id = ?`,
       checkId,
@@ -158,12 +158,12 @@ export function finishShippingCheck(checkId: string, operatorId: string) {
       const divergence = round3(it.checked_qty - it.ordered_qty);
       const status = divergence === 0 ? "OK" : "DIVERGENCE";
       if (divergence !== 0) divergences++;
-      run(
+      await run(
         `UPDATE shipping_check_items SET divergence = ?, status = ? WHERE id = ?`,
         divergence, status, it.id,
       );
       if (divergence !== 0) {
-        openIncident({
+        await openIncident({
           kind: "SHIPPING_DIVERGENCE",
           severity: "ALTA",
           refKind: "SALES_ORDER", refId: check.sales_order_id,
@@ -175,7 +175,7 @@ export function finishShippingCheck(checkId: string, operatorId: string) {
       }
     }
 
-    const openVolumes = scalar<number>(
+    const openVolumes = await scalar<number>(
       `SELECT COUNT(*) FROM volumes WHERE sales_order_id = ? AND status IN ('OPEN','CLOSED')`,
       check.sales_order_id,
     ) ?? 0;
@@ -187,19 +187,19 @@ export function finishShippingCheck(checkId: string, operatorId: string) {
     }
 
     const status = divergences > 0 ? "DIVERGENCE" : "OK";
-    run(
+    await run(
       `UPDATE shipping_checks SET status = ?, finished_at = ?, divergence_count = ? WHERE id = ?`,
       status, at, divergences, checkId,
     );
 
     if (divergences === 0) {
-      const order = one<any>(`SELECT status FROM sales_orders WHERE id = ?`, check.sales_order_id);
+      const order = await one<any>(`SELECT status FROM sales_orders WHERE id = ?`, check.sales_order_id);
       if (order?.status === "CHECKING") {
-        setOrderStatus(check.sales_order_id, "READY_TO_LOAD", operatorId);
+        await setOrderStatus(check.sales_order_id, "READY_TO_LOAD", operatorId);
       }
     }
 
-    audit({
+    await audit({
       actor: operatorId, action: "CHECK", entity: "shipping_check", entityId: checkId,
       after: { status, divergences },
       detail: `Conferencia de expedicao encerrada: ${divergences} divergencia(s)`,
@@ -209,16 +209,16 @@ export function finishShippingCheck(checkId: string, operatorId: string) {
 }
 
 // ================================================================== ROMANEIO
-export function createManifest(params: {
+export async function createManifest(params: {
   warehouseId: string; route: string; carrier?: string;
   vehiclePlate?: string; vehicleKind?: string;
   driverName?: string; driverDoc?: string;
   dockId?: string; scheduledAt?: string; actor: string; id?: string;
-}): string {
-  return tx(() => {
+}): Promise<string> {
+  return await tx(async () => {
     const at = nowIso();
-    const id = params.id ?? nextId(PREFIX.MANIFEST);
-    insert("shipping_manifests", {
+    const id = params.id ?? await nextId(PREFIX.MANIFEST);
+    await insert("shipping_manifests", {
       id, warehouse_id: params.warehouseId, status: "DRAFT", route: params.route,
       carrier: params.carrier ?? null, vehicle_plate: params.vehiclePlate ?? null,
       vehicle_kind: params.vehicleKind ?? null, driver_name: params.driverName ?? null,
@@ -226,7 +226,7 @@ export function createManifest(params: {
       total_orders: 0, total_volumes: 0, total_weight_kg: 0, total_value: 0,
       scheduled_at: params.scheduledAt ?? null, created_at: at, created_by: params.actor,
     });
-    audit({
+    await audit({
       actor: params.actor, action: "CREATE", entity: "shipping_manifest", entityId: id,
       after: { route: params.route, vehicle: params.vehiclePlate },
       detail: `Romaneio ${id} criado (rota ${params.route})`,
@@ -235,16 +235,16 @@ export function createManifest(params: {
   });
 }
 
-export function addOrderToManifest(params: {
+export async function addOrderToManifest(params: {
   manifestId: string; orderId: string; actor: string;
 }) {
-  return tx(() => {
-    const manifest = one<any>(`SELECT * FROM shipping_manifests WHERE id = ?`, params.manifestId);
+  return await tx(async () => {
+    const manifest = await one<any>(`SELECT * FROM shipping_manifests WHERE id = ?`, params.manifestId);
     if (!manifest) throw new ShippingError("Romaneio inexistente", "NOT_FOUND");
     if (manifest.status !== "DRAFT") {
       throw new ShippingError("Romaneio ja liberado — nao aceita novos pedidos", "MANIFEST_CLOSED");
     }
-    const order = one<any>(`SELECT * FROM sales_orders WHERE id = ?`, params.orderId);
+    const order = await one<any>(`SELECT * FROM sales_orders WHERE id = ?`, params.orderId);
     if (!order) throw new ShippingError("Pedido inexistente", "NO_ORDER");
     if (order.status !== "READY_TO_LOAD") {
       throw new ShippingError(
@@ -252,12 +252,12 @@ export function addOrderToManifest(params: {
         "ORDER_NOT_READY",
       );
     }
-    const dup = one<any>(
+    const dup = await one<any>(
       `SELECT id FROM manifest_orders WHERE manifest_id = ? AND sales_order_id = ?`,
       params.manifestId, params.orderId,
     );
     if (dup) return;
-    const elsewhere = one<any>(
+    const elsewhere = await one<any>(
       `SELECT manifest_id FROM manifest_orders WHERE sales_order_id = ?`, params.orderId,
     );
     if (elsewhere) {
@@ -266,22 +266,22 @@ export function addOrderToManifest(params: {
       );
     }
 
-    const stats = one<any>(
+    const stats = await one<any>(
       `SELECT COUNT(*) AS n, COALESCE(SUM(gross_weight_kg),0) AS w
          FROM volumes WHERE sales_order_id = ? AND status <> 'CANCELLED'`,
       params.orderId,
     );
-    const seq = (scalar<number>(
+    const seq = (await scalar<number>(
       `SELECT COUNT(*) FROM manifest_orders WHERE manifest_id = ?`, params.manifestId,
     ) ?? 0) + 1;
 
-    insert("manifest_orders", {
+    await insert("manifest_orders", {
       id: `${params.manifestId}-${params.orderId}`,
       manifest_id: params.manifestId, sales_order_id: params.orderId,
       stop_sequence: seq, volumes: stats.n, weight_kg: round3(stats.w),
     });
-    recalcManifest(params.manifestId);
-    audit({
+    await recalcManifest(params.manifestId);
+    await audit({
       actor: params.actor, action: "UPDATE", entity: "shipping_manifest", entityId: params.manifestId,
       after: { added: params.orderId, volumes: stats.n },
       detail: `Pedido ${params.orderId} incluido no romaneio ${params.manifestId}`,
@@ -289,23 +289,23 @@ export function addOrderToManifest(params: {
   });
 }
 
-export function removeOrderFromManifest(manifestId: string, orderId: string, actor: string) {
-  return tx(() => {
-    const manifest = one<any>(`SELECT status FROM shipping_manifests WHERE id = ?`, manifestId);
+export async function removeOrderFromManifest(manifestId: string, orderId: string, actor: string) {
+  return await tx(async () => {
+    const manifest = await one<any>(`SELECT status FROM shipping_manifests WHERE id = ?`, manifestId);
     if (manifest?.status !== "DRAFT") {
       throw new ShippingError("Romaneio ja liberado", "MANIFEST_CLOSED");
     }
-    run(`DELETE FROM manifest_orders WHERE manifest_id = ? AND sales_order_id = ?`, manifestId, orderId);
-    recalcManifest(manifestId);
-    audit({
+    await run(`DELETE FROM manifest_orders WHERE manifest_id = ? AND sales_order_id = ?`, manifestId, orderId);
+    await recalcManifest(manifestId);
+    await audit({
       actor, action: "UPDATE", entity: "shipping_manifest", entityId: manifestId,
       after: { removed: orderId }, detail: `Pedido ${orderId} removido do romaneio`,
     });
   });
 }
 
-function recalcManifest(manifestId: string) {
-  const stats = one<any>(
+async function recalcManifest(manifestId: string) {
+  const stats = await one<any>(
     `SELECT COUNT(*) AS orders, COALESCE(SUM(mo.volumes),0) AS volumes,
             COALESCE(SUM(mo.weight_kg),0) AS weight,
             COALESCE(SUM(so.total_value),0) AS value
@@ -313,7 +313,7 @@ function recalcManifest(manifestId: string) {
       WHERE mo.manifest_id = ?`,
     manifestId,
   );
-  run(
+  await run(
     `UPDATE shipping_manifests SET total_orders = ?, total_volumes = ?,
             total_weight_kg = ?, total_value = ? WHERE id = ?`,
     stats.orders, stats.volumes, round3(stats.weight),
@@ -321,16 +321,16 @@ function recalcManifest(manifestId: string) {
   );
 }
 
-function setManifestStatus(id: string, to: ManifestStatus, actor: string, extra: Record<string, any> = {}) {
-  const cur = one<{ status: ManifestStatus }>(`SELECT status FROM shipping_manifests WHERE id = ?`, id);
+async function setManifestStatus(id: string, to: ManifestStatus, actor: string, extra: Record<string, any> = {}) {
+  const cur = await one<{ status: ManifestStatus }>(`SELECT status FROM shipping_manifests WHERE id = ?`, id);
   if (!cur) throw new ShippingError("Romaneio inexistente", "NOT_FOUND");
   assertTransition("shipping_manifest", MANIFEST_TRANSITIONS, cur.status, to);
   const keys = Object.keys(extra);
-  run(
+  await run(
     `UPDATE shipping_manifests SET status = ?${keys.map((k) => `, ${k} = ?`).join("")} WHERE id = ?`,
     to, ...keys.map((k) => extra[k]), id,
   );
-  audit({
+  await audit({
     actor, action: to === "SHIPPED" ? "SHIP" : "UPDATE",
     entity: "shipping_manifest", entityId: id,
     before: { status: cur.status }, after: { status: to, ...extra },
@@ -338,22 +338,22 @@ function setManifestStatus(id: string, to: ManifestStatus, actor: string, extra:
   });
 }
 
-export function releaseManifest(manifestId: string, actor: string) {
-  return tx(() => {
-    const orders = scalar<number>(
+export async function releaseManifest(manifestId: string, actor: string) {
+  return await tx(async () => {
+    const orders = await scalar<number>(
       `SELECT COUNT(*) FROM manifest_orders WHERE manifest_id = ?`, manifestId,
     ) ?? 0;
     if (orders === 0) throw new ShippingError("Romaneio sem pedidos", "EMPTY_MANIFEST");
-    const m = one<any>(`SELECT * FROM shipping_manifests WHERE id = ?`, manifestId);
+    const m = await one<any>(`SELECT * FROM shipping_manifests WHERE id = ?`, manifestId);
     if (!m.vehicle_plate || !m.driver_name) {
       throw new ShippingError("Informe veiculo e motorista antes de liberar", "MISSING_VEHICLE");
     }
-    setManifestStatus(manifestId, "READY", actor);
+    await setManifestStatus(manifestId, "READY", actor);
     return true;
   });
 }
 
-export function listManifests(filter: { status?: string; search?: string } = {}) {
+export async function listManifests(filter: { status?: string; search?: string } = {}) {
   const where: string[] = [];
   const params: any[] = [];
   if (filter.status) { where.push("m.status = ?"); params.push(filter.status); }
@@ -362,7 +362,7 @@ export function listManifests(filter: { status?: string; search?: string } = {})
     const q = `%${filter.search}%`;
     params.push(q, q, q, q);
   }
-  return all<any>(
+  return await all<any>(
     `SELECT m.*, d.name AS dock_name,
             (SELECT COUNT(*) FROM loading_operations lo WHERE lo.manifest_id = m.id) AS loading_count,
             (SELECT lo.id FROM loading_operations lo WHERE lo.manifest_id = m.id ORDER BY lo.created_at DESC LIMIT 1) AS loading_id,
@@ -375,8 +375,8 @@ export function listManifests(filter: { status?: string; search?: string } = {})
   );
 }
 
-export function getManifest(id: string) {
-  const manifest = one<any>(
+export async function getManifest(id: string) {
+  const manifest = await one<any>(
     `SELECT m.*, d.name AS dock_name, w.name AS warehouse_name, w.address AS warehouse_address,
             w.city AS warehouse_city, w.state AS warehouse_state
        FROM shipping_manifests m
@@ -386,7 +386,7 @@ export function getManifest(id: string) {
     id,
   );
   if (!manifest) return null;
-  const orders = all<any>(
+  const orders = await Promise.all((await all<any>(
     `SELECT mo.*, so.id AS order_id, so.total_value, so.due_at, so.priority,
             c.name AS customer_name, c.cnpj AS customer_cnpj, c.city, c.state, c.address, c.zip
        FROM manifest_orders mo
@@ -394,25 +394,25 @@ export function getManifest(id: string) {
        JOIN customers c ON c.id = so.customer_id
       WHERE mo.manifest_id = ? ORDER BY mo.stop_sequence`,
     id,
-  ).map((o) => ({
+  )).map(async (o) => ({
     ...o,
-    volumeList: all<any>(
+    volumeList: await all<any>(
       `SELECT * FROM volumes WHERE sales_order_id = ? AND status <> 'CANCELLED' ORDER BY sequence`,
       o.sales_order_id,
     ),
-  }));
-  const loading = one<any>(
+  })));
+  const loading = await one<any>(
     `SELECT lo.*, o.name AS operator_name FROM loading_operations lo
        LEFT JOIN operators o ON o.id = lo.operator_id
       WHERE lo.manifest_id = ? ORDER BY lo.created_at DESC LIMIT 1`,
     id,
   );
-  const transportDoc = one<any>(`SELECT * FROM transport_documents WHERE manifest_id = ?`, id);
+  const transportDoc = await one<any>(`SELECT * FROM transport_documents WHERE manifest_id = ?`, id);
   return { manifest, orders, loading, transportDoc };
 }
 
-export function eligibleOrdersForManifest() {
-  return all<any>(
+export async function eligibleOrdersForManifest() {
+  return await all<any>(
     `SELECT so.*, c.name AS customer_name, c.city, c.state,
             (SELECT COUNT(*) FROM volumes v WHERE v.sales_order_id = so.id AND v.status <> 'CANCELLED') AS volume_count
        FROM sales_orders so JOIN customers c ON c.id = so.customer_id
@@ -423,49 +423,49 @@ export function eligibleOrdersForManifest() {
 }
 
 // ================================================================ CARREGAMENTO
-export function startLoading(params: {
+export async function startLoading(params: {
   manifestId: string; dockId?: string; operatorId: string; equipmentId?: string;
-}): string {
-  return tx(() => {
+}): Promise<string> {
+  return await tx(async () => {
     const at = nowIso();
-    const manifest = one<any>(`SELECT * FROM shipping_manifests WHERE id = ?`, params.manifestId);
+    const manifest = await one<any>(`SELECT * FROM shipping_manifests WHERE id = ?`, params.manifestId);
     if (!manifest) throw new ShippingError("Romaneio inexistente", "NOT_FOUND");
     if (manifest.status !== "READY") {
       throw new ShippingError(
         `Romaneio precisa estar liberado (status atual ${manifest.status})`, "MANIFEST_NOT_READY",
       );
     }
-    const existing = one<any>(
+    const existing = await one<any>(
       `SELECT * FROM loading_operations WHERE manifest_id = ? AND status = 'IN_PROGRESS'`,
       params.manifestId,
     );
     if (existing) return existing.id;
 
-    const expected = scalar<number>(
+    const expected = await scalar<number>(
       `SELECT COUNT(*) FROM volumes v JOIN manifest_orders mo ON mo.sales_order_id = v.sales_order_id
         WHERE mo.manifest_id = ? AND v.status <> 'CANCELLED'`,
       params.manifestId,
     ) ?? 0;
 
-    const id = nextId(PREFIX.LOADING);
-    insert("loading_operations", {
+    const id = await nextId(PREFIX.LOADING);
+    await insert("loading_operations", {
       id, manifest_id: params.manifestId, dock_id: params.dockId ?? manifest.dock_id,
       status: "IN_PROGRESS", operator_id: params.operatorId, equipment_id: params.equipmentId ?? null,
       expected_volumes: expected, loaded_volumes: 0, started_at: at, created_at: at,
     });
-    setManifestStatus(params.manifestId, "LOADING", params.operatorId, {
+    await setManifestStatus(params.manifestId, "LOADING", params.operatorId, {
       dock_id: params.dockId ?? manifest.dock_id,
     });
     if (params.dockId ?? manifest.dock_id) {
-      setDock(params.dockId ?? manifest.dock_id, "OCCUPIED", params.manifestId);
+      await setDock(params.dockId ?? manifest.dock_id, "OCCUPIED", params.manifestId);
     }
-    for (const o of all<any>(
+    for (const o of await all<any>(
       `SELECT sales_order_id FROM manifest_orders WHERE manifest_id = ?`, params.manifestId,
     )) {
-      const st = one<any>(`SELECT status FROM sales_orders WHERE id = ?`, o.sales_order_id);
-      if (st?.status === "READY_TO_LOAD") setOrderStatus(o.sales_order_id, "LOADING", params.operatorId);
+      const st = await one<any>(`SELECT status FROM sales_orders WHERE id = ?`, o.sales_order_id);
+      if (st?.status === "READY_TO_LOAD") await setOrderStatus(o.sales_order_id, "LOADING", params.operatorId);
     }
-    audit({
+    await audit({
       actor: params.operatorId, action: "LOAD", entity: "loading_operation", entityId: id,
       after: { manifest: params.manifestId, expected },
       detail: `Carregamento ${id} iniciado (${expected} volumes previstos)`,
@@ -475,33 +475,33 @@ export function startLoading(params: {
 }
 
 /** BIP de volume no carregamento. Valida se pertence ao romaneio. */
-export function scanVolumeForLoading(params: {
+export async function scanVolumeForLoading(params: {
   loadingId: string; volumeCode: string; operatorId: string;
 }) {
-  return tx(() => {
+  return await tx(async () => {
     const at = nowIso();
-    const lo = one<any>(`SELECT * FROM loading_operations WHERE id = ?`, params.loadingId);
+    const lo = await one<any>(`SELECT * FROM loading_operations WHERE id = ?`, params.loadingId);
     if (!lo) throw new ShippingError("Carregamento inexistente", "NOT_FOUND");
     if (lo.status !== "IN_PROGRESS") {
       return { ok: false, code: "NOT_ACTIVE", message: "Carregamento nao esta em andamento." };
     }
 
     const code = params.volumeCode.trim().toUpperCase();
-    const vol = one<any>(`SELECT * FROM volumes WHERE id = ?`, code);
+    const vol = await one<any>(`SELECT * FROM volumes WHERE id = ?`, code);
     if (!vol) {
-      audit({
+      await audit({
         actor: params.operatorId, action: "SCAN", entity: "loading_operation", entityId: params.loadingId,
         after: { read: code, result: "REJECTED" }, origin: "RF",
         detail: `VOLUME INEXISTENTE: ${code}`,
       });
       return { ok: false, code: "UNKNOWN_VOLUME", message: `VOLUME INEXISTENTE: ${code}.` };
     }
-    const belongs = one<any>(
+    const belongs = await one<any>(
       `SELECT 1 AS ok FROM manifest_orders WHERE manifest_id = ? AND sales_order_id = ?`,
       lo.manifest_id, vol.sales_order_id,
     );
     if (!belongs) {
-      audit({
+      await audit({
         actor: params.operatorId, action: "SCAN", entity: "loading_operation", entityId: params.loadingId,
         after: { read: code, manifest: lo.manifest_id, result: "REJECTED" }, origin: "RF",
         detail: `VOLUME FORA DO ROMANEIO: ${code} (pedido ${vol.sales_order_id})`,
@@ -517,7 +517,7 @@ export function scanVolumeForLoading(params: {
         message: `Volume ${code} nao foi conferido na expedicao (status ${vol.status}).`,
       };
     }
-    const dup = one<any>(
+    const dup = await one<any>(
       `SELECT id FROM loading_scans WHERE loading_id = ? AND volume_id = ?`,
       params.loadingId, code,
     );
@@ -525,17 +525,17 @@ export function scanVolumeForLoading(params: {
       return { ok: false, code: "DUPLICATE", message: `Volume ${code} ja foi carregado.` };
     }
 
-    insert("loading_scans", {
+    await insert("loading_scans", {
       id: `${params.loadingId}-${code}`, loading_id: params.loadingId, volume_id: code,
       sales_order_id: vol.sales_order_id, scanned_at: at, operator_id: params.operatorId,
     });
-    run(`UPDATE volumes SET status = 'LOADED', loaded_at = ? WHERE id = ?`, at, code);
-    const loaded = scalar<number>(
+    await run(`UPDATE volumes SET status = 'LOADED', loaded_at = ? WHERE id = ?`, at, code);
+    const loaded = await scalar<number>(
       `SELECT COUNT(*) FROM loading_scans WHERE loading_id = ?`, params.loadingId,
     ) ?? 0;
-    run(`UPDATE loading_operations SET loaded_volumes = ? WHERE id = ?`, loaded, params.loadingId);
+    await run(`UPDATE loading_operations SET loaded_volumes = ? WHERE id = ?`, loaded, params.loadingId);
 
-    audit({
+    await audit({
       actor: params.operatorId, action: "LOAD", entity: "volume", entityId: code,
       after: { loading: params.loadingId, result: "OK" }, origin: "RF",
       detail: `Volume ${code} carregado (${loaded}/${lo.expected_volumes})`,
@@ -548,12 +548,12 @@ export function scanVolumeForLoading(params: {
   });
 }
 
-export function completeLoading(params: {
+export async function completeLoading(params: {
   loadingId: string; seal: string; operatorId: string; allowPartial?: boolean;
 }) {
-  return tx(() => {
+  return await tx(async () => {
     const at = nowIso();
-    const lo = one<any>(`SELECT * FROM loading_operations WHERE id = ?`, params.loadingId);
+    const lo = await one<any>(`SELECT * FROM loading_operations WHERE id = ?`, params.loadingId);
     if (!lo) throw new ShippingError("Carregamento inexistente", "NOT_FOUND");
     const missing = lo.expected_volumes - lo.loaded_volumes;
     if (missing > 0 && !params.allowPartial) {
@@ -564,28 +564,28 @@ export function completeLoading(params: {
     if (!params.seal?.trim()) throw new ShippingError("Informe o numero do lacre", "NO_SEAL");
 
     const status = missing > 0 ? "DIVERGENCE" : "COMPLETED";
-    run(
+    await run(
       `UPDATE loading_operations SET status = ?, seal = ?, completed_at = ? WHERE id = ?`,
       status, params.seal.trim(), at, params.loadingId,
     );
     if (missing > 0) {
-      openIncident({
+      await openIncident({
         kind: "SHIPPING_DIVERGENCE", severity: "ALTA",
         refKind: "LOADING", refId: params.loadingId, quantity: missing,
         description: `Carregamento concluido com ${missing} volume(s) faltante(s)`,
         operatorId: params.operatorId,
       });
     }
-    setManifestStatus(lo.manifest_id, "LOADED", params.operatorId, {
+    await setManifestStatus(lo.manifest_id, "LOADED", params.operatorId, {
       seal: params.seal.trim(),
     });
-    for (const o of all<any>(
+    for (const o of await all<any>(
       `SELECT sales_order_id FROM manifest_orders WHERE manifest_id = ?`, lo.manifest_id,
     )) {
-      const st = one<any>(`SELECT status FROM sales_orders WHERE id = ?`, o.sales_order_id);
-      if (st?.status === "LOADING") setOrderStatus(o.sales_order_id, "LOADED", params.operatorId);
+      const st = await one<any>(`SELECT status FROM sales_orders WHERE id = ?`, o.sales_order_id);
+      if (st?.status === "LOADING") await setOrderStatus(o.sales_order_id, "LOADED", params.operatorId);
     }
-    audit({
+    await audit({
       actor: params.operatorId, action: "LOAD", entity: "loading_operation", entityId: params.loadingId,
       after: { status, seal: params.seal, loaded: lo.loaded_volumes, expected: lo.expected_volumes },
       detail: `Carregamento ${params.loadingId} concluido (lacre ${params.seal})`,
@@ -594,8 +594,8 @@ export function completeLoading(params: {
   });
 }
 
-export function getLoading(id: string) {
-  const loading = one<any>(
+export async function getLoading(id: string) {
+  const loading = await one<any>(
     `SELECT lo.*, m.route, m.vehicle_plate, m.driver_name, m.seal AS manifest_seal,
             d.name AS dock_name, o.name AS operator_name
        FROM loading_operations lo
@@ -606,7 +606,7 @@ export function getLoading(id: string) {
     id,
   );
   if (!loading) return null;
-  const expected = all<any>(
+  const expected = await all<any>(
     `SELECT v.*, mo.stop_sequence, c.name AS customer_name,
             (SELECT ls.scanned_at FROM loading_scans ls WHERE ls.loading_id = ? AND ls.volume_id = v.id) AS scanned_at
        FROM volumes v
@@ -625,21 +625,21 @@ export function getLoading(id: string) {
  * Expede o romaneio: baixa definitiva do estoque (SHIP), fecha pedidos e
  * cria os registros de remessa. So roda apos carregamento concluido.
  */
-export function shipManifest(manifestId: string, actor: string) {
-  return tx(() => {
+export async function shipManifest(manifestId: string, actor: string) {
+  return await tx(async () => {
     const at = nowIso();
-    const manifest = one<any>(`SELECT * FROM shipping_manifests WHERE id = ?`, manifestId);
+    const manifest = await one<any>(`SELECT * FROM shipping_manifests WHERE id = ?`, manifestId);
     if (!manifest) throw new ShippingError("Romaneio inexistente", "NOT_FOUND");
     if (manifest.status !== "LOADED") {
       throw new ShippingError(
         `Romaneio precisa estar carregado para expedir (status ${manifest.status})`, "NOT_LOADED",
       );
     }
-    const orders = all<any>(
+    const orders = await all<any>(
       `SELECT sales_order_id FROM manifest_orders WHERE manifest_id = ?`, manifestId,
     );
 
-    const openChecks = scalar<number>(
+    const openChecks = await scalar<number>(
       `SELECT COUNT(*) FROM shipping_checks sc
         JOIN manifest_orders mo ON mo.sales_order_id = sc.sales_order_id
        WHERE mo.manifest_id = ? AND sc.status IN ('IN_PROGRESS','DIVERGENCE')`,
@@ -654,12 +654,12 @@ export function shipManifest(manifestId: string, actor: string) {
 
     const staging = shippingLocation();
     for (const o of orders) {
-      const volumes = all<any>(
+      const volumes = await all<any>(
         `SELECT * FROM volumes WHERE sales_order_id = ? AND status <> 'CANCELLED'`, o.sales_order_id,
       );
       for (const v of volumes) {
-        for (const it of all<any>(`SELECT * FROM volume_items WHERE volume_id = ?`, v.id)) {
-          applyMovement({
+        for (const it of await all<any>(`SELECT * FROM volume_items WHERE volume_id = ?`, v.id)) {
+          await applyMovement({
             kind: "SHIP",
             productId: it.product_id,
             lotId: it.lot_id,
@@ -672,34 +672,34 @@ export function shipManifest(manifestId: string, actor: string) {
             operatorId: actor,
             occurredAt: at,
           });
-          run(
+          await run(
             `UPDATE sales_order_items SET shipped_qty = shipped_qty + ?
               WHERE sales_order_id = ? AND product_id = ?`,
             it.quantity, o.sales_order_id, it.product_id,
           );
         }
-        run(`UPDATE volumes SET status = 'SHIPPED' WHERE id = ?`, v.id);
+        await run(`UPDATE volumes SET status = 'SHIPPED' WHERE id = ?`, v.id);
       }
 
-      const stats = one<any>(
+      const stats = await one<any>(
         `SELECT COUNT(*) AS n, COALESCE(SUM(gross_weight_kg),0) AS w
            FROM volumes WHERE sales_order_id = ? AND status <> 'CANCELLED'`,
         o.sales_order_id,
       );
-      const shipId = nextId(PREFIX.SHIPMENT);
-      insert("shipments", {
+      const shipId = await nextId(PREFIX.SHIPMENT);
+      await insert("shipments", {
         id: shipId, sales_order_id: o.sales_order_id, manifest_id: manifestId,
         status: "SHIPPED", volumes: stats.n, weight_kg: round3(stats.w),
         shipped_at: at, created_at: at,
       });
-      run(`UPDATE volumes SET shipment_id = ? WHERE sales_order_id = ?`, shipId, o.sales_order_id);
-      setOrderStatus(o.sales_order_id, "SHIPPED", actor, { shipped_at: at });
+      await run(`UPDATE volumes SET shipment_id = ? WHERE sales_order_id = ?`, shipId, o.sales_order_id);
+      await setOrderStatus(o.sales_order_id, "SHIPPED", actor, { shipped_at: at });
     }
 
-    setManifestStatus(manifestId, "SHIPPED", actor, { departed_at: at });
-    if (manifest.dock_id) setDock(manifest.dock_id, "FREE", null);
+    await setManifestStatus(manifestId, "SHIPPED", actor, { departed_at: at });
+    if (manifest.dock_id) await setDock(manifest.dock_id, "FREE", null);
 
-    audit({
+    await audit({
       actor, action: "SHIP", entity: "shipping_manifest", entityId: manifestId,
       after: { orders: orders.length, at },
       detail: `Romaneio ${manifestId} expedido com ${orders.length} pedido(s)`,
@@ -709,20 +709,20 @@ export function shipManifest(manifestId: string, actor: string) {
 }
 
 // ========================================================= DOCUMENTO TRANSPORTE
-export function createTransportDocument(manifestId: string, actor: string): string {
-  return tx(() => {
+export async function createTransportDocument(manifestId: string, actor: string): Promise<string> {
+  return await tx(async () => {
     const at = nowIso();
-    const existing = one<any>(`SELECT id FROM transport_documents WHERE manifest_id = ?`, manifestId);
+    const existing = await one<any>(`SELECT id FROM transport_documents WHERE manifest_id = ?`, manifestId);
     if (existing) return existing.id;
 
-    const m = one<any>(
+    const m = await one<any>(
       `SELECT m.*, w.name AS wh_name, w.city AS wh_city, w.state AS wh_state
          FROM shipping_manifests m LEFT JOIN warehouses w ON w.id = m.warehouse_id
         WHERE m.id = ?`,
       manifestId,
     );
     if (!m) throw new ShippingError("Romaneio inexistente", "NOT_FOUND");
-    const firstStop = one<any>(
+    const firstStop = await one<any>(
       `SELECT c.city FROM manifest_orders mo
          JOIN sales_orders so ON so.id = mo.sales_order_id
          JOIN customers c ON c.id = so.customer_id
@@ -730,9 +730,9 @@ export function createTransportDocument(manifestId: string, actor: string): stri
       manifestId,
     );
 
-    const id = nextId(PREFIX.TRANSPORT_DOC);
+    const id = await nextId(PREFIX.TRANSPORT_DOC);
     const number = id.split("-")[1];
-    insert("transport_documents", {
+    await insert("transport_documents", {
       id, manifest_id: manifestId, number, series: "001",
       access_key: simulatedKey(id, at),
       issued_at: at,
@@ -746,7 +746,7 @@ export function createTransportDocument(manifestId: string, actor: string): stri
       freight_value: Math.round(m.total_weight_kg * 1.85 * 100) / 100,
       simulated: 1, created_at: at,
     });
-    audit({
+    await audit({
       actor, action: "CREATE", entity: "transport_document", entityId: id,
       after: { manifest: manifestId },
       detail: `Documento de transporte simulado ${id} emitido`,
@@ -769,15 +769,15 @@ export function simulatedKey(seed: string, at: string): string {
   return out.slice(0, 44);
 }
 
-export function getTransportDocument(id: string) {
-  const doc = one<any>(`SELECT * FROM transport_documents WHERE id = ?`, id);
+export async function getTransportDocument(id: string) {
+  const doc = await one<any>(`SELECT * FROM transport_documents WHERE id = ?`, id);
   if (!doc) return null;
-  const manifest = getManifest(doc.manifest_id);
+  const manifest = await getManifest(doc.manifest_id);
   return { doc, ...(manifest ?? {}) };
 }
 
-export function listShipments() {
-  return all<any>(
+export async function listShipments() {
+  return await all<any>(
     `SELECT s.*, so.id AS order_id, c.name AS customer_name, m.route, m.vehicle_plate
        FROM shipments s
        JOIN sales_orders so ON so.id = s.sales_order_id

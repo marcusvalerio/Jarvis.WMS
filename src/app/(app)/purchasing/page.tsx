@@ -15,8 +15,8 @@ export default async function PurchasingPage({
   searchParams,
 }: { searchParams: Promise<{ status?: string; search?: string }> }) {
   const sp = await searchParams;
-  const rows = listPurchaseOrders({ status: sp.status, search: sp.search });
-  const suppliers = listSuppliers();
+  const rows = await listPurchaseOrders({ status: sp.status, search: sp.search });
+  const suppliers = await listSuppliers();
 
   return (
     <>

@@ -21,12 +21,12 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
 
 export default async function PickingDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const data = getPicking(id);
+  const data = await getPicking(id);
   if (!data) notFound();
   const { picking, items } = data;
-  const current = currentItem(id);
-  const metrics = pickingMetrics(id);
-  const scanners = listEquipment({ kind: "COLETORA" }).map((e) => ({ id: e.id, model: e.model }));
+  const current = await currentItem(id);
+  const metrics = await pickingMetrics(id);
+  const scanners = (await listEquipment({ kind: "COLETORA" })).map((e) => ({ id: e.id, model: e.model }));
 
   return (
     <>

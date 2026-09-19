@@ -16,8 +16,8 @@ export default async function ReceivingPage({
   searchParams,
 }: { searchParams: Promise<{ status?: string; search?: string }> }) {
   const sp = await searchParams;
-  const orders = listInbound({ status: sp.status, search: sp.search });
-  const docks = listDocks().filter((d) => d.kind !== "OUTBOUND");
+  const orders = await listInbound({ status: sp.status, search: sp.search });
+  const docks = (await listDocks()).filter((d) => d.kind !== "OUTBOUND");
 
   const open = orders.filter((o) => !["COMPLETED", "CANCELLED"].includes(o.status));
   const done = orders.filter((o) => o.status === "COMPLETED");

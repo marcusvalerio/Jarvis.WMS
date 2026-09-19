@@ -31,20 +31,20 @@ export interface LocationOccupancy extends Location {
   occupancy_pct: number;
 }
 
-export function listZones(): Zone[] {
-  return all<Zone>(`SELECT * FROM zones ORDER BY sort_order, code`);
+export async function listZones(): Promise<Zone[]> {
+  return await all<Zone>(`SELECT * FROM zones ORDER BY sort_order, code`);
 }
 
-export function getZone(id: string): Zone | undefined {
-  return one<Zone>(`SELECT * FROM zones WHERE id = ?`, id);
+export async function getZone(id: string): Promise<Zone | undefined> {
+  return await one<Zone>(`SELECT * FROM zones WHERE id = ?`, id);
 }
 
-export function getLocation(id: string): Location | undefined {
-  return one<Location>(`SELECT * FROM locations WHERE id = ?`, id);
+export async function getLocation(id: string): Promise<Location | undefined> {
+  return await one<Location>(`SELECT * FROM locations WHERE id = ?`, id);
 }
 
-export function getLocationByCode(code: string): Location | undefined {
-  return one<Location>(`SELECT * FROM locations WHERE code = ?`, code);
+export async function getLocationByCode(code: string): Promise<Location | undefined> {
+  return await one<Location>(`SELECT * FROM locations WHERE code = ?`, code);
 }
 
 /**
@@ -53,7 +53,7 @@ export function getLocationByCode(code: string): Location | undefined {
  * agregado aqui — caso contrario o mesmo endereco apareceria repetido no
  * mapa, uma vez por registro de estoque.
  */
-export function locationMap(filter?: { zoneId?: string; status?: string; search?: string }): LocationOccupancy[] {
+export async function locationMap(filter?: { zoneId?: string; status?: string; search?: string }): Promise<LocationOccupancy[]> {
   const where: string[] = [];
   const params: any[] = [];
   if (filter?.zoneId) { where.push("l.zone_id = ?"); params.push(filter.zoneId); }
@@ -66,7 +66,7 @@ export function locationMap(filter?: { zoneId?: string; status?: string; search?
     params.push(q, q, q);
   }
 
-  const rows = all<any>(
+  const rows = await all<any>(
     `SELECT l.*, z.name AS zone_name, z.kind AS zone_kind,
             COALESCE(agg.qty, 0)       AS qty,
             COALESCE(agg.reserved, 0)  AS reserved,
@@ -117,20 +117,20 @@ export interface WarehouseOccupancy {
   byZone: { zoneId: string; zoneCode: string; zoneName: string; total: number; occupied: number; pct: number }[];
 }
 
-export function occupancy(): WarehouseOccupancy {
+export async function occupancy(): Promise<WarehouseOccupancy> {
   // Posicoes de armazenagem reais (staging/doca nao contam como posicao-palete).
   const base = `FROM locations l JOIN zones z ON z.id = l.zone_id WHERE l.kind = 'PALLET'`;
-  const total = scalar<number>(`SELECT COUNT(*) ${base}`) ?? 0;
-  const occupied = scalar<number>(`SELECT COUNT(*) ${base} AND l.status = 'OCCUPIED'`) ?? 0;
-  const blocked = scalar<number>(`SELECT COUNT(*) ${base} AND l.status = 'BLOCKED'`) ?? 0;
-  const reserved = scalar<number>(`SELECT COUNT(*) ${base} AND l.status = 'RESERVED'`) ?? 0;
-  const byZone = all<any>(
-    `SELECT z.id AS zoneId, z.code AS zoneCode, z.name AS zoneName,
+  const total = await scalar<number>(`SELECT COUNT(*) ${base}`) ?? 0;
+  const occupied = await scalar<number>(`SELECT COUNT(*) ${base} AND l.status = 'OCCUPIED'`) ?? 0;
+  const blocked = await scalar<number>(`SELECT COUNT(*) ${base} AND l.status = 'BLOCKED'`) ?? 0;
+  const reserved = await scalar<number>(`SELECT COUNT(*) ${base} AND l.status = 'RESERVED'`) ?? 0;
+  const byZone = (await all<any>(
+    `SELECT z.id AS "zoneId", z.code AS "zoneCode", z.name AS "zoneName",
             COUNT(*) AS total,
             SUM(CASE WHEN l.status = 'OCCUPIED' THEN 1 ELSE 0 END) AS occupied
        ${base}
       GROUP BY z.id ORDER BY z.sort_order`,
-  ).map((z) => ({ ...z, pct: z.total ? (z.occupied / z.total) * 100 : 0 }));
+  )).map((z) => ({ ...z, pct: z.total ? (z.occupied / z.total) * 100 : 0 }));
 
   return {
     totalPositions: total,
@@ -160,11 +160,11 @@ export interface PutawaySuggestion {
  *   3. menor nivel (ergonomia / acesso)
  *   4. menor sequencia de picking (rota mais curta)
  */
-export function suggestLocation(productId: string, palletId?: string): PutawaySuggestion | null {
-  const product = one<any>(`SELECT * FROM products WHERE id = ?`, productId);
+export async function suggestLocation(productId: string, palletId?: string): Promise<PutawaySuggestion | null> {
+  const product = await one<any>(`SELECT * FROM products WHERE id = ?`, productId);
   if (!product) return null;
 
-  const free = all<any>(
+  const free = await all<any>(
     `SELECT l.*, z.name AS zone_name, z.abc_class AS zone_abc, z.kind AS zone_kind
        FROM locations l
        JOIN zones z ON z.id = l.zone_id
@@ -180,12 +180,12 @@ export function suggestLocation(productId: string, palletId?: string): PutawaySu
 
   // Aisles ja utilizados por este SKU -> consolidacao.
   const sameSkuAisles = new Set(
-    all<{ aisle: string; zone_id: string }>(
+    (await all<{ aisle: string; zone_id: string }>(
       `SELECT DISTINCT l.aisle, l.zone_id FROM inventory i
          JOIN locations l ON l.id = i.location_id
         WHERE i.product_id = ? AND i.qty_on_hand > 0`,
       productId,
-    ).map((r) => `${r.zone_id}:${r.aisle}`),
+    )).map((r) => `${r.zone_id}:${r.aisle}`),
   );
 
   let best: PutawaySuggestion | null = null;
@@ -217,16 +217,16 @@ export function suggestLocation(productId: string, palletId?: string): PutawaySu
   return best;
 }
 
-export function setLocationStatus(
+export async function setLocationStatus(
   locationId: string, status: string, reason?: string, actor = "SISTEMA",
 ) {
-  const before = getLocation(locationId);
+  const before = await getLocation(locationId);
   if (!before) return;
-  run(
+  await run(
     `UPDATE locations SET status = ?, blocked_reason = ? WHERE id = ?`,
     status, status === "BLOCKED" ? (reason ?? null) : null, locationId,
   );
-  audit({
+  await audit({
     actor, action: "UPDATE", entity: "location", entityId: locationId,
     before: { status: before.status }, after: { status, reason },
     detail: `Endereco ${before.code}: ${before.status} -> ${status}`,
@@ -239,12 +239,12 @@ export interface Dock {
   status: string; current_ref: string | null;
 }
 
-export function listDocks(): Dock[] {
-  return all<Dock>(`SELECT * FROM docks ORDER BY id`);
+export async function listDocks(): Promise<Dock[]> {
+  return await all<Dock>(`SELECT * FROM docks ORDER BY id`);
 }
 
-export function setDock(dockId: string, status: string, ref?: string | null) {
-  run(`UPDATE docks SET status = ?, current_ref = ? WHERE id = ?`, status, ref ?? null, dockId);
+export async function setDock(dockId: string, status: string, ref?: string | null) {
+  await run(`UPDATE docks SET status = ?, current_ref = ? WHERE id = ?`, status, ref ?? null, dockId);
 }
 
 /** Enderecos de sistema usados pelos fluxos (staging de entrada/saida). */
@@ -261,14 +261,14 @@ export function shippingLocation(): string {
   return SYSTEM_LOCATIONS.SHIPPING;
 }
 
-export function locationDetail(id: string) {
-  const loc = one<any>(
+export async function locationDetail(id: string) {
+  const loc = await one<any>(
     `SELECT l.*, z.name AS zone_name, z.kind AS zone_kind, z.temperature
        FROM locations l JOIN zones z ON z.id = l.zone_id WHERE l.id = ?`,
     id,
   );
   if (!loc) return null;
-  const contents = all<any>(
+  const contents = await all<any>(
     `SELECT i.*, p.sku, p.description, p.unit, lt.code AS lot_code, lt.expires_at
        FROM inventory i
        JOIN products p ON p.id = i.product_id
@@ -276,7 +276,7 @@ export function locationDetail(id: string) {
       WHERE i.location_id = ? AND i.qty_on_hand > 0`,
     id,
   );
-  const lastMoves = all<any>(
+  const lastMoves = await all<any>(
     `SELECT m.*, p.sku FROM inventory_movements m
        JOIN products p ON p.id = m.product_id
       WHERE m.from_location_id = ? OR m.to_location_id = ?
@@ -286,11 +286,11 @@ export function locationDetail(id: string) {
   return { location: loc, contents, lastMoves };
 }
 
-export function countLocations(): number {
-  return scalar<number>(`SELECT COUNT(*) FROM locations WHERE kind = 'PALLET'`) ?? 0;
+export async function countLocations(): Promise<number> {
+  return await scalar<number>(`SELECT COUNT(*) FROM locations WHERE kind = 'PALLET'`) ?? 0;
 }
 
-export function touchLocation(id: string) {
-  run(`UPDATE locations SET status = status WHERE id = ?`, id);
+export async function touchLocation(id: string) {
+  await run(`UPDATE locations SET status = status WHERE id = ?`, id);
   return nowIso();
 }

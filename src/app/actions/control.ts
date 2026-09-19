@@ -12,7 +12,7 @@ import type { EquipmentStatus, IncidentKind, Severity } from "@/domain/states";
 // ------------------------------------------------------------------ inventario
 export async function createCountAction(_: ActionState, form: FormData): Promise<ActionState> {
   try {
-    const id = counting.createCount({
+    const id = await counting.createCount({
       kind: (optStr(form, "kind") ?? "CYCLIC") as any,
       zoneId: optStr(form, "zoneId"),
       operatorId: await currentOperatorId(),
@@ -27,7 +27,7 @@ export async function createCountAction(_: ActionState, form: FormData): Promise
 export async function startCountAction(_: ActionState, form: FormData): Promise<ActionState> {
   const id = str(form, "countId");
   try {
-    counting.startCount(id, await currentOperatorId());
+    await counting.startCount(id, await currentOperatorId());
     revalidatePath(`/inventory-count/${id}`);
     revalidatePath("/inventory-count");
     return ok("Inventario iniciado.");
@@ -37,7 +37,7 @@ export async function startCountAction(_: ActionState, form: FormData): Promise<
 export async function countItemAction(_: ActionState, form: FormData): Promise<ActionState> {
   const countId = str(form, "countId");
   try {
-    const r = counting.countItem({
+    const r = await counting.countItem({
       countId, itemId: str(form, "itemId"),
       countedQty: num(form, "quantity"),
       operatorId: await currentOperatorId(),
@@ -53,7 +53,7 @@ export async function countItemAction(_: ActionState, form: FormData): Promise<A
 export async function closeCountAction(_: ActionState, form: FormData): Promise<ActionState> {
   const countId = str(form, "countId");
   try {
-    const r = counting.closeCount({
+    const r = await counting.closeCount({
       countId, operatorId: await currentOperatorId(),
       applyAdjustments: form.get("applyAdjustments") === "on",
     });
@@ -70,7 +70,7 @@ export async function resolveIncidentAction(_: ActionState, form: FormData): Pro
   const resolution = str(form, "resolution");
   if (!resolution) return fail("Descreva o tratamento aplicado.");
   try {
-    resolveIncident(str(form, "incidentId"), resolution, await currentOperatorId());
+    await resolveIncident(str(form, "incidentId"), resolution, await currentOperatorId());
     revalidatePath("/incidents");
     revalidatePath("/dashboard");
     return ok("Ocorrencia resolvida.");
@@ -79,7 +79,7 @@ export async function resolveIncidentAction(_: ActionState, form: FormData): Pro
 
 export async function incidentStatusAction(_: ActionState, form: FormData): Promise<ActionState> {
   try {
-    setIncidentStatus(str(form, "incidentId"), str(form, "status"), await currentOperatorId());
+    await setIncidentStatus(str(form, "incidentId"), str(form, "status"), await currentOperatorId());
     revalidatePath("/incidents");
     return ok("Status atualizado.");
   } catch (e) { return toError(e); }
@@ -89,7 +89,7 @@ export async function createIncidentAction(_: ActionState, form: FormData): Prom
   const description = str(form, "description");
   if (!description) return fail("Descreva a ocorrencia.");
   try {
-    const id = openIncident({
+    const id = await openIncident({
       kind: str(form, "kind") as IncidentKind,
       severity: (optStr(form, "severity") ?? "MEDIA") as Severity,
       refKind: optStr(form, "refKind"),
@@ -108,7 +108,7 @@ export async function createIncidentAction(_: ActionState, form: FormData): Prom
 // ----------------------------------------------------------------- equipamento
 export async function equipmentStatusAction(_: ActionState, form: FormData): Promise<ActionState> {
   try {
-    setEquipmentStatus({
+    await setEquipmentStatus({
       id: str(form, "equipmentId"),
       status: str(form, "status") as EquipmentStatus,
       note: optStr(form, "note"),
@@ -126,7 +126,7 @@ export async function resetSimulationAction(_: ActionState, form: FormData): Pro
     return fail('Digite REINICIAR para confirmar. A operacao apaga todo o progresso do cenario.');
   }
   try {
-    const r = resetSimulation(await currentOperatorId());
+    const r = await resetSimulation(await currentOperatorId());
     revalidatePath("/", "layout");
     return ok(
       `Simulacao reiniciada (reset #${r.resetCount}). Estoque inicial de ${r.initialUnits} unidades restaurado em ${r.pallets} paletes.`,
@@ -136,7 +136,7 @@ export async function resetSimulationAction(_: ActionState, form: FormData): Pro
 
 export async function markScenarioEventAction(_: ActionState, form: FormData): Promise<ActionState> {
   try {
-    logEvent(str(form, "stage") || "NOTA", str(form, "label"), undefined, undefined, await currentOperatorId());
+    await logEvent(str(form, "stage") || "NOTA", str(form, "label"), undefined, undefined, await currentOperatorId());
     revalidatePath("/simulation");
     return ok("Marcacao registrada na linha do tempo do cenario.");
   } catch (e) { return toError(e); }

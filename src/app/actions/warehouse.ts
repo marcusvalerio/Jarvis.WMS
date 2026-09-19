@@ -19,13 +19,13 @@ function refresh() {
 
 export async function storeFromQueueAction(_: ActionState, form: FormData): Promise<ActionState> {
   try {
-    const r = executeStorage({
+    const r = await executeStorage({
       storageOrderId: str(form, "storageOrderId"),
       locationId: str(form, "locationId"),
       operatorId: await currentOperatorId(),
       overrideReason: optStr(form, "overrideReason"),
     });
-    logEvent("STORAGE", `Palete ${r.palletId} armazenado em ${r.locationCode}`, "PALLET", r.palletId);
+    await logEvent("STORAGE", `Palete ${r.palletId} armazenado em ${r.locationCode}`, "PALLET", r.palletId);
     refresh();
     revalidatePath("/receiving");
     return ok(`Palete ${r.palletId} armazenado em ${r.locationCode}.`);
@@ -35,7 +35,7 @@ export async function storeFromQueueAction(_: ActionState, form: FormData): Prom
 export async function transferPalletAction(_: ActionState, form: FormData): Promise<ActionState> {
   const palletId = str(form, "palletId");
   try {
-    movePallet({
+    await movePallet({
       palletId,
       toLocationId: str(form, "locationId"),
       kind: "TRANSFER",
@@ -43,7 +43,7 @@ export async function transferPalletAction(_: ActionState, form: FormData): Prom
       reason: str(form, "reason") || "Transferencia interna",
       operatorId: await currentOperatorId(),
     });
-    logEvent("MOVEMENT", `Palete ${palletId} transferido`, "PALLET", palletId);
+    await logEvent("MOVEMENT", `Palete ${palletId} transferido`, "PALLET", palletId);
     refresh();
     revalidatePath(`/warehouse/pallets/${palletId}`);
     return ok("Transferencia registrada.");
@@ -54,7 +54,7 @@ export async function setLocationStatusAction(_: ActionState, form: FormData): P
   const locationId = str(form, "locationId");
   const status = str(form, "status");
   try {
-    setLocationStatus(locationId, status, optStr(form, "reason"), await currentOperatorId());
+    await setLocationStatus(locationId, status, optStr(form, "reason"), await currentOperatorId());
     refresh();
     revalidatePath(`/warehouse/${locationId}`);
     return ok(`Endereco atualizado para ${status}.`);
@@ -65,7 +65,7 @@ export async function blockStockAction(_: ActionState, form: FormData): Promise<
   const reason = str(form, "reason");
   if (!reason) return fail("Informe o motivo do bloqueio.");
   try {
-    block({
+    await block({
       inventoryId: str(form, "inventoryId"),
       quantity: num(form, "quantity"),
       reason,
@@ -78,7 +78,7 @@ export async function blockStockAction(_: ActionState, form: FormData): Promise<
 
 export async function unblockStockAction(_: ActionState, form: FormData): Promise<ActionState> {
   try {
-    unblock({
+    await unblock({
       inventoryId: str(form, "inventoryId"),
       quantity: num(form, "quantity"),
       reason: str(form, "reason") || "Liberacao de bloqueio",

@@ -16,7 +16,7 @@ export class OrderError extends Error {
   }
 }
 
-export function listOrders(filter: { status?: string; search?: string; priority?: string } = {}) {
+export async function listOrders(filter: { status?: string; search?: string; priority?: string } = {}) {
   const where: string[] = [];
   const params: any[] = [];
   if (filter.status) { where.push("so.status = ?"); params.push(filter.status); }
@@ -26,7 +26,7 @@ export function listOrders(filter: { status?: string; search?: string; priority?
     const q = `%${filter.search}%`;
     params.push(q, q, q);
   }
-  return all<any>(
+  return await all<any>(
     `SELECT so.*, c.name AS customer_name, c.trade_name AS customer_trade, c.cnpj AS customer_cnpj,
             (SELECT COUNT(*) FROM sales_order_items si WHERE si.sales_order_id = so.id) AS line_count,
             (SELECT COALESCE(SUM(quantity),0) FROM sales_order_items si WHERE si.sales_order_id = so.id) AS total_qty,
@@ -46,8 +46,8 @@ export function listOrders(filter: { status?: string; search?: string; priority?
   );
 }
 
-export function getOrder(id: string) {
-  const order = one<any>(
+export async function getOrder(id: string) {
+  const order = await one<any>(
     `SELECT so.*, c.name AS customer_name, c.trade_name AS customer_trade, c.cnpj AS customer_cnpj,
             c.address AS customer_address, c.city AS customer_city, c.state AS customer_state,
             c.zip AS customer_zip, c.phone AS customer_phone
@@ -56,14 +56,14 @@ export function getOrder(id: string) {
   );
   if (!order) return null;
 
-  const items = all<any>(
+  const items = await Promise.all((await all<any>(
     `SELECT si.*, p.sku, p.description, p.unit AS product_unit, p.unit_gross_kg, p.ncm, p.cfop_out
        FROM sales_order_items si JOIN products p ON p.id = si.product_id
       WHERE si.sales_order_id = ? ORDER BY si.line_no`,
     id,
-  ).map((it) => ({ ...it, stock: stockOf(it.product_id) }));
+  )).map(async (it) => ({ ...it, stock: await stockOf(it.product_id) })));
 
-  const reservations = all<any>(
+  const reservations = await all<any>(
     `SELECT r.*, p.sku, l.code AS location_code, lt.code AS lot_code, lt.expires_at
        FROM stock_reservations r
        JOIN products p ON p.id = r.product_id
@@ -73,42 +73,42 @@ export function getOrder(id: string) {
     id,
   );
 
-  const picking = one<any>(
+  const picking = await one<any>(
     `SELECT pk.*, o.name AS operator_name FROM picking_orders pk
        LEFT JOIN operators o ON o.id = pk.operator_id
       WHERE pk.sales_order_id = ? ORDER BY pk.created_at DESC LIMIT 1`,
     id,
   );
-  const packing = one<any>(
+  const packing = await one<any>(
     `SELECT * FROM packing_orders WHERE sales_order_id = ? ORDER BY created_at DESC LIMIT 1`, id,
   );
-  const volumes = all<any>(
+  const volumes = await all<any>(
     `SELECT v.*, (SELECT COUNT(*) FROM volume_items vi WHERE vi.volume_id = v.id) AS line_count
        FROM volumes v WHERE v.sales_order_id = ? AND v.status <> 'CANCELLED' ORDER BY v.sequence`,
     id,
   );
-  const check = one<any>(
+  const check = await one<any>(
     `SELECT * FROM shipping_checks WHERE sales_order_id = ? ORDER BY started_at DESC LIMIT 1`, id,
   );
-  const manifest = one<any>(
+  const manifest = await one<any>(
     `SELECT m.*, mo.stop_sequence FROM manifest_orders mo
        JOIN shipping_manifests m ON m.id = mo.manifest_id
       WHERE mo.sales_order_id = ? LIMIT 1`,
     id,
   );
-  const shipment = one<any>(`SELECT * FROM shipments WHERE sales_order_id = ?`, id);
+  const shipment = await one<any>(`SELECT * FROM shipments WHERE sales_order_id = ?`, id);
 
   return { order, items, reservations, picking, packing, volumes, check, manifest, shipment };
 }
 
-export function setOrderStatus(
+export async function setOrderStatus(
   id: string, to: ShippingStatus, actor: string, extra: Record<string, any> = {},
 ) {
-  const cur = one<{ status: ShippingStatus }>(`SELECT status FROM sales_orders WHERE id = ?`, id);
+  const cur = await one<{ status: ShippingStatus }>(`SELECT status FROM sales_orders WHERE id = ?`, id);
   if (!cur) throw new OrderError(`Pedido ${id} inexistente`, "NOT_FOUND");
   assertTransition("sales_order", SHIPPING_TRANSITIONS, cur.status, to);
-  update("sales_orders", id, { status: to, ...extra });
-  audit({
+  await update("sales_orders", id, { status: to, ...extra });
+  await audit({
     actor, action: to === "SHIPPED" ? "SHIP" : "UPDATE",
     entity: "sales_order", entityId: id,
     before: { status: cur.status }, after: { status: to, ...extra },
@@ -130,10 +130,10 @@ export interface ReleaseResult {
  * NUNCA reserva acima do disponivel — a falta e reportada por linha e o
  * pedido permanece em PENDING se nao houver cobertura total.
  */
-export function releaseOrder(orderId: string, actor: string): ReleaseResult {
-  return tx(() => {
+export async function releaseOrder(orderId: string, actor: string): Promise<ReleaseResult> {
+  return await tx(async () => {
     const at = nowIso();
-    const order = one<any>(`SELECT * FROM sales_orders WHERE id = ?`, orderId);
+    const order = await one<any>(`SELECT * FROM sales_orders WHERE id = ?`, orderId);
     if (!order) throw new OrderError(`Pedido ${orderId} inexistente`, "NOT_FOUND");
     if (order.status !== "PENDING") {
       throw new OrderError(`Pedido ja liberado (status ${order.status})`, "ALREADY_RELEASED");
@@ -142,7 +142,7 @@ export function releaseOrder(orderId: string, actor: string): ReleaseResult {
       throw new OrderError("Pedido ja reservado integralmente", "ALREADY_RESERVED");
     }
 
-    const items = all<any>(
+    const items = await all<any>(
       `SELECT si.*, p.sku FROM sales_order_items si JOIN products p ON p.id = si.product_id
         WHERE si.sales_order_id = ? ORDER BY si.line_no`,
       orderId,
@@ -157,11 +157,11 @@ export function releaseOrder(orderId: string, actor: string): ReleaseResult {
       if (pending <= 0) {
         lines.push({
           productId: it.product_id, sku: it.sku, requested: it.quantity,
-          reserved: it.reserved_qty, shortage: 0, available: stockOf(it.product_id).available,
+          reserved: it.reserved_qty, shortage: 0, available: (await stockOf(it.product_id)).available,
         });
         continue;
       }
-      const res = reserve({
+      const res = await reserve({
         salesOrderId: orderId,
         salesOrderItemId: it.id,
         productId: it.product_id,
@@ -170,7 +170,7 @@ export function releaseOrder(orderId: string, actor: string): ReleaseResult {
         operatorId: actor,
         occurredAt: at,
       });
-      run(
+      await run(
         `UPDATE sales_order_items SET reserved_qty = reserved_qty + ? WHERE id = ?`,
         res.reserved, it.id,
       );
@@ -178,16 +178,16 @@ export function releaseOrder(orderId: string, actor: string): ReleaseResult {
       lines.push({
         productId: it.product_id, sku: it.sku, requested: it.quantity,
         reserved: round3(it.reserved_qty + res.reserved), shortage: res.shortage,
-        available: stockOf(it.product_id).available,
+        available: (await stockOf(it.product_id)).available,
       });
     }
 
-    run(
+    await run(
       `UPDATE sales_orders SET reserved = ?, released_at = COALESCE(released_at, ?) WHERE id = ?`,
       complete ? 1 : 0, at, orderId,
     );
 
-    audit({
+    await audit({
       actor, action: "RESERVE", entity: "sales_order", entityId: orderId,
       after: { fullyReserved: complete, lines },
       detail: complete
@@ -200,17 +200,17 @@ export function releaseOrder(orderId: string, actor: string): ReleaseResult {
   });
 }
 
-export function cancelOrder(orderId: string, actor: string, reason: string) {
-  return tx(() => {
-    const order = one<any>(`SELECT * FROM sales_orders WHERE id = ?`, orderId);
+export async function cancelOrder(orderId: string, actor: string, reason: string) {
+  return await tx(async () => {
+    const order = await one<any>(`SELECT * FROM sales_orders WHERE id = ?`, orderId);
     if (!order) throw new OrderError("Pedido inexistente", "NOT_FOUND");
     if (order.status === "SHIPPED") {
       throw new OrderError("Pedido ja expedido nao pode ser cancelado", "ALREADY_SHIPPED");
     }
-    releaseReservations(orderId, actor);
-    run(`UPDATE sales_order_items SET reserved_qty = 0 WHERE sales_order_id = ?`, orderId);
-    run(`UPDATE picking_orders SET status = 'CANCELLED' WHERE sales_order_id = ? AND status <> 'COMPLETED'`, orderId);
-    setOrderStatus(orderId, "CANCELLED", actor, { reserved: 0, notes: reason });
+    await releaseReservations(orderId, actor);
+    await run(`UPDATE sales_order_items SET reserved_qty = 0 WHERE sales_order_id = ?`, orderId);
+    await run(`UPDATE picking_orders SET status = 'CANCELLED' WHERE sales_order_id = ? AND status <> 'COMPLETED'`, orderId);
+    await setOrderStatus(orderId, "CANCELLED", actor, { reserved: 0, notes: reason });
     return true;
   });
 }
@@ -228,15 +228,15 @@ export interface CreateOrderInput {
   issuedAt?: string;
 }
 
-export function createOrder(input: CreateOrderInput): string {
-  return tx(() => {
+export async function createOrder(input: CreateOrderInput): Promise<string> {
+  return await tx(async () => {
     const at = input.issuedAt ?? nowIso();
     if (input.items.length === 0) throw new OrderError("Pedido sem itens", "NO_ITEMS");
-    const id = input.id ?? nextId(PREFIX.SALES_ORDER);
-    const customer = one<any>(`SELECT * FROM customers WHERE id = ?`, input.customerId);
+    const id = input.id ?? await nextId(PREFIX.SALES_ORDER);
+    const customer = await one<any>(`SELECT * FROM customers WHERE id = ?`, input.customerId);
     if (!customer) throw new OrderError("Cliente inexistente", "NO_CUSTOMER");
 
-    insert("sales_orders", {
+    await insert("sales_orders", {
       id, customer_id: input.customerId, warehouse_id: input.warehouseId,
       status: "PENDING", priority: input.priority ?? "NORMAL",
       issued_at: at, due_at: input.dueAt,
@@ -248,28 +248,28 @@ export function createOrder(input: CreateOrderInput): string {
 
     let value = 0;
     let weight = 0;
-    input.items.forEach((it, idx) => {
-      const p = one<any>(`SELECT * FROM products WHERE id = ?`, it.productId);
+    for (const [idx, it] of input.items.entries()) {
+      const p = await one<any>(`SELECT * FROM products WHERE id = ?`, it.productId);
       if (!p) throw new OrderError(`Produto ${it.productId} inexistente`, "NO_PRODUCT");
       const lineValue = round3(it.quantity * p.unit_price);
       const lineWeight = round3(it.quantity * p.unit_gross_kg);
       value += lineValue;
       weight += lineWeight;
-      insert("sales_order_items", {
+      await insert("sales_order_items", {
         id: `${id}-L${String(idx + 1).padStart(2, "0")}`,
         sales_order_id: id, line_no: idx + 1, product_id: it.productId,
         quantity: round3(it.quantity), unit: p.unit, unit_price: p.unit_price,
         reserved_qty: 0, picked_qty: 0, packed_qty: 0, shipped_qty: 0,
         weight_kg: lineWeight,
       });
-    });
+    }
 
-    run(
+    await run(
       `UPDATE sales_orders SET total_value = ?, total_weight_kg = ? WHERE id = ?`,
       Math.round(value * 100) / 100, round3(weight), id,
     );
 
-    audit({
+    await audit({
       actor: input.actor, action: "CREATE", entity: "sales_order", entityId: id,
       after: { customer: input.customerId, lines: input.items.length, value },
       detail: `Pedido de venda ${id} criado`, occurredAt: at,
@@ -279,14 +279,14 @@ export function createOrder(input: CreateOrderInput): string {
 }
 
 /** Cobertura de estoque do pedido, linha a linha (usado antes de liberar). */
-export function coverage(orderId: string) {
-  return all<any>(
+export async function coverage(orderId: string) {
+  return await Promise.all((await all<any>(
     `SELECT si.*, p.sku, p.description FROM sales_order_items si
        JOIN products p ON p.id = si.product_id
       WHERE si.sales_order_id = ? ORDER BY si.line_no`,
     orderId,
-  ).map((it) => {
-    const s = stockOf(it.product_id);
+  )).map(async (it) => {
+    const s = await stockOf(it.product_id);
     const needed = round3(it.quantity - it.reserved_qty);
     return {
       ...it,
@@ -296,11 +296,11 @@ export function coverage(orderId: string) {
       covered: s.available >= needed,
       shortage: Math.max(0, round3(needed - s.available)),
     };
-  });
+  }));
 }
 
-export function orderCounts() {
-  const rows = all<{ status: string; n: number }>(
+export async function orderCounts() {
+  const rows = await all<{ status: string; n: number }>(
     `SELECT status, COUNT(*) AS n FROM sales_orders GROUP BY status`,
   );
   const map: Record<string, number> = {};
@@ -308,15 +308,15 @@ export function orderCounts() {
   return map;
 }
 
-export function listCustomers() {
-  return all<any>(`SELECT * FROM customers ORDER BY name`);
+export async function listCustomers() {
+  return await all<any>(`SELECT * FROM customers ORDER BY name`);
 }
 
-export function listSuppliers() {
-  return all<any>(`SELECT * FROM suppliers ORDER BY name`);
+export async function listSuppliers() {
+  return await all<any>(`SELECT * FROM suppliers ORDER BY name`);
 }
 
-export function listPurchaseOrders(filter: { status?: string; search?: string } = {}) {
+export async function listPurchaseOrders(filter: { status?: string; search?: string } = {}) {
   const where: string[] = [];
   const params: any[] = [];
   if (filter.status) { where.push("po.status = ?"); params.push(filter.status); }
@@ -325,7 +325,7 @@ export function listPurchaseOrders(filter: { status?: string; search?: string } 
     const q = `%${filter.search}%`;
     params.push(q, q);
   }
-  return all<any>(
+  return await all<any>(
     `SELECT po.*, s.name AS supplier_name, s.cnpj AS supplier_cnpj,
             (SELECT COUNT(*) FROM purchase_order_items pi WHERE pi.purchase_order_id = po.id) AS line_count,
             (SELECT COALESCE(SUM(quantity),0) FROM purchase_order_items pi WHERE pi.purchase_order_id = po.id) AS total_qty,
@@ -337,8 +337,8 @@ export function listPurchaseOrders(filter: { status?: string; search?: string } 
   );
 }
 
-export function getPurchaseOrder(id: string) {
-  const po = one<any>(
+export async function getPurchaseOrder(id: string) {
+  const po = await one<any>(
     `SELECT po.*, s.name AS supplier_name, s.cnpj AS supplier_cnpj, s.address AS supplier_address,
             s.city AS supplier_city, s.state AS supplier_state, s.phone AS supplier_phone,
             s.email AS supplier_email
@@ -346,12 +346,12 @@ export function getPurchaseOrder(id: string) {
     id,
   );
   if (!po) return null;
-  const items = all<any>(
+  const items = await all<any>(
     `SELECT pi.*, p.sku, p.description, p.ncm FROM purchase_order_items pi
        JOIN products p ON p.id = pi.product_id
       WHERE pi.purchase_order_id = ? ORDER BY pi.line_no`,
     id,
   );
-  const inbound = one<any>(`SELECT * FROM inbound_orders WHERE purchase_order_id = ?`, id);
+  const inbound = await one<any>(`SELECT * FROM inbound_orders WHERE purchase_order_id = ?`, id);
   return { po, items, inbound };
 }

@@ -8,12 +8,12 @@ export interface Operator {
   id: string; name: string; badge: string; shift: string; active: number;
 }
 
-export function listOperators(): Operator[] {
-  return all<Operator>(`SELECT * FROM operators WHERE active = 1 ORDER BY name`);
+export async function listOperators(): Promise<Operator[]> {
+  return await all<Operator>(`SELECT * FROM operators WHERE active = 1 ORDER BY name`);
 }
 
-export function getOperator(id: string): Operator | undefined {
-  return one<Operator>(`SELECT * FROM operators WHERE id = ?`, id);
+export async function getOperator(id: string): Promise<Operator | undefined> {
+  return await one<Operator>(`SELECT * FROM operators WHERE id = ?`, id);
 }
 
 /** Operador em sessao — usado como ator em auditoria e movimentacoes. */
@@ -21,8 +21,8 @@ export async function currentOperator(): Promise<Operator> {
   const store = await cookies();
   const id = store.get(OPERATOR_COOKIE)?.value ?? DEFAULT_OPERATOR;
   return (
-    getOperator(id) ??
-    getOperator(DEFAULT_OPERATOR) ?? {
+    await getOperator(id) ??
+    await getOperator(DEFAULT_OPERATOR) ?? {
       id: DEFAULT_OPERATOR, name: "Operador", badge: DEFAULT_OPERATOR,
       shift: "MANHA", active: 1,
     }

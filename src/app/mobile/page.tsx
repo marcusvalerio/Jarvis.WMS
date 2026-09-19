@@ -5,16 +5,16 @@ import { fmtTime } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
-export default function MobileHome() {
+export default async function MobileHome() {
   const counts = {
-    putaway: scalar<number>(`SELECT COUNT(*) FROM storage_orders WHERE status IN ('PENDING','IN_PROGRESS')`) ?? 0,
-    picking: scalar<number>(`SELECT COUNT(*) FROM picking_orders WHERE status IN ('PENDING','IN_PROGRESS')`) ?? 0,
-    loading: scalar<number>(`SELECT COUNT(*) FROM loading_operations WHERE status = 'IN_PROGRESS'`) ?? 0,
-    count: scalar<number>(`SELECT COUNT(*) FROM inventory_counts WHERE status IN ('PENDING','IN_PROGRESS')`) ?? 0,
-    receiving: scalar<number>(`SELECT COUNT(*) FROM receiving_checks WHERE status = 'IN_PROGRESS'`) ?? 0,
+    putaway: await scalar<number>(`SELECT COUNT(*) FROM storage_orders WHERE status IN ('PENDING','IN_PROGRESS')`) ?? 0,
+    picking: await scalar<number>(`SELECT COUNT(*) FROM picking_orders WHERE status IN ('PENDING','IN_PROGRESS')`) ?? 0,
+    loading: await scalar<number>(`SELECT COUNT(*) FROM loading_operations WHERE status = 'IN_PROGRESS'`) ?? 0,
+    count: await scalar<number>(`SELECT COUNT(*) FROM inventory_counts WHERE status IN ('PENDING','IN_PROGRESS')`) ?? 0,
+    receiving: await scalar<number>(`SELECT COUNT(*) FROM receiving_checks WHERE status = 'IN_PROGRESS'`) ?? 0,
   };
-  const scans = recentScans(6);
-  const stats = scanStats();
+  const scans = await recentScans(6);
+  const stats = await scanStats();
 
   return (
     <>

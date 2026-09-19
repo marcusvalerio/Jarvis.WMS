@@ -21,7 +21,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
 
 export default async function PackingDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const data = getPacking(id);
+  const data = await getPacking(id);
   if (!data) notFound();
   const { packing, items, volumes } = data;
 
@@ -35,7 +35,7 @@ export default async function PackingDetailPage({ params }: { params: Promise<{ 
   const openVolumes = volumes.filter((v: any) => v.status === "OPEN");
   const done = packing.status === "COMPLETED";
 
-  const volumeDetails = volumes.map((v: any) => getVolume(v.id)!);
+  const volumeDetails = await Promise.all(volumes.map(async (v: any) => (await getVolume(v.id))!));
 
   return (
     <>

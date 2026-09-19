@@ -1,4 +1,4 @@
-import { all, one, run, insert, exec, scalar, tx, db } from "@/lib/db";
+import { all, one, run, insert, exec, scalar, tx } from "@/lib/db";
 import { nextId, setSequence, PREFIX, locationIdFromCode, buildLocationCode } from "@/lib/ids";
 import { nowIso, addDays, addMinutes, round3 } from "@/lib/format";
 import { audit } from "./audit";
@@ -38,27 +38,19 @@ export const TABLES: string[] = [
 ];
 
 /**
- * Limpa o banco. Roda FORA de transacao: `PRAGMA foreign_keys` e ignorado
- * dentro de uma transacao aberta, e sem ele o DELETE em massa esbarra nas
- * chaves estrangeiras.
+ * Limpa o banco.
+ *
+ * O SQLite exigia desligar `PRAGMA foreign_keys` para apagar as tabelas em
+ * massa; no PostgreSQL um unico TRUNCATE ... CASCADE resolve as dependencias
+ * de uma vez e e transacional, entao o resultado e o mesmo — todas as
+ * tabelas do cenario vazias — sem precisar afrouxar as chaves estrangeiras.
  */
-export function wipe(): void {
-  const d = db();
-  d.exec("PRAGMA foreign_keys = OFF");
-  try {
-    d.exec("BEGIN IMMEDIATE");
-    for (const t of TABLES) d.exec(`DELETE FROM ${t}`);
-    d.exec("COMMIT");
-  } catch (err) {
-    try { d.exec("ROLLBACK"); } catch { /* best-effort */ }
-    throw err;
-  } finally {
-    d.exec("PRAGMA foreign_keys = ON");
-  }
+export async function wipe(): Promise<void> {
+  await exec(`TRUNCATE TABLE ${TABLES.join(", ")} RESTART IDENTITY CASCADE`);
 }
 
-export function isSeeded(): boolean {
-  return (scalar<number>(`SELECT COUNT(*) FROM simulation_scenarios WHERE id = ?`, SCENARIO_ID) ?? 0) > 0;
+export async function isSeeded(): Promise<boolean> {
+  return (await scalar<number>(`SELECT COUNT(*) FROM simulation_scenarios WHERE id = ?`, SCENARIO_ID) ?? 0) > 0;
 }
 
 export interface SeedResult {
@@ -77,21 +69,29 @@ export interface SeedResult {
  * Deterministico: os mesmos IDs sao produzidos a cada execucao, de modo que
  * os documentos ja impressos continuam validos apos um reset.
  */
-export function seed(actor = "SISTEMA"): SeedResult {
-  wipe();
-  return tx(() => {
+export async function seed(actor = "SISTEMA"): Promise<SeedResult> {
+  // A limpeza entra DENTRO da transacao. No SQLite ela precisava ficar de
+  // fora, porque `PRAGMA foreign_keys` era ignorado dentro de uma transacao
+  // aberta; com TRUNCATE ... CASCADE essa restricao deixou de existir. A
+  // diferenca importa: com o banco remoto o seed leva segundos, e com a
+  // limpeza fora da transacao havia uma janela em que o cenario ja tinha
+  // sido apagado e ainda nao fora recriado — quem abrisse uma tela nesse
+  // intervalo recebia 404. Agora o reset e atomico: ate o commit, todos
+  // continuam vendo o cenario anterior.
+  return await tx(async () => {
+    await wipe();
     const now = nowIso();
     const SEED_ORIGIN = "SEED" as const;
 
     // ----------------------------------------------------------- estrutura
-    insert("warehouses", {
+    await insert("warehouses", {
       id: WAREHOUSE.id, name: WAREHOUSE.name, cnpj: WAREHOUSE.cnpj, ie: WAREHOUSE.ie,
       address: WAREHOUSE.address, city: WAREHOUSE.city, state: WAREHOUSE.state,
       zip: WAREHOUSE.zip, phone: WAREHOUSE.phone, created_at: now,
     });
 
     for (const z of ZONES) {
-      insert("zones", {
+      await insert("zones", {
         id: z.id, warehouse_id: WAREHOUSE.id, code: z.code, name: z.name,
         kind: z.kind, temperature: "AMBIENTE", abc_class: z.abc, sort_order: z.order,
       });
@@ -105,7 +105,7 @@ export function seed(actor = "SISTEMA"): SeedResult {
           for (let level = 1; level <= layout.levels; level++) {
             const code = buildLocationCode(zoneId, aisle, rack, level);
             pickSeq += 10;
-            insert("locations", {
+            await insert("locations", {
               id: locationIdFromCode(code), code, warehouse_id: WAREHOUSE.id, zone_id: zoneId,
               aisle: String(aisle).padStart(2, "0"),
               rack: String(rack).padStart(2, "0"),
@@ -125,7 +125,7 @@ export function seed(actor = "SISTEMA"): SeedResult {
       { zone: "R", code: "R-01-01-01", name: "Area de Recebimento" },
       { zone: "E", code: "E-01-01-01", name: "Staging de Expedicao" },
     ]) {
-      insert("locations", {
+      await insert("locations", {
         id: locationIdFromCode(s.code), code: s.code, warehouse_id: WAREHOUSE.id,
         zone_id: s.zone, aisle: "01", rack: "01", level: "01", position: "01",
         kind: "STAGING", status: "AVAILABLE", capacity_pallets: 99,
@@ -134,37 +134,37 @@ export function seed(actor = "SISTEMA"): SeedResult {
     }
 
     for (const d of DOCKS) {
-      insert("docks", {
+      await insert("docks", {
         id: d.id, warehouse_id: WAREHOUSE.id, name: d.name, kind: d.kind, status: "FREE",
       });
     }
 
     // ----------------------------------------------------------- cadastros
     for (const u of USERS) {
-      insert("users", { id: u.id, name: u.name, email: u.email, role: u.role, active: 1, created_at: now });
+      await insert("users", { id: u.id, name: u.name, email: u.email, role: u.role, active: 1, created_at: now });
     }
     for (const o of OPERATORS) {
-      insert("operators", {
+      await insert("operators", {
         id: o.id, user_id: o.userId, name: o.name, badge: o.badge,
         shift: o.shift, active: 1, created_at: now,
       });
     }
     for (const s of SUPPLIERS) {
-      insert("suppliers", {
+      await insert("suppliers", {
         id: s.id, name: s.name, trade_name: s.trade, cnpj: s.cnpj, ie: s.ie,
         address: s.address, city: s.city, state: s.state, zip: s.zip,
         phone: s.phone, email: s.email, created_at: now,
       });
     }
     for (const c of CUSTOMERS) {
-      insert("customers", {
+      await insert("customers", {
         id: c.id, name: c.name, trade_name: c.trade, cnpj: c.cnpj, ie: c.ie,
         address: c.address, city: c.city, state: c.state, zip: c.zip,
         phone: c.phone, email: c.email, created_at: now,
       });
     }
     for (const p of PRODUCTS) {
-      insert("products", {
+      await insert("products", {
         id: p.id, sku: p.sku, description: p.description, category: p.category, unit: p.unit,
         ncm: p.ncm, cfop_in: p.cfopIn, cfop_out: p.cfopOut,
         unit_weight_kg: p.unitWeight, unit_gross_kg: p.unitGross,
@@ -174,17 +174,17 @@ export function seed(actor = "SISTEMA"): SeedResult {
         abc_class: p.abc, active: 1, created_at: now,
       });
       // Codigo interno (Code 128, igual ao SKU) + EAN do fabricante.
-      insert("product_barcodes", {
+      await insert("product_barcodes", {
         id: `${p.id}-INT`, product_id: p.id, code: p.sku,
         symbology: "CODE128", kind: "INTERNAL", is_primary: 1,
       });
-      insert("product_barcodes", {
+      await insert("product_barcodes", {
         id: `${p.id}-EAN`, product_id: p.id, code: p.barcode,
         symbology: "EAN13", kind: "EAN13", is_primary: 0,
       });
     }
     for (const e of EQUIPMENT) {
-      insert("equipment", {
+      await insert("equipment", {
         id: e.id, kind: e.kind, model: e.model, serial: e.serial,
         status: "AVAILABLE", monitored_minutes: 480, downtime_minutes: 0,
         last_event_at: now, created_at: now,
@@ -197,7 +197,7 @@ export function seed(actor = "SISTEMA"): SeedResult {
     let pallets = 0;
     let initialUnits = 0;
     for (const s of INITIAL_STOCK) {
-      createPallet({
+      await createPallet({
         lines: [{
           productId: s.productId,
           lotCode: s.lot,
@@ -219,32 +219,32 @@ export function seed(actor = "SISTEMA"): SeedResult {
       const expected = addDays(now, po.expectedInDays);
       let total = 0;
       let weight = 0;
-      insert("purchase_orders", {
+      await insert("purchase_orders", {
         id: po.id, supplier_id: po.supplierId, issued_at: addDays(now, -7),
         expected_at: expected, status: "CONFIRMED", buyer: po.buyer,
         payment_terms: po.paymentTerms, total_value: 0, total_weight_kg: 0,
         created_at: addDays(now, -7),
       });
-      po.items.forEach((it, idx) => {
+      for (const [idx, it] of po.items.entries()) {
         const p = PRODUCTS.find((x) => x.id === it.productId)!;
         const lineValue = round3(it.quantity * p.unitPrice);
         const lineWeight = round3(it.quantity * p.unitGross);
         total += lineValue;
         weight += lineWeight;
-        insert("purchase_order_items", {
+        await insert("purchase_order_items", {
           id: `${po.id}-L${String(idx + 1).padStart(2, "0")}`,
           purchase_order_id: po.id, line_no: idx + 1, product_id: it.productId,
           quantity: it.quantity, unit: p.unit, unit_price: p.unitPrice,
           lot_code: it.lot, expires_at: it.expiresInDays ? addDays(now, it.expiresInDays) : null,
           weight_kg: lineWeight, received_qty: 0,
         });
-      });
-      run(
+      }
+      await run(
         `UPDATE purchase_orders SET total_value = ?, total_weight_kg = ? WHERE id = ?`,
         Math.round(total * 100) / 100, round3(weight), po.id,
       );
     }
-    setSequence("PC", PURCHASE_ORDERS.length);
+    await setSequence("PC", PURCHASE_ORDERS.length);
 
     // ------------------------------------------------- ordens de recebimento
     for (const io of INBOUND_ORDERS) {
@@ -253,7 +253,7 @@ export function seed(actor = "SISTEMA"): SeedResult {
         const p = PRODUCTS.find((x) => x.id === it.productId)!;
         return s + it.quantity * p.unitGross;
       }, 0);
-      insert("inbound_orders", {
+      await insert("inbound_orders", {
         id: io.id, purchase_order_id: io.purchaseOrderId, supplier_id: io.supplierId,
         warehouse_id: WAREHOUSE.id, dock_id: io.dockId, status: "SCHEDULED",
         scheduled_at: addMinutes(now, io.scheduledInMinutes),
@@ -262,23 +262,23 @@ export function seed(actor = "SISTEMA"): SeedResult {
         expected_volumes: io.expectedVolumes, expected_weight_kg: round3(expectedWeight),
         received_volumes: 0, created_at: addDays(now, -2),
       });
-      po.items.forEach((it, idx) => {
+      for (const [idx, it] of po.items.entries()) {
         const p = PRODUCTS.find((x) => x.id === it.productId)!;
-        insert("inbound_order_items", {
+        await insert("inbound_order_items", {
           id: `${io.id}-L${String(idx + 1).padStart(2, "0")}`,
           inbound_order_id: io.id, line_no: idx + 1, product_id: it.productId,
           lot_code: it.lot, expires_at: it.expiresInDays ? addDays(now, it.expiresInDays) : null,
           expected_qty: it.quantity, checked_qty: 0, accepted_qty: 0, rejected_qty: 0,
           unit: p.unit, status: "PENDING",
         });
-      });
+      }
     }
-    setSequence("OR", INBOUND_ORDERS.length);
+    await setSequence("OR", INBOUND_ORDERS.length);
 
     // -------------------------------------------- notas fiscais simuladas
     let documents = 0;
     for (const io of INBOUND_ORDERS) {
-      createInboundInvoice({
+      await createInboundInvoice({
         inboundOrderId: io.id,
         supplierId: io.supplierId,
         warehouseId: WAREHOUSE.id,
@@ -288,13 +288,13 @@ export function seed(actor = "SISTEMA"): SeedResult {
       });
       documents++;
     }
-    setSequence("NFS", INBOUND_ORDERS.length);
+    await setSequence("NFS", INBOUND_ORDERS.length);
 
     // ------------------------------------------------------ pedidos de venda
-    setSequence("PED", SEQUENCE_SEEDS.PED);
-    setSequence("ROM", SEQUENCE_SEEDS.ROM);
+    await setSequence("PED", SEQUENCE_SEEDS.PED);
+    await setSequence("ROM", SEQUENCE_SEEDS.ROM);
     for (const so of SALES_ORDERS) {
-      createOrder({
+      await createOrder({
         customerId: so.customerId,
         warehouseId: WAREHOUSE.id,
         priority: so.priority,
@@ -307,7 +307,7 @@ export function seed(actor = "SISTEMA"): SeedResult {
     }
 
     // ------------------------------------------------------------- cenario
-    insert("simulation_scenarios", {
+    await insert("simulation_scenarios", {
       id: SCENARIO_ID, name: SCENARIO_NAME,
       description:
         "Operacao completa de ponta a ponta: estoque inicial, dois recebimentos com NF simulada, "
@@ -315,9 +315,9 @@ export function seed(actor = "SISTEMA"): SeedResult {
         + "conferencia, romaneio, carregamento e expedicao.",
       status: "READY", seeded_at: now, reset_count: 0,
     });
-    logEvent("SETUP", `Cenario ${SCENARIO_ID} carregado`, "SCENARIO", SCENARIO_ID);
+    await logEvent("SETUP", `Cenario ${SCENARIO_ID} carregado`, "SCENARIO", SCENARIO_ID);
 
-    audit({
+    await audit({
       actor, actorKind: "SYSTEM", action: "SEED", entity: "simulation_scenario",
       entityId: SCENARIO_ID, origin: SEED_ORIGIN,
       after: {
@@ -346,45 +346,45 @@ export function seed(actor = "SISTEMA"): SeedResult {
  * Restaura estoque, pedidos, recebimentos, paletes, volumes, estados,
  * movimentacoes e auditoria ao estado inicial do cenario.
  */
-export function resetSimulation(actor = "SISTEMA"): SeedResult & { resetCount: number } {
-  const previous = one<any>(`SELECT reset_count FROM simulation_scenarios WHERE id = ?`, SCENARIO_ID);
+export async function resetSimulation(actor = "SISTEMA"): Promise<SeedResult & { resetCount: number }> {
+  const previous = await one<any>(`SELECT reset_count FROM simulation_scenarios WHERE id = ?`, SCENARIO_ID);
   const count = (previous?.reset_count ?? 0) + 1;
-  const result = seed(actor);
+  const result = await seed(actor);
   const at = nowIso();
-  run(
+  await run(
     `UPDATE simulation_scenarios SET reset_count = ?, last_reset_at = ? WHERE id = ?`,
     count, at, SCENARIO_ID,
   );
-  audit({
+  await audit({
     actor, actorKind: "SYSTEM", action: "RESET", entity: "simulation_scenario",
     entityId: SCENARIO_ID, after: { resetCount: count },
     detail: `Simulacao reiniciada (reset #${count})`, occurredAt: at,
   });
-  logEvent("RESET", `Simulacao reiniciada (reset #${count})`, "SCENARIO", SCENARIO_ID);
+  await logEvent("RESET", `Simulacao reiniciada (reset #${count})`, "SCENARIO", SCENARIO_ID);
   return { ...result, resetCount: count };
 }
 
 /** Garante que o banco esteja carregado antes de qualquer leitura de tela. */
-export function ensureSeeded(): void {
-  if (!isSeeded()) seed("SISTEMA");
+export async function ensureSeeded(): Promise<void> {
+  if (!await isSeeded()) await seed("SISTEMA");
 }
 
-export function getScenario() {
-  return one<any>(`SELECT * FROM simulation_scenarios WHERE id = ?`, SCENARIO_ID);
+export async function getScenario() {
+  return await one<any>(`SELECT * FROM simulation_scenarios WHERE id = ?`, SCENARIO_ID);
 }
 
-export function logEvent(stage: string, label: string, refKind?: string, refId?: string, operatorId?: string) {
+export async function logEvent(stage: string, label: string, refKind?: string, refId?: string, operatorId?: string) {
   const at = nowIso();
-  const n = (scalar<number>(`SELECT COUNT(*) FROM simulation_events`) ?? 0) + 1;
-  insert("simulation_events", {
+  const n = (await scalar<number>(`SELECT COUNT(*) FROM simulation_events`) ?? 0) + 1;
+  await insert("simulation_events", {
     id: `SEV-${String(n).padStart(5, "0")}`, scenario_id: SCENARIO_ID,
     stage, label, ref_kind: refKind ?? null, ref_id: refId ?? null,
     operator_id: operatorId ?? null, occurred_at: at,
   });
 }
 
-export function listEvents(limit = 60) {
-  return all<any>(
+export async function listEvents(limit = 60) {
+  return await all<any>(
     `SELECT * FROM simulation_events WHERE scenario_id = ?
       ORDER BY occurred_at DESC, id DESC LIMIT ?`,
     SCENARIO_ID, limit,
@@ -392,78 +392,78 @@ export function listEvents(limit = 60) {
 }
 
 /** Painel do cenario: o que ja aconteceu e o que falta executar. */
-export function scenarioProgress() {
+export async function scenarioProgress() {
   const steps = [
     {
       key: "stock", label: "Estoque inicial carregado",
-      done: (scalar<number>(`SELECT COUNT(*) FROM inventory WHERE qty_on_hand > 0`) ?? 0) > 0,
-      detail: `${scalar<number>(`SELECT COUNT(DISTINCT product_id) FROM inventory WHERE qty_on_hand > 0`) ?? 0} SKUs em estoque`,
+      done: (await scalar<number>(`SELECT COUNT(*) FROM inventory WHERE qty_on_hand > 0`) ?? 0) > 0,
+      detail: `${await scalar<number>(`SELECT COUNT(DISTINCT product_id) FROM inventory WHERE qty_on_hand > 0`) ?? 0} SKUs em estoque`,
       href: "/inventory",
     },
     {
       key: "inbound", label: "Recebimento executado",
-      done: (scalar<number>(`SELECT COUNT(*) FROM inbound_orders WHERE status = 'COMPLETED'`) ?? 0) > 0,
-      detail: `${scalar<number>(`SELECT COUNT(*) FROM inbound_orders WHERE status = 'COMPLETED'`) ?? 0} de ${scalar<number>(`SELECT COUNT(*) FROM inbound_orders`) ?? 0} concluidos`,
+      done: (await scalar<number>(`SELECT COUNT(*) FROM inbound_orders WHERE status = 'COMPLETED'`) ?? 0) > 0,
+      detail: `${await scalar<number>(`SELECT COUNT(*) FROM inbound_orders WHERE status = 'COMPLETED'`) ?? 0} de ${await scalar<number>(`SELECT COUNT(*) FROM inbound_orders`) ?? 0} concluidos`,
       href: "/receiving",
     },
     {
       key: "weighing", label: "Pesagem registrada",
-      done: (scalar<number>(`SELECT COUNT(*) FROM weighings`) ?? 0) > 0,
-      detail: `${scalar<number>(`SELECT COUNT(*) FROM weighings`) ?? 0} pesagens`,
+      done: (await scalar<number>(`SELECT COUNT(*) FROM weighings`) ?? 0) > 0,
+      detail: `${await scalar<number>(`SELECT COUNT(*) FROM weighings`) ?? 0} pesagens`,
       href: "/receiving/weighing",
     },
     {
       key: "check", label: "Conferencia de entrada",
-      done: (scalar<number>(`SELECT COUNT(*) FROM receiving_checks WHERE status IN ('OK','DIVERGENCE')`) ?? 0) > 0,
-      detail: `${scalar<number>(`SELECT COUNT(*) FROM receiving_check_items WHERE status <> 'PENDING'`) ?? 0} linhas conferidas`,
+      done: (await scalar<number>(`SELECT COUNT(*) FROM receiving_checks WHERE status IN ('OK','DIVERGENCE')`) ?? 0) > 0,
+      detail: `${await scalar<number>(`SELECT COUNT(*) FROM receiving_check_items WHERE status <> 'PENDING'`) ?? 0} linhas conferidas`,
       href: "/receiving",
     },
     {
       key: "putaway", label: "Armazenagem confirmada",
-      done: (scalar<number>(`SELECT COUNT(*) FROM storage_orders WHERE status = 'COMPLETED'`) ?? 0) > 0,
-      detail: `${scalar<number>(`SELECT COUNT(*) FROM storage_orders WHERE status = 'COMPLETED'`) ?? 0} paletes armazenados`,
+      done: (await scalar<number>(`SELECT COUNT(*) FROM storage_orders WHERE status = 'COMPLETED'`) ?? 0) > 0,
+      detail: `${await scalar<number>(`SELECT COUNT(*) FROM storage_orders WHERE status = 'COMPLETED'`) ?? 0} paletes armazenados`,
       href: "/warehouse/storage",
     },
     {
       key: "reserve", label: "Reserva de estoque",
-      done: (scalar<number>(`SELECT COUNT(*) FROM stock_reservations`) ?? 0) > 0,
-      detail: `${scalar<number>(`SELECT COUNT(*) FROM stock_reservations WHERE status = 'ACTIVE'`) ?? 0} reservas ativas`,
+      done: (await scalar<number>(`SELECT COUNT(*) FROM stock_reservations`) ?? 0) > 0,
+      detail: `${await scalar<number>(`SELECT COUNT(*) FROM stock_reservations WHERE status = 'ACTIVE'`) ?? 0} reservas ativas`,
       href: "/shipping/orders",
     },
     {
       key: "picking", label: "Picking por coletora",
-      done: (scalar<number>(`SELECT COUNT(*) FROM picking_orders WHERE status IN ('COMPLETED','DIVERGENCE')`) ?? 0) > 0,
-      detail: `${scalar<number>(`SELECT COALESCE(SUM(done_lines),0) FROM picking_orders`) ?? 0} linhas separadas`,
+      done: (await scalar<number>(`SELECT COUNT(*) FROM picking_orders WHERE status IN ('COMPLETED','DIVERGENCE')`) ?? 0) > 0,
+      detail: `${await scalar<number>(`SELECT COALESCE(SUM(done_lines),0) FROM picking_orders`) ?? 0} linhas separadas`,
       href: "/picking",
     },
     {
       key: "packing", label: "Packing e volumes",
-      done: (scalar<number>(`SELECT COUNT(*) FROM volumes`) ?? 0) > 0,
-      detail: `${scalar<number>(`SELECT COUNT(*) FROM volumes WHERE status <> 'CANCELLED'`) ?? 0} volumes`,
+      done: (await scalar<number>(`SELECT COUNT(*) FROM volumes`) ?? 0) > 0,
+      detail: `${await scalar<number>(`SELECT COUNT(*) FROM volumes WHERE status <> 'CANCELLED'`) ?? 0} volumes`,
       href: "/packing",
     },
     {
       key: "shipcheck", label: "Conferencia de expedicao",
-      done: (scalar<number>(`SELECT COUNT(*) FROM shipping_checks WHERE status = 'OK'`) ?? 0) > 0,
-      detail: `${scalar<number>(`SELECT COUNT(*) FROM volumes WHERE status IN ('CHECKED','LOADED','SHIPPED')`) ?? 0} volumes conferidos`,
+      done: (await scalar<number>(`SELECT COUNT(*) FROM shipping_checks WHERE status = 'OK'`) ?? 0) > 0,
+      detail: `${await scalar<number>(`SELECT COUNT(*) FROM volumes WHERE status IN ('CHECKED','LOADED','SHIPPED')`) ?? 0} volumes conferidos`,
       href: "/shipping",
     },
     {
       key: "manifest", label: "Romaneio de carga",
-      done: (scalar<number>(`SELECT COUNT(*) FROM shipping_manifests`) ?? 0) > 0,
-      detail: `${scalar<number>(`SELECT COUNT(*) FROM shipping_manifests`) ?? 0} romaneios`,
+      done: (await scalar<number>(`SELECT COUNT(*) FROM shipping_manifests`) ?? 0) > 0,
+      detail: `${await scalar<number>(`SELECT COUNT(*) FROM shipping_manifests`) ?? 0} romaneios`,
       href: "/shipping/manifests",
     },
     {
       key: "loading", label: "Carregamento",
-      done: (scalar<number>(`SELECT COUNT(*) FROM loading_operations WHERE status = 'COMPLETED'`) ?? 0) > 0,
-      detail: `${scalar<number>(`SELECT COALESCE(SUM(loaded_volumes),0) FROM loading_operations`) ?? 0} volumes carregados`,
+      done: (await scalar<number>(`SELECT COUNT(*) FROM loading_operations WHERE status = 'COMPLETED'`) ?? 0) > 0,
+      detail: `${await scalar<number>(`SELECT COALESCE(SUM(loaded_volumes),0) FROM loading_operations`) ?? 0} volumes carregados`,
       href: "/shipping/loading",
     },
     {
       key: "shipped", label: "Expedicao concluida",
-      done: (scalar<number>(`SELECT COUNT(*) FROM sales_orders WHERE status = 'SHIPPED'`) ?? 0) > 0,
-      detail: `${scalar<number>(`SELECT COUNT(*) FROM sales_orders WHERE status = 'SHIPPED'`) ?? 0} pedidos expedidos`,
+      done: (await scalar<number>(`SELECT COUNT(*) FROM sales_orders WHERE status = 'SHIPPED'`) ?? 0) > 0,
+      detail: `${await scalar<number>(`SELECT COUNT(*) FROM sales_orders WHERE status = 'SHIPPED'`) ?? 0} pedidos expedidos`,
       href: "/shipping",
     },
   ];

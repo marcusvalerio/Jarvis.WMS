@@ -12,12 +12,12 @@ import { IconPallet, IconScan } from "@/components/ui/Icons";
 export const metadata: Metadata = { title: "Armazenagem" };
 export const dynamic = "force-dynamic";
 
-export default function StoragePage() {
-  const orders = listStorageOrders();
+export default async function StoragePage() {
+  const orders = await listStorageOrders();
   const pending = orders.filter((o) => o.status !== "COMPLETED");
   const done = orders.filter((o) => o.status === "COMPLETED");
 
-  const locations = locationMap()
+  const locations = (await locationMap())
     .filter((l) => l.kind === "PALLET" && l.status !== "BLOCKED")
     .map((l) => ({ id: l.id, code: l.code, zone: l.zone_name, free: l.qty === 0 }))
     .sort((a, b) => a.code.localeCompare(b.code));

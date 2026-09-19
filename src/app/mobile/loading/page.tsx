@@ -12,14 +12,14 @@ export default async function MobileLoadingPage({
   searchParams,
 }: { searchParams: Promise<{ id?: string }> }) {
   const sp = await searchParams;
-  const active = all<any>(
+  const active = await all<any>(
     `SELECT lo.*, m.route, m.vehicle_plate, d.name AS dock_name
        FROM loading_operations lo
        JOIN shipping_manifests m ON m.id = lo.manifest_id
        LEFT JOIN docks d ON d.id = lo.dock_id
       WHERE lo.status = 'IN_PROGRESS' ORDER BY lo.created_at DESC`,
   );
-  const selected = sp.id ? getLoading(sp.id) : active.length === 1 ? getLoading(active[0].id) : null;
+  const selected = sp.id ? await getLoading(sp.id) : active.length === 1 ? await getLoading(active[0].id) : null;
 
   if (!selected) {
     return (

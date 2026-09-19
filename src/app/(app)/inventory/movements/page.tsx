@@ -22,9 +22,9 @@ export default async function MovementsPage({
   searchParams,
 }: { searchParams: Promise<{ kind?: string; search?: string; product?: string }> }) {
   const sp = await searchParams;
-  const moves = listMovements({ kind: sp.kind, search: sp.search, productId: sp.product, limit: 300 });
-  const total = countMovements();
-  const byKind = all<{ kind: string; n: number }>(
+  const moves = await listMovements({ kind: sp.kind, search: sp.search, productId: sp.product, limit: 300 });
+  const total = await countMovements();
+  const byKind = await all<{ kind: string; n: number }>(
     `SELECT kind, COUNT(*) AS n FROM inventory_movements GROUP BY kind ORDER BY n DESC`,
   );
 

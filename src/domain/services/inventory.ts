@@ -53,8 +53,8 @@ export interface StockSummary {
 }
 
 // ------------------------------------------------------------------ consultas
-export function stockOf(productId: string): StockSummary {
-  const r = one<any>(
+export async function stockOf(productId: string): Promise<StockSummary> {
+  const r = await one<any>(
     `SELECT COALESCE(SUM(qty_on_hand),0) oh, COALESCE(SUM(qty_reserved),0) rs,
             COALESCE(SUM(qty_blocked),0) bk, COALESCE(SUM(qty_in_transit),0) it,
             COALESCE(SUM(weight_kg),0) wt, COUNT(DISTINCT location_id) locs
@@ -75,30 +75,30 @@ export function stockOf(productId: string): StockSummary {
   };
 }
 
-export function rowsOf(productId: string): InventoryRow[] {
-  return all<InventoryRow>(
+export async function rowsOf(productId: string): Promise<InventoryRow[]> {
+  return await all<InventoryRow>(
     `SELECT * FROM inventory WHERE product_id = ? AND qty_on_hand > 0
      ORDER BY location_id`,
     productId,
   );
 }
 
-export function rowsAtLocation(locationId: string): InventoryRow[] {
-  return all<InventoryRow>(
+export async function rowsAtLocation(locationId: string): Promise<InventoryRow[]> {
+  return await all<InventoryRow>(
     `SELECT * FROM inventory WHERE location_id = ? AND qty_on_hand > 0`,
     locationId,
   );
 }
 
-export function rowsOnPallet(palletId: string): InventoryRow[] {
-  return all<InventoryRow>(
+export async function rowsOnPallet(palletId: string): Promise<InventoryRow[]> {
+  return await all<InventoryRow>(
     `SELECT * FROM inventory WHERE pallet_id = ? AND qty_on_hand > 0`,
     palletId,
   );
 }
 
-export function getRow(id: string): InventoryRow | undefined {
-  return one<InventoryRow>(`SELECT * FROM inventory WHERE id = ?`, id);
+export async function getRow(id: string): Promise<InventoryRow | undefined> {
+  return await one<InventoryRow>(`SELECT * FROM inventory WHERE id = ?`, id);
 }
 
 export function availableIn(row: InventoryRow): number {
@@ -106,9 +106,9 @@ export function availableIn(row: InventoryRow): number {
 }
 
 /** Saldo total do produto no armazem (fisico). */
-export function onHandOf(productId: string): number {
+export async function onHandOf(productId: string): Promise<number> {
   return round3(
-    scalar<number>(
+    await scalar<number>(
       `SELECT COALESCE(SUM(qty_on_hand),0) FROM inventory WHERE product_id = ?`,
       productId,
     ) ?? 0,
@@ -116,10 +116,10 @@ export function onHandOf(productId: string): number {
 }
 
 // ------------------------------------------------------------------ interno
-function rowKey(
+async function rowKey(
   productId: string, lotId: string | null, locationId: string, palletId: string | null,
 ) {
-  return one<InventoryRow>(
+  return await one<InventoryRow>(
     `SELECT * FROM inventory
       WHERE product_id = ? AND location_id = ?
         AND lot_id IS ? AND pallet_id IS ?`,
@@ -127,25 +127,25 @@ function rowKey(
   );
 }
 
-function ensureRow(
+async function ensureRow(
   productId: string, lotId: string | null, locationId: string,
   palletId: string | null, at: string,
-): InventoryRow {
-  const existing = rowKey(productId, lotId, locationId, palletId);
+): Promise<InventoryRow> {
+  const existing = await rowKey(productId, lotId, locationId, palletId);
   if (existing) return existing;
   const id = `STK-${productId}-${lotId ?? "NL"}-${locationId}-${palletId ?? "NP"}`;
-  insert("inventory", {
+  await insert("inventory", {
     id, product_id: productId, lot_id: lotId, location_id: locationId,
     pallet_id: palletId, qty_on_hand: 0, qty_reserved: 0, qty_blocked: 0,
     qty_in_transit: 0, status: "AVAILABLE", weight_kg: 0,
     received_at: at, updated_at: at,
   });
-  return getRow(id)!;
+  return (await getRow(id))!;
 }
 
-function unitWeight(productId: string): number {
+async function unitWeight(productId: string): Promise<number> {
   return (
-    one<{ w: number }>(`SELECT unit_gross_kg AS w FROM products WHERE id = ?`, productId)?.w ?? 0
+    (await one<{ w: number }>(`SELECT unit_gross_kg AS w FROM products WHERE id = ?`, productId))?.w ?? 0
   );
 }
 
@@ -155,8 +155,8 @@ function deriveStatus(row: { qty_on_hand: number; qty_reserved: number; qty_bloc
   return "AVAILABLE";
 }
 
-function writeRow(id: string, at: string) {
-  const r = getRow(id);
+async function writeRow(id: string, at: string) {
+  const r = await getRow(id);
   if (!r) return;
   if (r.qty_on_hand < -0.0001) {
     throw new StockError(`Estoque negativo impedido em ${id}`, "NEGATIVE_STOCK");
@@ -167,9 +167,9 @@ function writeRow(id: string, at: string) {
       "OVER_ALLOCATION",
     );
   }
-  run(
+  await run(
     `UPDATE inventory SET weight_kg = ?, status = ?, updated_at = ? WHERE id = ?`,
-    round3(r.qty_on_hand * unitWeight(r.product_id)),
+    round3(r.qty_on_hand * await unitWeight(r.product_id)),
     deriveStatus(r),
     at,
     id,
@@ -177,17 +177,17 @@ function writeRow(id: string, at: string) {
 }
 
 /** Mantem o status do endereco coerente com a ocupacao real. */
-export function refreshLocationStatus(locationId: string) {
-  const loc = one<{ status: string }>(`SELECT status FROM locations WHERE id = ?`, locationId);
+export async function refreshLocationStatus(locationId: string) {
+  const loc = await one<{ status: string }>(`SELECT status FROM locations WHERE id = ?`, locationId);
   if (!loc || loc.status === "BLOCKED") return;
   const occupied =
-    (scalar<number>(
+    (await scalar<number>(
       `SELECT COUNT(*) FROM inventory WHERE location_id = ? AND qty_on_hand > 0`,
       locationId,
     ) ?? 0) > 0;
   const next = occupied ? "OCCUPIED" : "AVAILABLE";
   if (next !== loc.status) {
-    run(`UPDATE locations SET status = ? WHERE id = ?`, next, locationId);
+    await run(`UPDATE locations SET status = ? WHERE id = ?`, next, locationId);
   }
 }
 
@@ -222,7 +222,7 @@ export interface MovementInput {
  * - com `fromLocationId` e sem `toLocationId`  -> saida
  * - com ambos                                   -> transferencia
  */
-export function applyMovement(input: MovementInput): string {
+export async function applyMovement(input: MovementInput): Promise<string> {
   const at = input.occurredAt ?? nowIso();
   const qty = round3(input.quantity);
   if (qty <= 0) throw new StockError("Quantidade do movimento deve ser positiva", "BAD_QTY");
@@ -237,7 +237,7 @@ export function applyMovement(input: MovementInput): string {
 
   // --- saida da origem
   if (input.fromLocationId) {
-    const src = rowKey(input.productId, lotId, input.fromLocationId, fromPallet);
+    const src = await rowKey(input.productId, lotId, input.fromLocationId, fromPallet);
     if (!src) {
       throw new StockError(
         `Sem estoque de ${input.productId} em ${input.fromLocationId} para movimentar`,
@@ -251,31 +251,31 @@ export function applyMovement(input: MovementInput): string {
         "INSUFFICIENT",
       );
     }
-    run(
+    await run(
       `UPDATE inventory SET qty_on_hand = qty_on_hand - ? WHERE id = ?`,
       qty, src.id,
     );
-    writeRow(src.id, at);
-    refreshLocationStatus(input.fromLocationId);
+    await writeRow(src.id, at);
+    await refreshLocationStatus(input.fromLocationId);
   }
 
   // --- entrada no destino
   if (input.toLocationId) {
-    const dst = ensureRow(input.productId, lotId, input.toLocationId, toPallet, at);
-    run(`UPDATE inventory SET qty_on_hand = qty_on_hand + ? WHERE id = ?`, qty, dst.id);
-    writeRow(dst.id, at);
-    refreshLocationStatus(input.toLocationId);
+    const dst = await ensureRow(input.productId, lotId, input.toLocationId, toPallet, at);
+    await run(`UPDATE inventory SET qty_on_hand = qty_on_hand + ? WHERE id = ?`, qty, dst.id);
+    await writeRow(dst.id, at);
+    await refreshLocationStatus(input.toLocationId);
   }
 
-  const balance = onHandOf(input.productId);
-  const movId = nextId(PREFIX.MOVEMENT);
-  insert("inventory_movements", {
+  const balance = await onHandOf(input.productId);
+  const movId = await nextId(PREFIX.MOVEMENT);
+  await insert("inventory_movements", {
     id: movId,
     kind: input.kind,
     product_id: input.productId,
     lot_id: lotId,
     quantity: qty,
-    unit: one<{ unit: string }>(`SELECT unit FROM products WHERE id = ?`, input.productId)?.unit ?? "CX",
+    unit: (await one<{ unit: string }>(`SELECT unit FROM products WHERE id = ?`, input.productId))?.unit ?? "CX",
     from_location_id: input.fromLocationId ?? null,
     to_location_id: input.toLocationId ?? null,
     pallet_id: palletId,
@@ -284,11 +284,11 @@ export function applyMovement(input: MovementInput): string {
     reason: input.reason ?? null,
     operator_id: input.operatorId ?? null,
     balance_after: balance,
-    weight_kg: round3(qty * unitWeight(input.productId)),
+    weight_kg: round3(qty * await unitWeight(input.productId)),
     occurred_at: at,
   });
 
-  audit({
+  await audit({
     actor: input.operatorId ?? "SISTEMA",
     action: "MOVE",
     entity: "inventory_movement",
@@ -321,19 +321,21 @@ export interface ReservationCandidate {
  * Candidatos a atender uma demanda, ordenados por FEFO
  * (First Expired, First Out) e depois pela rota de picking.
  */
-export function allocationCandidates(
+export async function allocationCandidates(
   productId: string,
   strategy: "FEFO" | "FIFO" = "FEFO",
-): ReservationCandidate[] {
+): Promise<ReservationCandidate[]> {
   const order =
     strategy === "FEFO"
       ? `COALESCE(l.expires_at, '9999-12-31') ASC, loc.pick_sequence ASC, i.id ASC`
       : `COALESCE(i.received_at, '9999-12-31') ASC, loc.pick_sequence ASC, i.id ASC`;
-  return all<any>(
-    `SELECT i.id AS inventoryId, i.product_id AS productId, i.lot_id AS lotId,
-            i.location_id AS locationId, i.pallet_id AS palletId,
-            ROUND(i.qty_on_hand - i.qty_reserved - i.qty_blocked, 3) AS available,
-            l.expires_at AS expiresAt, loc.pick_sequence AS pickSequence
+  return await all<any>(
+    `SELECT i.id AS "inventoryId", i.product_id AS "productId", i.lot_id AS "lotId",
+            i.location_id AS "locationId", i.pallet_id AS "palletId",
+            -- ROUND(double precision, int) nao existe no PostgreSQL;
+            -- a forma de duas casas so vale para numeric.
+            ROUND((i.qty_on_hand - i.qty_reserved - i.qty_blocked)::numeric, 3)::double precision AS available,
+            l.expires_at AS "expiresAt", loc.pick_sequence AS "pickSequence"
        FROM inventory i
        JOIN locations loc ON loc.id = i.location_id
        LEFT JOIN lots l ON l.id = i.lot_id
@@ -356,7 +358,7 @@ export interface ReserveResult {
  * Reserva `quantity` do produto para um item de pedido.
  * Nunca reserva mais do que o disponivel — a falta e devolvida em `shortage`.
  */
-export function reserve(params: {
+export async function reserve(params: {
   salesOrderId: string;
   salesOrderItemId: string;
   productId: string;
@@ -364,21 +366,21 @@ export function reserve(params: {
   strategy?: "FEFO" | "FIFO";
   operatorId?: string;
   occurredAt?: string;
-}): ReserveResult {
+}): Promise<ReserveResult> {
   const at = params.occurredAt ?? nowIso();
   let remaining = round3(params.quantity);
   const ids: string[] = [];
 
-  for (const c of allocationCandidates(params.productId, params.strategy ?? "FEFO")) {
+  for (const c of await allocationCandidates(params.productId, params.strategy ?? "FEFO")) {
     if (remaining <= 0.0001) break;
     const take = round3(Math.min(c.available, remaining));
     if (take <= 0) continue;
 
-    run(`UPDATE inventory SET qty_reserved = qty_reserved + ? WHERE id = ?`, take, c.inventoryId);
-    writeRow(c.inventoryId, at);
+    await run(`UPDATE inventory SET qty_reserved = qty_reserved + ? WHERE id = ?`, take, c.inventoryId);
+    await writeRow(c.inventoryId, at);
 
-    const resId = nextId(PREFIX.RESERVATION);
-    insert("stock_reservations", {
+    const resId = await nextId(PREFIX.RESERVATION);
+    await insert("stock_reservations", {
       id: resId,
       sales_order_id: params.salesOrderId,
       sales_order_item_id: params.salesOrderItemId,
@@ -395,7 +397,7 @@ export function reserve(params: {
     ids.push(resId);
     remaining = round3(remaining - take);
 
-    audit({
+    await audit({
       actor: params.operatorId ?? "SISTEMA",
       action: "RESERVE",
       entity: "stock_reservation",
@@ -414,27 +416,27 @@ export function reserve(params: {
 }
 
 /** Libera reservas ativas (cancelamento de pedido, replanejamento). */
-export function releaseReservations(
+export async function releaseReservations(
   salesOrderId: string,
   operatorId?: string,
   occurredAt?: string,
-): number {
+): Promise<number> {
   const at = occurredAt ?? nowIso();
-  const list = all<any>(
+  const list = await all<any>(
     `SELECT * FROM stock_reservations WHERE sales_order_id = ? AND status = 'ACTIVE'`,
     salesOrderId,
   );
   for (const r of list) {
     const open = round3(r.quantity - r.picked_qty);
     if (open > 0) {
-      run(`UPDATE inventory SET qty_reserved = qty_reserved - ? WHERE id = ?`, open, r.inventory_id);
-      writeRow(r.inventory_id, at);
+      await run(`UPDATE inventory SET qty_reserved = qty_reserved - ? WHERE id = ?`, open, r.inventory_id);
+      await writeRow(r.inventory_id, at);
     }
-    run(
+    await run(
       `UPDATE stock_reservations SET status = 'RELEASED', released_at = ? WHERE id = ?`,
       at, r.id,
     );
-    audit({
+    await audit({
       actor: operatorId ?? "SISTEMA",
       action: "RELEASE",
       entity: "stock_reservation",
@@ -453,7 +455,7 @@ export function releaseReservations(
  * Reduz simultaneamente o saldo e a reserva na origem e transfere para o
  * endereco de staging de expedicao.
  */
-export function consumeReservation(params: {
+export async function consumeReservation(params: {
   reservationId: string;
   quantity: number;
   toLocationId: string;
@@ -462,9 +464,9 @@ export function consumeReservation(params: {
   refId?: string;
   occurredAt?: string;
   origin?: "WEB" | "RF" | "SYSTEM" | "SEED";
-}): string {
+}): Promise<string> {
   const at = params.occurredAt ?? nowIso();
-  const res = one<any>(`SELECT * FROM stock_reservations WHERE id = ?`, params.reservationId);
+  const res = await one<any>(`SELECT * FROM stock_reservations WHERE id = ?`, params.reservationId);
   if (!res) throw new StockError("Reserva inexistente", "NO_RESERVATION");
   if (res.status !== "ACTIVE") throw new StockError("Reserva nao esta ativa", "RESERVATION_CLOSED");
 
@@ -478,10 +480,10 @@ export function consumeReservation(params: {
   }
 
   // Baixa a reserva antes de mover, para que o invariante siga valido.
-  run(`UPDATE inventory SET qty_reserved = qty_reserved - ? WHERE id = ?`, qty, res.inventory_id);
-  run(`UPDATE stock_reservations SET picked_qty = picked_qty + ? WHERE id = ?`, qty, res.id);
+  await run(`UPDATE inventory SET qty_reserved = qty_reserved - ? WHERE id = ?`, qty, res.inventory_id);
+  await run(`UPDATE stock_reservations SET picked_qty = picked_qty + ? WHERE id = ?`, qty, res.id);
 
-  const movId = applyMovement({
+  const movId = await applyMovement({
     kind: "PICK",
     productId: res.product_id,
     lotId: res.lot_id,
@@ -498,50 +500,50 @@ export function consumeReservation(params: {
     origin: params.origin,
   });
 
-  const after = one<any>(`SELECT * FROM stock_reservations WHERE id = ?`, res.id);
+  const after = await one<any>(`SELECT * FROM stock_reservations WHERE id = ?`, res.id);
   if (round3(after.picked_qty) >= round3(after.quantity) - 0.0001) {
-    run(`UPDATE stock_reservations SET status = 'CONSUMED' WHERE id = ?`, res.id);
+    await run(`UPDATE stock_reservations SET status = 'CONSUMED' WHERE id = ?`, res.id);
   }
 
   // Palete esvaziado pela separacao deixa de ocupar posicao.
-  if (res.pallet_id && rowsOnPallet(res.pallet_id).length === 0) {
-    run(`UPDATE pallets SET status = 'CONSUMED' WHERE id = ?`, res.pallet_id);
+  if (res.pallet_id && (await rowsOnPallet(res.pallet_id)).length === 0) {
+    await run(`UPDATE pallets SET status = 'CONSUMED' WHERE id = ?`, res.pallet_id);
   }
   return movId;
 }
 
 // ------------------------------------------------------------------ bloqueios
-export function block(params: {
+export async function block(params: {
   inventoryId: string; quantity: number; reason: string;
   operatorId?: string; occurredAt?: string;
 }) {
   const at = params.occurredAt ?? nowIso();
-  const row = getRow(params.inventoryId);
+  const row = await getRow(params.inventoryId);
   if (!row) throw new StockError("Registro de estoque inexistente", "NO_ROW");
   const free = availableIn(row);
   if (params.quantity > free + 0.0001) {
     throw new StockError(`Nao ha ${params.quantity} disponivel para bloquear (livre ${free})`, "INSUFFICIENT");
   }
-  run(`UPDATE inventory SET qty_blocked = qty_blocked + ? WHERE id = ?`, round3(params.quantity), row.id);
-  writeRow(row.id, at);
-  applyMovement({
+  await run(`UPDATE inventory SET qty_blocked = qty_blocked + ? WHERE id = ?`, round3(params.quantity), row.id);
+  await writeRow(row.id, at);
+  await applyMovement({
     kind: "BLOCK", productId: row.product_id, lotId: row.lot_id,
     quantity: params.quantity, fromLocationId: row.location_id, toLocationId: row.location_id,
     palletId: row.pallet_id, reason: params.reason, operatorId: params.operatorId, occurredAt: at,
   });
 }
 
-export function unblock(params: {
+export async function unblock(params: {
   inventoryId: string; quantity: number; reason: string;
   operatorId?: string; occurredAt?: string;
 }) {
   const at = params.occurredAt ?? nowIso();
-  const row = getRow(params.inventoryId);
+  const row = await getRow(params.inventoryId);
   if (!row) throw new StockError("Registro de estoque inexistente", "NO_ROW");
   const qty = round3(Math.min(params.quantity, row.qty_blocked));
-  run(`UPDATE inventory SET qty_blocked = qty_blocked - ? WHERE id = ?`, qty, row.id);
-  writeRow(row.id, at);
-  applyMovement({
+  await run(`UPDATE inventory SET qty_blocked = qty_blocked - ? WHERE id = ?`, qty, row.id);
+  await writeRow(row.id, at);
+  await applyMovement({
     kind: "UNBLOCK", productId: row.product_id, lotId: row.lot_id,
     quantity: qty, fromLocationId: row.location_id, toLocationId: row.location_id,
     palletId: row.pallet_id, reason: params.reason, operatorId: params.operatorId, occurredAt: at,
@@ -549,25 +551,25 @@ export function unblock(params: {
 }
 
 /** Ajuste de inventario: leva o saldo do registro para `countedQty`. */
-export function adjustTo(params: {
+export async function adjustTo(params: {
   inventoryId: string; countedQty: number; reason: string;
   refKind?: string; refId?: string; operatorId?: string; occurredAt?: string;
-}): string | null {
+}): Promise<string | null> {
   const at = params.occurredAt ?? nowIso();
-  const row = getRow(params.inventoryId);
+  const row = await getRow(params.inventoryId);
   if (!row) throw new StockError("Registro de estoque inexistente", "NO_ROW");
   const diff = round3(params.countedQty - row.qty_on_hand);
   if (Math.abs(diff) < 0.0001) return null;
 
   if (diff > 0) {
-    return applyMovement({
+    return await applyMovement({
       kind: "COUNT", productId: row.product_id, lotId: row.lot_id, quantity: diff,
       toLocationId: row.location_id, palletId: row.pallet_id,
       refKind: params.refKind, refId: params.refId,
       reason: params.reason, operatorId: params.operatorId, occurredAt: at,
     });
   }
-  return applyMovement({
+  return await applyMovement({
     kind: "COUNT", productId: row.product_id, lotId: row.lot_id, quantity: -diff,
     fromLocationId: row.location_id, palletId: row.pallet_id,
     refKind: params.refKind, refId: params.refId,
@@ -577,20 +579,20 @@ export function adjustTo(params: {
 
 // ------------------------------------------------------------------ paletes
 /** Move fisicamente TODO o conteudo de um palete para outro endereco. */
-export function movePallet(params: {
+export async function movePallet(params: {
   palletId: string; toLocationId: string; kind?: MovementKind;
   refKind?: string; refId?: string; reason?: string;
   operatorId?: string; occurredAt?: string; origin?: "WEB" | "RF" | "SYSTEM" | "SEED";
-}): string[] {
+}): Promise<string[]> {
   const at = params.occurredAt ?? nowIso();
-  const rows = rowsOnPallet(params.palletId);
+  const rows = await rowsOnPallet(params.palletId);
   if (rows.length === 0) throw new StockError(`Palete ${params.palletId} esta vazio`, "EMPTY_PALLET");
 
   const movs: string[] = [];
   for (const r of rows) {
     if (r.location_id === params.toLocationId) continue;
     movs.push(
-      applyMovement({
+      await applyMovement({
         kind: params.kind ?? "PUTAWAY",
         productId: r.product_id,
         lotId: r.lot_id,
@@ -607,7 +609,7 @@ export function movePallet(params: {
       }),
     );
   }
-  run(`UPDATE pallets SET location_id = ? WHERE id = ?`, params.toLocationId, params.palletId);
+  await run(`UPDATE pallets SET location_id = ? WHERE id = ?`, params.toLocationId, params.palletId);
   return movs;
 }
 
@@ -628,7 +630,7 @@ export interface StockLine {
   locations: number;
 }
 
-export function stockByProduct(filter?: { search?: string; onlyWithStock?: boolean }): StockLine[] {
+export async function stockByProduct(filter?: { search?: string; onlyWithStock?: boolean }): Promise<StockLine[]> {
   const where: string[] = ["p.active = 1"];
   const params: any[] = [];
   if (filter?.search) {
@@ -636,7 +638,7 @@ export function stockByProduct(filter?: { search?: string; onlyWithStock?: boole
     const q = `%${filter.search}%`;
     params.push(q, q, q);
   }
-  const rows = all<StockLine>(
+  const rows = await all<StockLine>(
     `SELECT p.id AS product_id, p.sku, p.description, p.unit, p.abc_class, p.category, p.min_stock,
             COALESCE(SUM(i.qty_on_hand),0) AS on_hand,
             COALESCE(SUM(i.qty_reserved),0) AS reserved,
@@ -664,11 +666,11 @@ export interface MovementRow {
   balance_after: number | null; weight_kg: number; occurred_at: string;
 }
 
-export function listMovements(filter: {
+export async function listMovements(filter: {
   productId?: string; refKind?: string; refId?: string; kind?: string;
   locationId?: string; palletId?: string; search?: string;
   limit?: number; offset?: number;
-} = {}): MovementRow[] {
+} = {}): Promise<MovementRow[]> {
   const where: string[] = [];
   const params: any[] = [];
   if (filter.productId) { where.push("m.product_id = ?"); params.push(filter.productId); }
@@ -685,7 +687,7 @@ export function listMovements(filter: {
     const q = `%${filter.search}%`;
     params.push(q, q, q, q);
   }
-  return all<MovementRow>(
+  return await all<MovementRow>(
     `SELECT m.*, p.sku, p.description, lt.code AS lot_code,
             fl.code AS from_code, tl.code AS to_code, o.name AS operator_name
        FROM inventory_movements m
@@ -701,6 +703,6 @@ export function listMovements(filter: {
   );
 }
 
-export function countMovements(): number {
-  return scalar<number>(`SELECT COUNT(*) FROM inventory_movements`) ?? 0;
+export async function countMovements(): Promise<number> {
+  return await scalar<number>(`SELECT COUNT(*) FROM inventory_movements`) ?? 0;
 }

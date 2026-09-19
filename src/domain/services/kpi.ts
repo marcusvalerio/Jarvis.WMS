@@ -30,14 +30,14 @@ function avg(values: number[]): number | null {
 }
 
 // ------------------------------------------------- acuracidade de estoque
-export function stockAccuracy() {
-  const g = globalAccuracy();
+export async function stockAccuracy() {
+  const g = await globalAccuracy();
   return { ...g, hasData: g.counted > 0 };
 }
 
 // ------------------------------------------------- tempo medio de localizacao
-export function avgLocateMinutes(): { value: number | null; sample: number } {
-  const rows = all<any>(
+export async function avgLocateMinutes(): Promise<{ value: number | null; sample: number }> {
+  const rows = await all<any>(
     `SELECT started_at, location_scanned_at FROM picking_items
       WHERE started_at IS NOT NULL AND location_scanned_at IS NOT NULL`,
   );
@@ -50,20 +50,20 @@ export function avgLocateMinutes(): { value: number | null; sample: number } {
  * Divergencias / operacoes conferidas.
  * Considera as tres conferencias da operacao: recebimento, expedicao e inventario.
  */
-export function divergenceIndex() {
-  const recv = one<any>(
+export async function divergenceIndex() {
+  const recv = await one<any>(
     `SELECT COUNT(*) AS total, SUM(CASE WHEN status = 'DIVERGENCE' THEN 1 ELSE 0 END) AS divs
        FROM receiving_check_items WHERE status <> 'PENDING'`,
   );
-  const ship = one<any>(
+  const ship = await one<any>(
     `SELECT COUNT(*) AS total, SUM(CASE WHEN status = 'DIVERGENCE' THEN 1 ELSE 0 END) AS divs
        FROM shipping_check_items WHERE status <> 'PENDING'`,
   );
-  const count = one<any>(
+  const count = await one<any>(
     `SELECT COUNT(*) AS total, SUM(CASE WHEN divergence <> 0 THEN 1 ELSE 0 END) AS divs
        FROM inventory_count_items WHERE status <> 'PENDING'`,
   );
-  const pick = one<any>(
+  const pick = await one<any>(
     `SELECT COUNT(*) AS total, SUM(CASE WHEN status IN ('DIVERGENCE','SKIPPED') THEN 1 ELSE 0 END) AS divs
        FROM picking_items WHERE status NOT IN ('PENDING','LOCATION_SCANNED','PRODUCT_SCANNED')`,
   );
@@ -82,8 +82,8 @@ export function divergenceIndex() {
 }
 
 // ------------------------------------------------- produtividade de picking
-export function pickingProductivity() {
-  const items = all<any>(
+export async function pickingProductivity() {
+  const items = await all<any>(
     `SELECT started_at, completed_at, picked_qty FROM picking_items
       WHERE started_at IS NOT NULL AND completed_at IS NOT NULL`,
   );
@@ -102,8 +102,8 @@ export function pickingProductivity() {
 }
 
 // ------------------------------------------------- ciclos
-export function avgReceivingMinutes(): { value: number | null; sample: number } {
-  const rows = all<any>(
+export async function avgReceivingMinutes(): Promise<{ value: number | null; sample: number }> {
+  const rows = await all<any>(
     `SELECT arrived_at, completed_at FROM inbound_orders
       WHERE arrived_at IS NOT NULL AND completed_at IS NOT NULL`,
   );
@@ -111,8 +111,8 @@ export function avgReceivingMinutes(): { value: number | null; sample: number } 
   return { value: avg(values), sample: values.length };
 }
 
-export function avgPutawayMinutes(): { value: number | null; sample: number } {
-  const rows = all<any>(
+export async function avgPutawayMinutes(): Promise<{ value: number | null; sample: number }> {
+  const rows = await all<any>(
     `SELECT created_at, stored_at FROM pallets
       WHERE stored_at IS NOT NULL AND origin_kind = 'RECEIVING'`,
   );
@@ -120,8 +120,8 @@ export function avgPutawayMinutes(): { value: number | null; sample: number } {
   return { value: avg(values), sample: values.length };
 }
 
-export function avgShippingMinutes(): { value: number | null; sample: number } {
-  const rows = all<any>(
+export async function avgShippingMinutes(): Promise<{ value: number | null; sample: number }> {
+  const rows = await all<any>(
     `SELECT released_at, shipped_at FROM sales_orders
       WHERE released_at IS NOT NULL AND shipped_at IS NOT NULL`,
   );
@@ -133,8 +133,8 @@ export function avgShippingMinutes(): { value: number | null; sample: number } {
 /**
  * On Time In Full: pedidos expedidos ate o prazo E com quantidade completa.
  */
-export function otif() {
-  const rows = all<any>(
+export async function otif() {
+  const rows = await all<any>(
     `SELECT so.id, so.due_at, so.shipped_at,
             (SELECT COUNT(*) FROM sales_order_items si
               WHERE si.sales_order_id = so.id AND si.shipped_qty < si.quantity) AS incomplete
@@ -158,17 +158,17 @@ export function otif() {
 }
 
 // ------------------------------------------------- painel consolidado
-export function dashboardKpis(): Kpi[] {
-  const acc = stockAccuracy();
-  const locate = avgLocateMinutes();
-  const div = divergenceIndex();
-  const eq = availability();
-  const occ = occupancy();
-  const prod = pickingProductivity();
-  const ot = otif();
-  const recv = avgReceivingMinutes();
-  const put = avgPutawayMinutes();
-  const ship = avgShippingMinutes();
+export async function dashboardKpis(): Promise<Kpi[]> {
+  const acc = await stockAccuracy();
+  const locate = await avgLocateMinutes();
+  const div = await divergenceIndex();
+  const eq = await availability();
+  const occ = await occupancy();
+  const prod = await pickingProductivity();
+  const ot = await otif();
+  const recv = await avgReceivingMinutes();
+  const put = await avgPutawayMinutes();
+  const ship = await avgShippingMinutes();
 
   return [
     {
@@ -271,8 +271,8 @@ export interface PulseEvent {
 }
 
 /** Ultimos eventos relevantes, consolidados de varias fontes. */
-export function operationalPulse(limit = 18): PulseEvent[] {
-  const rows = all<any>(
+export async function operationalPulse(limit = 18): Promise<PulseEvent[]> {
+  const rows = await all<any>(
     `SELECT id, occurred_at AS at, action, entity, entity_id, detail, actor, origin
        FROM audit_logs
       WHERE action IN ('RECEIVE','CHECK','MOVE','PICK','PACK','LOAD','SHIP','RESERVE','COUNT','WEIGH','APPROVE')
@@ -305,34 +305,34 @@ export interface StageSnapshot {
   items: { id: string; label: string; status: string; progress?: string }[];
 }
 
-export function operationSnapshot(): StageSnapshot[] {
-  const inbound = all<any>(
+export async function operationSnapshot(): Promise<StageSnapshot[]> {
+  const inbound = await all<any>(
     `SELECT io.id, io.status, s.name AS supplier_name,
             (SELECT COUNT(*) FROM inbound_order_items ii WHERE ii.inbound_order_id = io.id) AS lines
        FROM inbound_orders io JOIN suppliers s ON s.id = io.supplier_id
       WHERE io.status <> 'CANCELLED' ORDER BY io.scheduled_at`,
   );
-  const storage = all<any>(
+  const storage = await all<any>(
     `SELECT so.id, so.status, so.pallet_id, l.code AS suggested
        FROM storage_orders so LEFT JOIN locations l ON l.id = so.suggested_location_id
       ORDER BY so.created_at`,
   );
-  const picking = all<any>(
+  const picking = await all<any>(
     `SELECT id, status, sales_order_id, done_lines, total_lines FROM picking_orders
       WHERE status <> 'CANCELLED' ORDER BY created_at`,
   );
-  const packing = all<any>(
+  const packing = await all<any>(
     `SELECT id, status, sales_order_id, total_volumes FROM packing_orders
       WHERE status <> 'CANCELLED' ORDER BY created_at`,
   );
-  const checks = all<any>(
+  const checks = await all<any>(
     `SELECT id, status, sales_order_id, divergence_count FROM shipping_checks ORDER BY started_at`,
   );
-  const loading = all<any>(
+  const loading = await all<any>(
     `SELECT id, status, manifest_id, loaded_volumes, expected_volumes FROM loading_operations
       ORDER BY created_at`,
   );
-  const shipped = all<any>(
+  const shipped = await all<any>(
     `SELECT id, status, route, total_volumes FROM shipping_manifests
       WHERE status IN ('LOADED','SHIPPED') ORDER BY created_at`,
   );
@@ -370,34 +370,34 @@ export function operationSnapshot(): StageSnapshot[] {
 }
 
 // ------------------------------------------------- contadores de topo
-export function headline() {
+export async function headline() {
   return {
-    inboundToday: scalar<number>(
+    inboundToday: await scalar<number>(
       `SELECT COUNT(*) FROM inbound_orders WHERE status NOT IN ('COMPLETED','CANCELLED')`,
     ) ?? 0,
-    ordersOpen: scalar<number>(
+    ordersOpen: await scalar<number>(
       `SELECT COUNT(*) FROM sales_orders WHERE status NOT IN ('SHIPPED','CANCELLED')`,
     ) ?? 0,
-    pickingRunning: scalar<number>(
+    pickingRunning: await scalar<number>(
       `SELECT COUNT(*) FROM picking_orders WHERE status = 'IN_PROGRESS'`,
     ) ?? 0,
-    volumesReady: scalar<number>(
+    volumesReady: await scalar<number>(
       `SELECT COUNT(*) FROM volumes WHERE status = 'CHECKED'`,
     ) ?? 0,
-    shippedToday: scalar<number>(
+    shippedToday: await scalar<number>(
       `SELECT COUNT(*) FROM sales_orders WHERE status = 'SHIPPED'`,
     ) ?? 0,
-    incidentsOpen: scalar<number>(
+    incidentsOpen: await scalar<number>(
       `SELECT COUNT(*) FROM incidents WHERE status IN ('OPEN','IN_ANALYSIS')`,
     ) ?? 0,
-    movements: scalar<number>(`SELECT COUNT(*) FROM inventory_movements`) ?? 0,
-    skus: scalar<number>(
+    movements: await scalar<number>(`SELECT COUNT(*) FROM inventory_movements`) ?? 0,
+    skus: await scalar<number>(
       `SELECT COUNT(DISTINCT product_id) FROM inventory WHERE qty_on_hand > 0`,
     ) ?? 0,
-    unitsOnHand: scalar<number>(
+    unitsOnHand: await scalar<number>(
       `SELECT COALESCE(SUM(qty_on_hand),0) FROM inventory`,
     ) ?? 0,
-    unitsReserved: scalar<number>(
+    unitsReserved: await scalar<number>(
       `SELECT COALESCE(SUM(qty_reserved),0) FROM inventory`,
     ) ?? 0,
   };
@@ -408,7 +408,7 @@ export function headline() {
  * AGORA. Durante a apresentacao as barras crescem em tempo real; o estoque
  * inicial (carregado com data retroativa) fica fora da janela, como deve.
  */
-export function movementSeries(hours = 12) {
+export async function movementSeries(hours = 12) {
   const now = Date.now();
   const hourMs = 3_600_000;
   const start = Math.floor(now / hourMs) * hourMs - (hours - 1) * hourMs;
@@ -419,7 +419,7 @@ export function movementSeries(hours = 12) {
     in: 0, out: 0, internal: 0, total: 0,
   }));
 
-  const rows = all<{ kind: string; occurred_at: string }>(
+  const rows = await all<{ kind: string; occurred_at: string }>(
     `SELECT kind, occurred_at FROM inventory_movements WHERE occurred_at >= ?`,
     new Date(start).toISOString(),
   );

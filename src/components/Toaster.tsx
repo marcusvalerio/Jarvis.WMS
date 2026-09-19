@@ -48,6 +48,11 @@ export function Toaster() {
         <div
           key={t.id}
           data-toast={t.ok ? "ok" : "error"}
+          /* Identidade do aviso. Nao muda nada na tela: serve para o teste de
+             ponta a ponta distinguir um aviso NOVO de um ainda visivel da
+             acao anterior — o Toaster mantem apenas os ultimos, entao contar
+             nao basta. */
+          data-toast-id={t.id}
           className={`fade-in flex items-start gap-2.5 p-3.5 rounded-lg border shadow-2xl backdrop-blur-md ${
             t.ok ? "border-success-line bg-success-soft/95" : "border-error-line bg-error-soft/95"
           }`}

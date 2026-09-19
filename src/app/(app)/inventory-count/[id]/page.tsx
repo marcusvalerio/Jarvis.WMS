@@ -18,13 +18,13 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
 
 export default async function CountPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const data = getCount(id);
+  const data = await getCount(id);
   if (!data) notFound();
   const { count, items } = data;
 
   const pending = items.filter((i: any) => i.status === "PENDING");
   const closed = count.status === "COMPLETED";
-  const accuracy = count.accuracy ?? accuracyOf(id);
+  const accuracy = count.accuracy ?? await accuracyOf(id);
 
   return (
     <>

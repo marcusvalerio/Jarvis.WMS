@@ -21,15 +21,15 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
 
 export default async function ManifestPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const data = getManifest(id);
+  const data = await getManifest(id);
   if (!data) notFound();
   const { manifest, orders, loading, transportDoc } = data;
 
-  const eligible = eligibleOrdersForManifest().map((o: any) => ({
+  const eligible = (await eligibleOrdersForManifest()).map((o: any) => ({
     id: o.id, label: `${o.id} — ${o.customer_name} (${o.volume_count} vol)`,
   }));
-  const docks = listDocks().filter((d) => d.kind !== "INBOUND").map((d) => ({ id: d.id, name: d.name }));
-  const forklifts = listEquipment({ kind: "EMPILHADEIRA" }).map((e) => ({ id: e.id, model: e.model }));
+  const docks = (await listDocks()).filter((d) => d.kind !== "INBOUND").map((d) => ({ id: d.id, name: d.name }));
+  const forklifts = (await listEquipment({ kind: "EMPILHADEIRA" })).map((e) => ({ id: e.id, model: e.model }));
 
   return (
     <>

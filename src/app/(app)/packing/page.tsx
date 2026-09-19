@@ -15,8 +15,8 @@ export default async function PackingPage({
   searchParams,
 }: { searchParams: Promise<{ status?: string; search?: string }> }) {
   const sp = await searchParams;
-  const rows = listPacking({ status: sp.status, search: sp.search });
-  const volumes = listVolumes();
+  const rows = await listPacking({ status: sp.status, search: sp.search });
+  const volumes = await listVolumes();
 
   return (
     <>

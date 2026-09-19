@@ -13,10 +13,10 @@ export default async function WarehousePage({
   searchParams,
 }: { searchParams: Promise<{ zone?: string; status?: string; search?: string }> }) {
   const sp = await searchParams;
-  const zones = listZones().filter((z) => ["PICKING", "STORAGE"].includes(z.kind));
-  const locations = locationMap({ zoneId: sp.zone, status: sp.status, search: sp.search })
+  const zones = (await listZones()).filter((z) => ["PICKING", "STORAGE"].includes(z.kind));
+  const locations = (await locationMap({ zoneId: sp.zone, status: sp.status, search: sp.search }))
     .filter((l) => l.kind === "PALLET");
-  const occ = occupancy();
+  const occ = await occupancy();
 
   return (
     <>

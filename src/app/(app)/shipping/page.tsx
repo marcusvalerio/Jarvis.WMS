@@ -16,16 +16,16 @@ import { IconTruckOut, IconArrowRight } from "@/components/ui/Icons";
 export const metadata: Metadata = { title: "Expedicao" };
 export const dynamic = "force-dynamic";
 
-export default function ShippingPage() {
-  const orders = listOrders();
-  const counts = orderCounts();
-  const manifests = listManifests();
-  const shipments = listShipments();
-  const volumes = listVolumes();
-  const eligible = eligibleOrdersForManifest();
-  const docks = listDocks().filter((d) => d.kind !== "INBOUND");
-  const ot = otif();
-  const cycle = avgShippingMinutes();
+export default async function ShippingPage() {
+  const orders = await listOrders();
+  const counts = await orderCounts();
+  const manifests = await listManifests();
+  const shipments = await listShipments();
+  const volumes = await listVolumes();
+  const eligible = await eligibleOrdersForManifest();
+  const docks = (await listDocks()).filter((d) => d.kind !== "INBOUND");
+  const ot = await otif();
+  const cycle = await avgShippingMinutes();
 
   return (
     <>

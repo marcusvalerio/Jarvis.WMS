@@ -38,7 +38,7 @@ const KIND_LABEL: Record<string, string> = {
 };
 
 export async function GET(request: Request) {
-  ensureSeeded();
+  await ensureSeeded();
   const q = (new URL(request.url).searchParams.get("q") ?? "").trim();
   if (q.length < 2) return NextResponse.json({ hits: [] });
 
@@ -52,7 +52,7 @@ export async function GET(request: Request) {
   };
 
   // 1. Leitura exata (coletora): resolve direto para a entidade.
-  const scan = resolveScan(q);
+  const scan = await resolveScan(q);
   if (scan.found && scan.id) {
     push({
       kind: scan.kind, kindLabel: KIND_LABEL[scan.kind] ?? scan.kind, id: scan.id,
@@ -64,35 +64,35 @@ export async function GET(request: Request) {
   // 2. Busca textual nas entidades operacionais.
   const like = `%${q}%`;
 
-  for (const r of all<any>(
+  for (const r of await all<any>(
     `SELECT id, sku, description FROM products
       WHERE sku LIKE ? OR description LIKE ? OR category LIKE ? LIMIT 5`, like, like, like)) {
     push({ kind: "PRODUCT", kindLabel: "Produto", id: r.id, title: r.sku, subtitle: r.description, href: `/inventory/${r.id}` });
   }
-  for (const r of all<any>(
+  for (const r of await all<any>(
     `SELECT so.id, so.status, c.name FROM sales_orders so JOIN customers c ON c.id = so.customer_id
       WHERE so.id LIKE ? OR c.name LIKE ? LIMIT 5`, like, like)) {
     push({ kind: "SALES_ORDER", kindLabel: "Pedido", id: r.id, title: r.id, subtitle: r.name, href: `/shipping/orders/${r.id}`, status: r.status });
   }
-  for (const r of all<any>(
+  for (const r of await all<any>(
     `SELECT io.id, io.status, s.name FROM inbound_orders io JOIN suppliers s ON s.id = io.supplier_id
       WHERE io.id LIKE ? OR s.name LIKE ? OR io.vehicle_plate LIKE ? LIMIT 5`, like, like, like)) {
     push({ kind: "INBOUND_ORDER", kindLabel: "Recebimento", id: r.id, title: r.id, subtitle: r.name, href: `/receiving/${r.id}`, status: r.status });
   }
-  for (const r of all<any>(
+  for (const r of await all<any>(
     `SELECT l.id, l.code, z.name FROM locations l JOIN zones z ON z.id = l.zone_id
       WHERE l.code LIKE ? OR l.id LIKE ? LIMIT 5`, like, like)) {
     push({ kind: "LOCATION", kindLabel: "Endereco", id: r.id, title: r.code, subtitle: r.name, href: `/warehouse/${r.id}` });
   }
-  for (const r of all<any>(
+  for (const r of await all<any>(
     `SELECT id, status, origin_ref FROM pallets WHERE id LIKE ? LIMIT 4`, like)) {
     push({ kind: "PALLET", kindLabel: "Palete", id: r.id, title: r.id, subtitle: `origem ${r.origin_ref ?? "—"}`, href: `/warehouse/pallets/${r.id}`, status: r.status });
   }
-  for (const r of all<any>(
+  for (const r of await all<any>(
     `SELECT id, status, sales_order_id FROM volumes WHERE id LIKE ? LIMIT 4`, like)) {
     push({ kind: "VOLUME", kindLabel: "Volume", id: r.id, title: r.id, subtitle: r.sales_order_id ?? "", href: `/documents/volume-label/${r.id}`, status: r.status });
   }
-  for (const r of all<any>(
+  for (const r of await all<any>(
     `SELECT id, route, status FROM shipping_manifests WHERE id LIKE ? OR route LIKE ? LIMIT 4`, like, like)) {
     push({ kind: "MANIFEST", kindLabel: "Romaneio", id: r.id, title: r.id, subtitle: r.route, href: `/shipping/manifests/${r.id}`, status: r.status });
   }

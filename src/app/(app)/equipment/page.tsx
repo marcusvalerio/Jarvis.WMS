@@ -15,9 +15,9 @@ const KIND_LABEL: Record<string, string> = {
   IMPRESSORA: "Impressoras", BALANCA: "Balancas",
 };
 
-export default function EquipmentPage() {
-  const list = listEquipment();
-  const av = availability();
+export default async function EquipmentPage() {
+  const list = await listEquipment();
+  const av = await availability();
   const kinds = [...new Set(list.map((e) => e.kind))];
 
   return (

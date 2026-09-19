@@ -16,9 +16,9 @@ export const metadata: Metadata = {
  * alvo unico por tela, texto grande, alto contraste e area de toque ampla.
  */
 export default async function MobileLayout({ children }: { children: React.ReactNode }) {
-  ensureSeeded();
+  await ensureSeeded();
   const operator = await currentOperator();
-  const scenario = getScenario();
+  const scenario = await getScenario();
 
   return (
     <div className="min-h-dvh bg-bg flex flex-col">

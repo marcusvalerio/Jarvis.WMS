@@ -11,8 +11,8 @@ export default async function MobileCountPage({
   searchParams,
 }: { searchParams: Promise<{ id?: string }> }) {
   const sp = await searchParams;
-  const open = listCounts().filter((c) => ["PENDING", "IN_PROGRESS"].includes(c.status));
-  const selected = sp.id ? getCount(sp.id) : open.length === 1 ? getCount(open[0].id) : null;
+  const open = (await listCounts()).filter((c) => ["PENDING", "IN_PROGRESS"].includes(c.status));
+  const selected = sp.id ? await getCount(sp.id) : open.length === 1 ? await getCount(open[0].id) : null;
 
   if (!selected) {
     return (
@@ -43,7 +43,7 @@ export default async function MobileCountPage({
   }
 
   const { count, items } = selected;
-  const current = currentCountItem(count.id);
+  const current = await currentCountItem(count.id);
 
   return (
     <>

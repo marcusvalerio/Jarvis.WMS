@@ -19,7 +19,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
 
 export default async function LocationPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const data = locationDetail(id);
+  const data = await locationDetail(id);
   if (!data) notFound();
   const { location, contents, lastMoves } = data;
 

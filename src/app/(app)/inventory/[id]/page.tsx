@@ -21,11 +21,11 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
 
 export default async function ProductPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const product = one<any>(`SELECT * FROM products WHERE id = ? OR sku = ?`, id, id);
+  const product = await one<any>(`SELECT * FROM products WHERE id = ? OR sku = ?`, id, id);
   if (!product) notFound();
 
-  const stock = stockOf(product.id);
-  const rows = all<any>(
+  const stock = await stockOf(product.id);
+  const rows = await all<any>(
     `SELECT i.*, l.code AS location_code, z.name AS zone_name, lt.code AS lot_code, lt.expires_at
        FROM inventory i
        JOIN locations l ON l.id = i.location_id
@@ -35,9 +35,9 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
       ORDER BY COALESCE(lt.expires_at,'9999'), l.code`,
     product.id,
   );
-  const barcodes = all<any>(`SELECT * FROM product_barcodes WHERE product_id = ? ORDER BY is_primary DESC`, product.id);
-  const moves = listMovements({ productId: product.id, limit: 25 });
-  const trace = traceProduct(product.id);
+  const barcodes = await all<any>(`SELECT * FROM product_barcodes WHERE product_id = ? ORDER BY is_primary DESC`, product.id);
+  const moves = await listMovements({ productId: product.id, limit: 25 });
+  const trace = await traceProduct(product.id);
 
   return (
     <>

@@ -17,7 +17,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
 
 export default async function PurchaseOrderPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const data = getPurchaseOrder(id);
+  const data = await getPurchaseOrder(id);
   if (!data) notFound();
   const { po, items, inbound } = data;
 

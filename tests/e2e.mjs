@@ -15,6 +15,16 @@ const browser = await chromium.launch({
 });
 const page = await browser.newPage({ viewport: { width: 1500, height: 1000 } });
 
+/**
+ * Orcamento de tempo das acoes do Playwright. O padrao de 30s basta com um
+ * PostgreSQL local, mas contra um banco remoto (Neon) cada tela custa varias
+ * idas e vindas de rede. E limite de espera, nao de cobertura: nenhuma etapa
+ * do percurso deixa de ser executada ou verificada por causa dele.
+ *   E2E_TIMEOUT=90000 npm run test:e2e
+ */
+const ACTION_TIMEOUT = Number(process.env.E2E_TIMEOUT ?? 30000);
+page.setDefaultTimeout(ACTION_TIMEOUT);
+
 const errors = [];
 page.on("pageerror", (e) => errors.push(`[pageerror] ${e.message}`));
 page.on("console", (m) => { if (m.type() === "error") errors.push(`[console] ${m.text()}`); });
@@ -28,25 +38,58 @@ function log(ok, label, extra = "") {
   console.log(`${ok ? "ok  " : "FAIL"} ${String(step).padStart(2, "0")} · ${label}${extra ? ` — ${extra}` : ""}`);
 }
 async function go(path) {
-  await page.goto(BASE + path, { waitUntil: "networkidle", timeout: 45000 });
+  await page.goto(BASE + path, { waitUntil: "networkidle", timeout: ACTION_TIMEOUT });
 }
 /**
  * Clica e espera a server action REALMENTE concluir.
  * Toda acao publica um aviso no Toaster; esperar por ele e o unico sinal
  * confiavel de que a operacao terminou e a tela ja revalidou.
  */
-async function act(selector, { expect: expectText, timeout = 45000, ui = false } = {}) {
+/** Identificadores dos avisos atualmente na tela. */
+async function toastIds() {
+  return page.locator("[data-toast-id]").evaluateAll((els) =>
+    els.map((e) => e.getAttribute("data-toast-id")));
+}
+
+/**
+ * Clica e espera a acao REALMENTE concluir.
+ *
+ * O sinal de conclusao e um destes, o que vier primeiro:
+ *   · um aviso NOVO no Toaster, identificado por data-toast-id;
+ *   · o texto esperado surgindo na tela, quando ele ainda nao estava la.
+ *
+ * Esperar apenas "o texto aparecer" nao basta: um aviso da acao anterior
+ * continua visivel por 5 a 9 segundos e casaria de imediato, fazendo o teste
+ * seguir enquanto a server action ainda roda. Com banco local as acoes
+ * levavam milissegundos e a corrida nunca aparecia; contra um banco remoto,
+ * onde o reset leva segundos, o teste passava a ler um banco em pleno
+ * recarregamento. Contar avisos tambem nao serve: o Toaster guarda apenas os
+ * ultimos, e um novo pode substituir um antigo.
+ */
+async function act(selector, { expect: expectText, timeout = ACTION_TIMEOUT, ui = false } = {}) {
+  const seen = await toastIds();
+  const textoJaVisivel = expectText
+    ? await page.evaluate((t) => (document.body.textContent || "").includes(t), expectText)
+    : false;
+
   await page.locator(selector).first().click();
   if (ui) {
     // Botao que apenas revela um formulario — nao dispara server action.
     await page.waitForTimeout(260);
     return;
   }
-  if (expectText) {
-    await page.getByText(expectText, { exact: false }).first().waitFor({ timeout });
-  } else {
-    await page.locator("[data-toast]").first().waitFor({ timeout });
-  }
+
+  await page.waitForFunction(
+    ({ seen, text, jaVisivel }) => {
+      const avisoNovo = [...document.querySelectorAll("[data-toast-id]")]
+        .some((e) => !seen.includes(e.getAttribute("data-toast-id")));
+      if (avisoNovo) return true;
+      if (!text || jaVisivel) return false;
+      return (document.body.textContent || "").includes(text);
+    },
+    { seen, text: expectText ?? null, jaVisivel: textoJaVisivel },
+    { timeout },
+  );
   await page.waitForLoadState("networkidle", { timeout });
   await page.waitForTimeout(260);
 }
@@ -82,7 +125,7 @@ try {
 
     await act('button:has-text("Iniciar conferencia")', { expect: "Conferencia iniciada" });
     await page.locator('form:has(button:has-text("Confirmar linha"))')
-      .first().waitFor({ timeout: 45000 });
+      .first().waitFor({ timeout: ACTION_TIMEOUT });
 
     // conferencia: primeira linha do OR-000001 com divergencia proposital
     let conferidas = 0;
@@ -102,7 +145,7 @@ try {
       await form.locator('button:has-text("Confirmar linha")').click();
       // espera o aviso da acao, nao apenas a rede: a revalidacao pode
       // chegar depois do networkidle
-      await page.locator("[data-toast]").first().waitFor({ timeout: 45000 });
+      await page.locator("[data-toast]").first().waitFor({ timeout: ACTION_TIMEOUT });
       await page.waitForLoadState("networkidle");
       await page.waitForTimeout(350);
       conferidas++;
@@ -116,7 +159,7 @@ try {
 
     // so encerra quando o botao deixa de estar bloqueado por linha pendente
     await page.locator('button:has-text("Encerrar conferencia"):not([disabled])')
-      .first().waitFor({ timeout: 45000 });
+      .first().waitFor({ timeout: ACTION_TIMEOUT });
     await act('button:has-text("Encerrar conferencia")');
     if (orderId === "OR-000001") {
       await page.locator('textarea[name="reason"]').fill("Falta de 1 CX aceita — debito ao fornecedor.");
@@ -160,7 +203,7 @@ try {
   await page.locator("a", { hasText: "PCK-" }).first().click();
   await page.waitForLoadState("networkidle");
   await act('button:has-text("Iniciar")', { expect: "Bipe o endereco" });
-  await page.locator('input[name="code"]').first().waitFor({ timeout: 45000 });
+  await page.locator('input[name="code"]').first().waitFor({ timeout: ACTION_TIMEOUT });
   log(true, "Separacao iniciada na coletora");
 
   // teste critico: endereco incorreto e recusado
@@ -189,7 +232,7 @@ try {
   let recusouProduto = false;
 
   for (let volta = 0; volta < 16; volta++) {
-    await passoVisivel().waitFor({ state: "visible", timeout: 45000 });
+    await passoVisivel().waitFor({ state: "visible", timeout: ACTION_TIMEOUT });
 
     if (await page.getByText("SEPARACAO FINALIZADA", { exact: false }).count()) break;
 
@@ -208,7 +251,7 @@ try {
         await act(BTN_PRODUTO, { expect: "PRODUTO INCORRETO" });
         log(true, "Coletora RECUSOU produto incorreto");
         recusouProduto = true;
-        await page.locator(BTN_PRODUTO).first().waitFor({ timeout: 20000 });
+        await page.locator(BTN_PRODUTO).first().waitFor({ timeout: Math.min(20000, ACTION_TIMEOUT) });
       }
       await page.locator('input[name="code"]').fill(sku);
       await act(BTN_PRODUTO);
@@ -223,7 +266,7 @@ try {
   }
 
   await page.getByText("SEPARACAO FINALIZADA", { exact: false })
-    .first().waitFor({ timeout: 30000 }).catch(() => {});
+    .first().waitFor({ timeout: ACTION_TIMEOUT }).catch(() => {});
   const pickDone = await has("SEPARACAO FINALIZADA");
   log(pickDone, `Separacao concluida na coletora (${lines} linhas)`);
 
@@ -237,7 +280,7 @@ try {
   await act('button:has-text("Iniciar embalagem")', { expect: "Novo volume" });
   await act('button:has-text("Novo volume")', { ui: true });
   await act('button:has-text("Criar volume")', { expect: "VOL-" });
-  await page.locator('button:has-text("Embalar")').first().waitFor({ timeout: 45000 });
+  await page.locator('button:has-text("Embalar")').first().waitFor({ timeout: ACTION_TIMEOUT });
   log(true, "Volume criado na embalagem");
 
   let packed = 0;
@@ -248,7 +291,7 @@ try {
     await page.waitForTimeout(250);
   }
   await page.getByText("ja esta embalado", { exact: false })
-    .first().waitFor({ timeout: 30000 }).catch(() => {});
+    .first().waitFor({ timeout: ACTION_TIMEOUT }).catch(() => {});
   const tudoEmbalado = await has("ja esta embalado");
   log(tudoEmbalado, `Itens embalados no volume (${packed})`);
 
@@ -258,7 +301,7 @@ try {
   // ------------------------------------------------------ 6. conferencia de expedicao
   await go("/shipping/orders/PED-000125");
   await act('button:has-text("Iniciar conferencia de expedicao")', { expect: "Bipe o volume" });
-  await page.locator('input[name="code"]').first().waitFor({ timeout: 45000 });
+  await page.locator('input[name="code"]').first().waitFor({ timeout: ACTION_TIMEOUT });
 
   const volumeIds = await page.locator("a[href^='/documents/volume-label/']").allInnerTexts();
   const vols = [...new Set(volumeIds.map((v) => v.trim()).filter((v) => /^VOL-\d+$/.test(v)))];
@@ -286,13 +329,13 @@ try {
   // ------------------------------------------------------ 8. carregamento
   await act('button:has-text("Iniciar carregamento")', { expect: "CAR-" });
   await go("/mobile/loading");
-  await page.locator('input[name="code"]').first().waitFor({ timeout: 45000 });
+  await page.locator('input[name="code"]').first().waitFor({ timeout: ACTION_TIMEOUT });
   for (const v of vols) {
     await page.locator('input[name="code"]').first().fill(v);
     await act('button:has-text("Carregar volume")');
   }
   await page.getByText("CARGA COMPLETA", { exact: false })
-    .first().waitFor({ timeout: 30000 }).catch(() => {});
+    .first().waitFor({ timeout: ACTION_TIMEOUT }).catch(() => {});
   const cargaCompleta = await has("CARGA COMPLETA");
   log(cargaCompleta, `Volumes carregados pela coletora (${vols.length})`);
 

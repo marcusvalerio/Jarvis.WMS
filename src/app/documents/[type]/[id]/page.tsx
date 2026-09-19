@@ -42,7 +42,7 @@ export default async function DocumentPage({
   const def = docType(type);
   if (!def) notFound();
 
-  const node = render(type, id);
+  const node = await render(type, id);
   if (!node) notFound();
 
   return (
@@ -72,27 +72,27 @@ function backFor(type: string, id: string): string {
   }
 }
 
-function render(type: string, id: string) {
+async function render(type: string, id: string) {
   switch (type) {
     // ------------------------------------------------------------ entrada
     case "purchase-order": {
-      const d = getPurchaseOrder(id);
+      const d = await getPurchaseOrder(id);
       return d ? <PurchaseOrderDoc po={d.po} items={d.items} /> : null;
     }
     case "inbound-order": {
-      const d = getInbound(id);
+      const d = await getInbound(id);
       return d ? <InboundOrderDoc order={d.order} items={d.items} invoice={d.invoice} /> : null;
     }
     case "invoice": {
-      const d = getInvoice(id);
+      const d = await getInvoice(id);
       return d ? <InvoiceDoc invoice={d.invoice} items={d.items} issuer={d.issuer} recipient={d.recipient} /> : null;
     }
     case "weighing": {
-      const w = getWeighing(id);
+      const w = await getWeighing(id);
       return w ? <WeighingDoc weighing={w} /> : null;
     }
     case "receiving-checklist": {
-      const d = getInbound(id);
+      const d = await getInbound(id);
       return d ? (
         <ReceivingChecklistDoc
           order={d.order} items={d.items} check={d.check}
@@ -101,9 +101,9 @@ function render(type: string, id: string) {
       ) : null;
     }
     case "product-label": {
-      const product = one<any>(`SELECT * FROM products WHERE id = ? OR sku = ?`, id, id);
+      const product = await one<any>(`SELECT * FROM products WHERE id = ? OR sku = ?`, id, id);
       if (!product) return null;
-      const barcodes = all<any>(
+      const barcodes = await all<any>(
         `SELECT * FROM product_barcodes WHERE product_id = ? ORDER BY is_primary DESC`, product.id,
       );
       return <ProductLabel product={product} barcodes={barcodes} />;
@@ -111,21 +111,21 @@ function render(type: string, id: string) {
 
     // -------------------------------------------------------- armazenagem
     case "storage-order": {
-      const so = getStorageOrder(id);
+      const so = await getStorageOrder(id);
       if (!so) return null;
-      const p = getPallet(so.pallet_id);
+      const p = await getPallet(so.pallet_id);
       return <StorageOrderDoc order={so} pallet={p?.pallet} items={p?.items ?? []} />;
     }
     case "pallet-label": {
-      const d = getPallet(id);
+      const d = await getPallet(id);
       return d ? <PalletLabel pallet={d.pallet} items={d.items} /> : null;
     }
     case "location-label": {
-      const d = locationDetail(id);
+      const d = await locationDetail(id);
       return d ? <LocationLabel location={d.location} /> : null;
     }
     case "movement": {
-      const moves = listMovements({ palletId: id, limit: 200 });
+      const moves = await listMovements({ palletId: id, limit: 200 });
       return moves.length
         ? <MovementDoc movements={moves} title={`Movimentos do palete ${id}`} refId={id} />
         : null;
@@ -133,39 +133,39 @@ function render(type: string, id: string) {
 
     // --------------------------------------------------------------- saida
     case "sales-order": {
-      const d = getOrder(id);
+      const d = await getOrder(id);
       return d ? <SalesOrderDoc order={d.order} items={d.items} /> : null;
     }
     case "picklist": {
-      const d = getPicking(id);
+      const d = await getPicking(id);
       return d ? <PicklistDoc picking={d.picking} items={d.items} /> : null;
     }
     case "packing-list": {
-      const d = packingListData(id);
+      const d = await packingListData(id);
       return d ? <PackingListDoc order={d.order} volumes={d.volumes} /> : null;
     }
     case "volume-label": {
-      const d = getVolume(id);
+      const d = await getVolume(id);
       return d ? <VolumeLabel volume={d.volume} items={d.items} /> : null;
     }
     case "shipping-check": {
-      const d = getShippingCheck(id);
+      const d = await getShippingCheck(id);
       return d ? <ShippingCheckDoc check={d.check} items={d.items} volumes={d.volumes} /> : null;
     }
     case "manifest": {
-      const d = getManifest(id);
+      const d = await getManifest(id);
       return d ? <ManifestDoc manifest={d.manifest} orders={d.orders} /> : null;
     }
     case "transport": {
-      const d = getTransportDocument(id);
+      const d = await getTransportDocument(id);
       return d?.doc ? <TransportDoc doc={d.doc} manifest={d.manifest} orders={d.orders ?? []} /> : null;
     }
     case "loading-checklist": {
-      const d = getLoading(id);
+      const d = await getLoading(id);
       return d ? <LoadingChecklistDoc loading={d.loading} expected={d.expected} /> : null;
     }
     case "shipping-receipt": {
-      const d = getOrder(id);
+      const d = await getOrder(id);
       if (!d) return null;
       const manifest = d.manifest ?? null;
       return (
