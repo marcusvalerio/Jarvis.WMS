@@ -16,10 +16,15 @@ export const SCENARIO_NAME = "Operacao Logistica — Apresentacao";
 
 export const WAREHOUSE = {
   id: "CD-01",
-  name: "Centro de Distribuicao Jarvis — Unidade Sao Paulo",
+  name: "Jarvis Logistica e Armazenagem LTDA",
+  tradeName: "Centro de Distribuicao Jarvis — Unidade Sao Paulo",
+  cnpj: "55666777000188",
+  ie: "999.888.777.666",
   address: "Rodovia Anhanguera, km 24, Galpao 3",
   city: "Cajamar",
   state: "SP",
+  zip: "07750-000",
+  phone: "(11) 4446-3000",
 };
 
 export const ZONES = [

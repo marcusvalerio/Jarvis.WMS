@@ -97,7 +97,10 @@ CREATE TABLE IF NOT EXISTS lots (
 CREATE TABLE IF NOT EXISTS warehouses (
   id            TEXT PRIMARY KEY,           -- CD-01
   name          TEXT NOT NULL,
-  address       TEXT, city TEXT, state TEXT,
+  cnpj          TEXT,                       -- ficticio (simulacao)
+  ie            TEXT,
+  address       TEXT, city TEXT, state TEXT, zip TEXT,
+  phone         TEXT,
   created_at    TEXT NOT NULL
 );
 

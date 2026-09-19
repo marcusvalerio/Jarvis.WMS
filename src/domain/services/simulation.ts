@@ -85,8 +85,9 @@ export function seed(actor = "SISTEMA"): SeedResult {
 
     // ----------------------------------------------------------- estrutura
     insert("warehouses", {
-      id: WAREHOUSE.id, name: WAREHOUSE.name, address: WAREHOUSE.address,
-      city: WAREHOUSE.city, state: WAREHOUSE.state, created_at: now,
+      id: WAREHOUSE.id, name: WAREHOUSE.name, cnpj: WAREHOUSE.cnpj, ie: WAREHOUSE.ie,
+      address: WAREHOUSE.address, city: WAREHOUSE.city, state: WAREHOUSE.state,
+      zip: WAREHOUSE.zip, phone: WAREHOUSE.phone, created_at: now,
     });
 
     for (const z of ZONES) {
