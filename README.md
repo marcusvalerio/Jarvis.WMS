@@ -174,7 +174,7 @@ os enderecos de recebimento e staging de expedicao.
 ## Arquitetura
 
 ```
-db/schema.sql              esquema (50 tabelas)
+db/schema.sql              esquema (51 tabelas)
 src/lib/                   banco, identificadores, Code 128, formatacao
 src/domain/states.ts       estados e transicoes centralizados
 src/domain/services/       regras de negocio por dominio
