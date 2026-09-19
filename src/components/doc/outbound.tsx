@@ -282,11 +282,11 @@ export function ManifestDoc({
         title="Romaneio de carga" number={manifest.id} issuedAt={manifest.created_at} code={manifest.id}
         subtitle={`Rota ${manifest.route}`}
         extra={
-          <DocFields cols={4} fields={[
-            { label: "Transportadora", value: manifest.carrier ?? "—" },
+          <DocFields cols={3} fields={[
+            { label: "Transportador", value: manifest.carrier ?? "—" },
             { label: "Veiculo", value: `${manifest.vehicle_kind ?? ""} ${manifest.vehicle_plate ?? "—"}` },
             { label: "Motorista", value: manifest.driver_name ?? "—" },
-            { label: "Documento", value: manifest.driver_doc ?? "—" },
+            { label: "Doc. motorista", value: manifest.driver_doc ?? "—" },
             { label: "Doca", value: manifest.dock_name ?? "—" },
             { label: "Lacre", value: <b>{manifest.seal ?? "________"}</b> },
             { label: "Saida", value: fmtDateTime(manifest.departed_at) },

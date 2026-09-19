@@ -262,7 +262,12 @@
 /* IMPRESSAO — documentos operacionais em papel branco                   */
 /* ===================================================================== */
 @media print {
-  @page { size: A4; margin: 12mm; }
+  /*
+   * Margem zero na pagina: quem define o recuo e o padding da propria
+   * folha. Com margem aqui, a altura minima de 297mm da folha nao caberia
+   * na area util e todo documento sairia com uma segunda pagina em branco.
+   */
+  @page { margin: 0; }
 
   html, body {
     background: #FFFFFF !important;

@@ -38,7 +38,7 @@ export function DocHeader({
           DOCUMENTO SIMULADO — USO ACADEMICO
         </p>
       )}
-      <div className="flex items-start justify-between gap-6 pb-3 border-b-2 border-black">
+      <div className="flex items-start justify-between gap-8 pb-3 border-b-2 border-black">
         <div className="flex items-start gap-3">
           <span className="w-9 h-9 border-2 border-black flex items-center justify-center flex-none mt-0.5">
             <svg width="20" height="20" viewBox="0 0 16 16" aria-hidden>
@@ -51,9 +51,8 @@ export function DocHeader({
               JARVIS WMS
             </p>
             <p className="text-[8pt] leading-snug mt-0.5">{WAREHOUSE.tradeName}</p>
-            <p className="text-[8pt] leading-snug">
-              {WAREHOUSE.name} — CNPJ {fmtCnpj(WAREHOUSE.cnpj)}
-            </p>
+            <p className="text-[8pt] leading-snug">{WAREHOUSE.name}</p>
+            <p className="text-[8pt] leading-snug">CNPJ {fmtCnpj(WAREHOUSE.cnpj)}</p>
             <p className="text-[8pt] leading-snug">
               {WAREHOUSE.address} — {WAREHOUSE.city}/{WAREHOUSE.state}
             </p>
@@ -65,9 +64,9 @@ export function DocHeader({
             {title}
           </p>
           {subtitle && <p className="text-[8.5pt] mt-0.5">{subtitle}</p>}
-          <div className="flex items-center justify-end gap-4 mt-1.5 text-[8.5pt]">
-            {number && <span><b>N.</b> {number}</span>}
-            {issuedAt && <span><b>Emissao</b> {fmtDateTime(issuedAt)}</span>}
+          <div className="flex items-center justify-end flex-wrap gap-x-4 gap-y-0.5 mt-1.5 text-[8.5pt]">
+            {number && <span className="whitespace-nowrap"><b>N.</b> {number}</span>}
+            {issuedAt && <span className="whitespace-nowrap"><b>Emissao</b> {fmtDateTime(issuedAt)}</span>}
           </div>
         </div>
       </div>
@@ -102,10 +101,10 @@ export function DocFields({
   fields, cols = 4,
 }: { fields: { label: string; value: ReactNode; span?: number }[]; cols?: number }) {
   return (
-    <dl className="grid gap-x-4 gap-y-2" style={{ gridTemplateColumns: `repeat(${cols}, minmax(0,1fr))` }}>
+    <dl className="grid gap-x-5 gap-y-2" style={{ gridTemplateColumns: `repeat(${cols}, minmax(0,1fr))` }}>
       {fields.map((f, i) => (
         <div key={i} style={{ gridColumn: f.span ? `span ${f.span}` : undefined }}>
-          <dt className="text-[6.8pt] tracking-[0.1em] uppercase text-[#555]">{f.label}</dt>
+          <dt className="text-[6.8pt] tracking-[0.06em] uppercase text-[#555] break-words">{f.label}</dt>
           <dd className="text-[9pt] leading-snug break-words">{f.value || "—"}</dd>
         </div>
       ))}
