@@ -11,7 +11,7 @@ const SCREENS = [
   "/", "/dashboard", "/operations",
   "/receiving", "/receiving/OR-000001", "/receiving/OR-000002", "/receiving/weighing",
   "/purchasing", "/purchasing/PC-000001",
-  "/inventory", "/inventory/SKU-001", "/inventory/SKU-005", "/inventory/movements",
+  "/inventory", "/inventory/SKU-001", "/inventory/SKU-002", "/inventory/movements",
   "/warehouse", "/warehouse/END-A010101", "/warehouse/storage", "/warehouse/pallets",
   "/shipping", "/shipping/orders", "/shipping/orders/PED-000125",
   "/shipping/manifests", "/shipping/loading",

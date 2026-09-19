@@ -1,30 +1,38 @@
 /**
- * CENARIO SIM-001 — "Operacao Logistica — Apresentacao"
+ * CENARIO SIM-001 — "LOG122 — Operacao Integrada"
  *
  * Dados 100% deterministicos. Os mesmos registros alimentam simultaneamente
  * o WMS e os documentos impressos: nao existe documento "de mentira" — cada
  * PDF e renderizado a partir destas entidades.
  *
- * Balanco planejado da apresentacao (conforme roteiro):
- *   ESTOQUE INICIAL   SKU-001 40 · SKU-002 25 · SKU-003 60 · SKU-004 30
- *   RECEBIMENTO       SKU-001 +20 · SKU-003 +30 · SKU-005 +40
- *   PEDIDO PED-000125 SKU-001 -15 · SKU-003 -20 · SKU-005 -10
+ * Balanco planejado da apresentacao:
+ *   ESTOQUE INICIAL  SKU-001 120 un · SKU-002 120 un  (2 lotes cada, para FEFO)
+ *   RECEBIMENTO      10 caixas = 120 shampoos + 120 condicionadores
+ *                    OR-000001 6 caixas (72+72) · OR-000002 4 caixas (48+48)
+ *   DISPONIVEL       240 un de cada SKU
+ *   EXPEDICAO        18 caixas = 216 shampoos + 216 condicionadores
+ *                    6 pedidos x 3 caixas · 2 rotas x 9 caixas
+ *   SALDO FINAL      24 un de cada SKU
+ *
+ * A CAIXA e a unidade logistica da operacao: 12 shampoos + 12 condicionadores,
+ * 24 unidades. Cada caixa expedida vira um volume com identidade propria
+ * (VOL-000001...VOL-000018) e etiqueta Code 128.
  */
 
 export const SCENARIO_ID = "SIM-001";
-export const SCENARIO_NAME = "Operacao Logistica — Apresentacao";
+export const SCENARIO_NAME = "LOG122 — Operacao Integrada";
 
 export const WAREHOUSE = {
   id: "CD-01",
-  name: "Jarvis Logistica e Armazenagem LTDA",
-  tradeName: "Centro de Distribuicao Jarvis — Unidade Sao Paulo",
-  cnpj: "55666777000188",
-  ie: "999.888.777.666",
-  address: "Rodovia Anhanguera, km 24, Galpao 3",
-  city: "Cajamar",
-  state: "SP",
-  zip: "07750-000",
-  phone: "(11) 4446-3000",
+  name: "LOG122 Logistica Integrada LTDA",
+  tradeName: "LOG122 — Sede Santa Cruz",
+  cnpj: "12200122000110",
+  ie: "122.200.122.000",
+  address: "Avenida Joao XXIII, 1220 — Distrito Industrial de Santa Cruz",
+  city: "Rio de Janeiro",
+  state: "RJ",
+  zip: "23565-000",
+  phone: "(21) 3122-0122",
 };
 
 export const ZONES = [
@@ -50,9 +58,9 @@ export const DOCKS = [
 ];
 
 export const USERS = [
-  { id: "USR-0001", name: "Marcus Valerio", email: "supervisor@jarvis.wms", role: "ADMIN" },
-  { id: "USR-0002", name: "Carlos Andrade", email: "carlos.andrade@jarvis.wms", role: "SUPERVISOR" },
-  { id: "USR-0003", name: "Marina Lopes", email: "marina.lopes@jarvis.wms", role: "OPERATOR" },
+  { id: "USR-0001", name: "Marcus Valerio", email: "supervisor@log122.sim", role: "ADMIN" },
+  { id: "USR-0002", name: "Carlos Andrade", email: "carlos.andrade@log122.sim", role: "SUPERVISOR" },
+  { id: "USR-0003", name: "Marina Lopes", email: "marina.lopes@log122.sim", role: "OPERATOR" },
 ];
 
 export const OPERATORS = [
@@ -64,37 +72,63 @@ export const OPERATORS = [
 
 export const SUPPLIERS = [
   {
-    id: "FOR-0001", name: "Distribuidora Andrade Autopecas LTDA", trade: "Andrade Autopecas",
+    id: "FOR-0001", name: "Distribuidora Higiene e Beleza Guandu LTDA", trade: "Guandu Distribuidora",
     cnpj: "12345678000190", ie: "111.222.333.444",
-    address: "Av. das Industrias, 1250", city: "Diadema", state: "SP", zip: "09960-000",
-    phone: "(11) 4055-1200", email: "comercial@andradeautopecas.sim",
+    address: "Rodovia Presidente Dutra, km 192, Galpao 7", city: "Nova Iguacu", state: "RJ", zip: "26030-570",
+    phone: "(21) 2667-4400", email: "comercial@guandudistribuidora.sim",
   },
   {
-    id: "FOR-0002", name: "Metalurgica Sul Componentes S/A", trade: "Metalurgica Sul",
+    id: "FOR-0002", name: "Atacado Sul Fluminense Cosmeticos S/A", trade: "Sul Fluminense Cosmeticos",
     cnpj: "98765432000155", ie: "555.666.777.888",
-    address: "Rua Joaquim Nabuco, 480", city: "Joinville", state: "SC", zip: "89201-200",
-    phone: "(47) 3433-9000", email: "vendas@metalurgicasul.sim",
+    address: "Avenida Nossa Senhora das Gracas, 980", city: "Duque de Caxias", state: "RJ", zip: "25071-210",
+    phone: "(21) 2671-9100", email: "vendas@sulfluminensecosmeticos.sim",
   },
 ];
 
+/**
+ * Destinos de entrega: seis unidades do Supermercado Guanabara.
+ * Logradouros e CEPs verificados em diretorios publicos (set/2026). O CNPJ e
+ * simulado — a operacao e academica e nao emite documento fiscal real.
+ *
+ * ATENCAO: a SEDE LOG122 tambem fica em Santa Cruz, mas e origem e retorno
+ * das rotas, NAO um destino. Sao entidades distintas: a sede e WAREHOUSE.
+ */
 export const CUSTOMERS = [
   {
-    id: "CLI-0001", name: "Auto Center Ipiranga LTDA", trade: "Auto Center Ipiranga",
-    cnpj: "22333444000101", ie: "222.333.444.555",
-    address: "Av. Nazare, 2100", city: "Sao Paulo", state: "SP", zip: "04262-100",
-    phone: "(11) 2274-8800", email: "compras@autocenteripiranga.sim",
+    id: "CLI-0001", name: "Supermercados Guanabara — Santa Cruz", trade: "Guanabara Santa Cruz",
+    cnpj: "31500122000101", ie: "315.001.220.001",
+    address: "Rua Felipe Cardoso, 1470", city: "Rio de Janeiro", state: "RJ", zip: "23520-570",
+    phone: "(21) 2418-4015", email: "santacruz@guanabara.sim",
   },
   {
-    id: "CLI-0002", name: "Rede Mecanica Vale LTDA", trade: "Mecanica Vale",
-    cnpj: "33444555000122", ie: "333.444.555.666",
-    address: "Rod. Presidente Dutra, km 155", city: "Sao Jose dos Campos", state: "SP", zip: "12240-420",
-    phone: "(12) 3921-4400", email: "suprimentos@mecanicavale.sim",
+    id: "CLI-0002", name: "Supermercados Guanabara — Paciencia", trade: "Guanabara Paciencia",
+    cnpj: "31500122000202", ie: "315.001.220.002",
+    address: "Avenida Cesario de Melo, 10809", city: "Rio de Janeiro", state: "RJ", zip: "23585-126",
+    phone: "(21) 2409-6145", email: "paciencia@guanabara.sim",
   },
   {
-    id: "CLI-0003", name: "Oficina Central Campinas ME", trade: "Oficina Central",
-    cnpj: "44555666000143", ie: "444.555.666.777",
-    address: "Rua Barao de Jaguara, 870", city: "Campinas", state: "SP", zip: "13015-002",
-    phone: "(19) 3234-7700", email: "contato@oficinacentral.sim",
+    id: "CLI-0003", name: "Supermercados Guanabara — Campo Grande", trade: "Guanabara Campo Grande",
+    cnpj: "31500122000303", ie: "315.001.220.003",
+    address: "Estrada Rio do A, 1415", city: "Rio de Janeiro", state: "RJ", zip: "23080-300",
+    phone: "(21) 3402-7700", email: "campogrande@guanabara.sim",
+  },
+  {
+    id: "CLI-0004", name: "Supermercados Guanabara — Iraja", trade: "Guanabara Iraja",
+    cnpj: "31500122000404", ie: "315.001.220.004",
+    address: "Avenida Monsenhor Felix, 1213", city: "Rio de Janeiro", state: "RJ", zip: "21235-112",
+    phone: "(21) 2471-1231", email: "iraja@guanabara.sim",
+  },
+  {
+    id: "CLI-0005", name: "Supermercados Guanabara — Penha", trade: "Guanabara Penha",
+    cnpj: "31500122000505", ie: "315.001.220.005",
+    address: "Avenida Bras de Pina, 201", city: "Rio de Janeiro", state: "RJ", zip: "21070-031",
+    phone: "(21) 3355-8400", email: "penha@guanabara.sim",
+  },
+  {
+    id: "CLI-0006", name: "Supermercados Guanabara — Bonsucesso", trade: "Guanabara Bonsucesso",
+    cnpj: "31500122000606", ie: "315.001.220.006",
+    address: "Avenida Teixeira de Castro, 90", city: "Rio de Janeiro", state: "RJ", zip: "21040-112",
+    phone: "(21) 3868-3851", email: "bonsucesso@guanabara.sim",
   },
 ];
 
@@ -108,64 +142,37 @@ export interface SeedProduct {
   barcode: string;
 }
 
+/**
+ * Dois produtos, os mesmos da apresentacao fisica. Os identificadores
+ * internos (SKU-001/SKU-002) sao preservados: sao eles que vao no Code 128 e
+ * que a coletora le. O campo `barcode` guarda o EAN comercial, disponivel
+ * para consulta, mas o identificador operacional e o SKU interno.
+ */
 export const PRODUCTS: SeedProduct[] = [
   {
-    id: "SKU-001", sku: "SKU-001", description: "Oleo lubrificante sintetico 5W30 — caixa 12x1L",
-    category: "Lubrificantes", unit: "CX", ncm: "27101932", cfopIn: "1102", cfopOut: "5102",
-    unitWeight: 10.8, unitGross: 11.4, l: 40, w: 30, h: 25,
-    unitsPerPallet: 40, unitPrice: 289.9, shelfLifeDays: 1460, minStock: 20, abc: "A",
-    barcode: "7891000100011",
+    id: "SKU-001", sku: "SKU-001", description: "Shampoo Pantene 400ml",
+    category: "Higiene e Beleza", unit: "UN", ncm: "33051000", cfopIn: "1102", cfopOut: "5102",
+    unitWeight: 0.42, unitGross: 0.45, l: 6.5, w: 6.5, h: 21,
+    unitsPerPallet: 120, unitPrice: 24.9, shelfLifeDays: 1080, minStock: 48, abc: "A",
+    barcode: "7896094900011",
   },
   {
-    id: "SKU-002", sku: "SKU-002", description: "Filtro de ar automotivo — caixa 6 un",
-    category: "Filtros", unit: "CX", ncm: "84213100", cfopIn: "1102", cfopOut: "5102",
-    unitWeight: 2.4, unitGross: 2.7, l: 45, w: 35, h: 30,
-    unitsPerPallet: 48, unitPrice: 176.5, shelfLifeDays: null, minStock: 12, abc: "B",
-    barcode: "7891000100028",
-  },
-  {
-    id: "SKU-003", sku: "SKU-003", description: "Pastilha de freio ceramica dianteira — caixa 8 jogos",
-    category: "Freios", unit: "CX", ncm: "87083090", cfopIn: "1102", cfopOut: "5102",
-    unitWeight: 9.6, unitGross: 10.2, l: 40, w: 30, h: 22,
-    unitsPerPallet: 40, unitPrice: 412.0, shelfLifeDays: null, minStock: 24, abc: "A",
-    barcode: "7891000100035",
-  },
-  {
-    id: "SKU-004", sku: "SKU-004", description: "Correia dentada reforcada — caixa 10 un",
-    category: "Transmissao", unit: "CX", ncm: "40103100", cfopIn: "1102", cfopOut: "5102",
-    unitWeight: 4.2, unitGross: 4.6, l: 40, w: 30, h: 18,
-    unitsPerPallet: 48, unitPrice: 238.7, shelfLifeDays: 1825, minStock: 10, abc: "B",
-    barcode: "7891000100042",
-  },
-  {
-    id: "SKU-005", sku: "SKU-005", description: "Bateria automotiva 60Ah selada",
-    category: "Eletrica", unit: "UN", ncm: "85071000", cfopIn: "1102", cfopOut: "5102",
-    unitWeight: 14.2, unitGross: 15.0, l: 28, w: 18, h: 20,
-    unitsPerPallet: 40, unitPrice: 468.0, shelfLifeDays: 730, minStock: 15, abc: "A",
-    barcode: "7891000100059",
-  },
-  {
-    id: "SKU-006", sku: "SKU-006", description: "Aditivo para radiador concentrado — caixa 12x1L",
-    category: "Quimicos", unit: "CX", ncm: "38200000", cfopIn: "1102", cfopOut: "5102",
-    unitWeight: 12.3, unitGross: 12.9, l: 40, w: 30, h: 26,
-    unitsPerPallet: 40, unitPrice: 154.2, shelfLifeDays: 1095, minStock: 10, abc: "C",
-    barcode: "7891000100066",
-  },
-  {
-    id: "SKU-007", sku: "SKU-007", description: "Vela de ignicao iridium — caixa 20 un",
-    category: "Eletrica", unit: "CX", ncm: "85111000", cfopIn: "1102", cfopOut: "5102",
-    unitWeight: 1.8, unitGross: 2.1, l: 30, w: 25, h: 15,
-    unitsPerPallet: 60, unitPrice: 321.4, shelfLifeDays: null, minStock: 15, abc: "B",
-    barcode: "7891000100073",
-  },
-  {
-    id: "SKU-008", sku: "SKU-008", description: "Amortecedor dianteiro pressurizado",
-    category: "Suspensao", unit: "UN", ncm: "87088000", cfopIn: "1102", cfopOut: "5102",
-    unitWeight: 3.6, unitGross: 4.0, l: 60, w: 15, h: 15,
-    unitsPerPallet: 36, unitPrice: 287.9, shelfLifeDays: null, minStock: 8, abc: "C",
-    barcode: "7891000100080",
+    id: "SKU-002", sku: "SKU-002", description: "Condicionador Pantene 400ml",
+    category: "Higiene e Beleza", unit: "UN", ncm: "33059000", cfopIn: "1102", cfopOut: "5102",
+    unitWeight: 0.44, unitGross: 0.47, l: 6.5, w: 6.5, h: 21,
+    unitsPerPallet: 120, unitPrice: 26.5, shelfLifeDays: 1080, minStock: 48, abc: "A",
+    barcode: "7896094900028",
   },
 ];
+
+/** A caixa e a unidade logistica: 12 + 12 = 24 unidades. */
+export const BOX = {
+  shampooPerBox: 12,
+  conditionerPerBox: 12,
+  get unitsPerBox() { return this.shampooPerBox + this.conditionerPerBox; },
+  inboundBoxes: 10,
+  outboundBoxes: 18,
+} as const;
 
 export const EQUIPMENT = [
   { id: "EQP-0001", kind: "COLETORA", model: "Zebra TC22 (USB/HID)", serial: "ZB-TC22-0431" },
@@ -177,33 +184,39 @@ export const EQUIPMENT = [
   { id: "EQP-0007", kind: "BALANCA", model: "Toledo 2098 plataforma 1500kg", serial: "TL-2098-0455" },
 ];
 
-/** Estoque inicial: o cenario NAO comeca vazio. */
+/**
+ * Estoque inicial: o cenario NAO comeca vazio.
+ * 120 unidades de cada SKU, divididas em dois lotes por SKU — e o que permite
+ * demonstrar FEFO na separacao. Somadas as 120 de cada que entram pelo
+ * recebimento, dao as 240 necessarias para expedir 216 e ainda sobrar 24.
+ */
 export const INITIAL_STOCK = [
-  { productId: "SKU-001", quantity: 40, locationCode: "A-01-01-01", lot: "L2508A", expiresInDays: 900 },
-  { productId: "SKU-002", quantity: 25, locationCode: "B-01-01-01", lot: "L2507B", expiresInDays: null },
-  { productId: "SKU-003", quantity: 30, locationCode: "A-01-02-01", lot: "L2506C", expiresInDays: null },
-  { productId: "SKU-003", quantity: 30, locationCode: "A-01-02-02", lot: "L2509C", expiresInDays: null },
-  { productId: "SKU-004", quantity: 30, locationCode: "B-01-01-02", lot: "L2505D", expiresInDays: 1200 },
-  { productId: "SKU-006", quantity: 45, locationCode: "C-01-01-01", lot: "L2504F", expiresInDays: 700 },
-  { productId: "SKU-007", quantity: 50, locationCode: "B-01-02-01", lot: "L2508G", expiresInDays: null },
-  { productId: "SKU-008", quantity: 12, locationCode: "C-01-01-02", lot: "L2503H", expiresInDays: null },
+  { productId: "SKU-001", quantity: 60, locationCode: "A-01-01-01", lot: "L2601S", expiresInDays: 700 },
+  { productId: "SKU-001", quantity: 60, locationCode: "A-01-01-02", lot: "L2602S", expiresInDays: 900 },
+  { productId: "SKU-002", quantity: 60, locationCode: "A-01-02-01", lot: "L2601C", expiresInDays: 700 },
+  { productId: "SKU-002", quantity: 60, locationCode: "A-01-02-02", lot: "L2602C", expiresInDays: 900 },
 ];
 
-/** Pedidos de compra que originam os recebimentos da apresentacao. */
+/**
+ * Pedidos de compra que originam o recebimento das 10 caixas.
+ * PC-000001: 6 caixas (72 shampoos + 72 condicionadores)
+ * PC-000002: 4 caixas (48 shampoos + 48 condicionadores)
+ */
 export const PURCHASE_ORDERS = [
   {
     id: "PC-000001", supplierId: "FOR-0001", buyer: "Carlos Andrade",
     paymentTerms: "28 dias", expectedInDays: 0,
     items: [
-      { productId: "SKU-001", quantity: 20, lot: "L2601A", expiresInDays: 1400 },
-      { productId: "SKU-003", quantity: 30, lot: "L2601C", expiresInDays: null },
+      { productId: "SKU-001", quantity: 72, lot: "L2603S", expiresInDays: 1080 },
+      { productId: "SKU-002", quantity: 72, lot: "L2603C", expiresInDays: 1080 },
     ],
   },
   {
     id: "PC-000002", supplierId: "FOR-0002", buyer: "Carlos Andrade",
     paymentTerms: "21 dias", expectedInDays: 0,
     items: [
-      { productId: "SKU-005", quantity: 40, lot: "L2601E", expiresInDays: 720 },
+      { productId: "SKU-001", quantity: 48, lot: "L2604S", expiresInDays: 1080 },
+      { productId: "SKU-002", quantity: 48, lot: "L2604C", expiresInDays: 1080 },
     ],
   },
 ];
@@ -212,60 +225,106 @@ export const INBOUND_ORDERS = [
   {
     id: "OR-000001", purchaseOrderId: "PC-000001", supplierId: "FOR-0001",
     invoiceId: "NFS-000001", dockId: "DOCA-01",
-    vehiclePlate: "RQZ-4G18", vehicleKind: "Truck bau", carrier: "Andrade Logistica",
+    vehiclePlate: "RQZ-4G18", vehicleKind: "Truck bau", carrier: "Guandu Transportes",
     driverName: "Sebastiao Ramos", driverDoc: "MG-14.882.301",
-    scheduledInMinutes: -60, expectedVolumes: 2,
+    scheduledInMinutes: -60, expectedVolumes: 6,  // 6 caixas
   },
   {
     id: "OR-000002", purchaseOrderId: "PC-000002", supplierId: "FOR-0002",
     invoiceId: "NFS-000002", dockId: "DOCA-02",
-    vehiclePlate: "SCD-7H42", vehicleKind: "VUC", carrier: "Sul Transportes",
+    vehiclePlate: "SCD-7H42", vehicleKind: "VUC", carrier: "Sul Fluminense Transportes",
     driverName: "Antonio Beltrao", driverDoc: "SC-9.114.775",
-    scheduledInMinutes: -30, expectedVolumes: 1,
+    scheduledInMinutes: -30, expectedVolumes: 4,  // 4 caixas
   },
 ];
 
-/** Pedidos de venda: consomem estoque inicial E produtos recem-recebidos. */
+/**
+ * Pedidos de venda — um por unidade Guanabara.
+ * Cada pedido equivale a 3 caixas: 36 shampoos + 36 condicionadores.
+ * Seis pedidos x 3 caixas = 18 caixas = 216 + 216 unidades.
+ * A distribuicao e fixa aqui no cenario, nunca sorteada, para que um
+ * reinicio da simulacao reproduza exatamente a mesma carga.
+ */
 export const SALES_ORDERS = [
+  // ---------------------------------------------- Rota 01 — Zona Oeste
   {
     id: "PED-000125", customerId: "CLI-0001", priority: "ALTA", dueInHours: 8,
-    carrier: "Expresso Paulista",
-    items: [
-      { productId: "SKU-001", quantity: 15 },
-      { productId: "SKU-003", quantity: 20 },
-      { productId: "SKU-005", quantity: 10 },
-    ],
+    carrier: "LOG122 Frota Propria",
+    items: [{ productId: "SKU-001", quantity: 36 }, { productId: "SKU-002", quantity: 36 }],
   },
   {
-    id: "PED-000126", customerId: "CLI-0002", priority: "NORMAL", dueInHours: 24,
-    carrier: "Expresso Paulista",
-    items: [
-      { productId: "SKU-002", quantity: 10 },
-      { productId: "SKU-004", quantity: 8 },
-      { productId: "SKU-007", quantity: 12 },
-    ],
+    id: "PED-000126", customerId: "CLI-0002", priority: "NORMAL", dueInHours: 10,
+    carrier: "LOG122 Frota Propria",
+    items: [{ productId: "SKU-001", quantity: 36 }, { productId: "SKU-002", quantity: 36 }],
   },
   {
-    id: "PED-000127", customerId: "CLI-0003", priority: "URGENTE", dueInHours: 6,
-    carrier: "Expresso Paulista",
-    items: [
-      { productId: "SKU-001", quantity: 8 },
-      { productId: "SKU-006", quantity: 15 },
-    ],
+    id: "PED-000127", customerId: "CLI-0003", priority: "NORMAL", dueInHours: 12,
+    carrier: "LOG122 Frota Propria",
+    items: [{ productId: "SKU-001", quantity: 36 }, { productId: "SKU-002", quantity: 36 }],
+  },
+  // ---------------------------------------------- Rota 02 — Zona Norte
+  {
+    id: "PED-000128", customerId: "CLI-0004", priority: "ALTA", dueInHours: 8,
+    carrier: "LOG122 Frota Propria",
+    items: [{ productId: "SKU-001", quantity: 36 }, { productId: "SKU-002", quantity: 36 }],
+  },
+  {
+    id: "PED-000129", customerId: "CLI-0005", priority: "NORMAL", dueInHours: 10,
+    carrier: "LOG122 Frota Propria",
+    items: [{ productId: "SKU-001", quantity: 36 }, { productId: "SKU-002", quantity: 36 }],
+  },
+  {
+    id: "PED-000130", customerId: "CLI-0006", priority: "NORMAL", dueInHours: 12,
+    carrier: "LOG122 Frota Propria",
+    items: [{ productId: "SKU-001", quantity: 36 }, { productId: "SKU-002", quantity: 36 }],
   },
 ];
 
-/** Romaneio pre-numerado conforme o roteiro da apresentacao. */
-export const MANIFEST_SEED = {
-  id: "ROM-000018",
-  route: "SP Capital / Vale do Paraiba",
-  carrier: "Expresso Paulista Transportes",
-  vehiclePlate: "FTK-2D09",
-  vehicleKind: "Truck bau 14t",
-  driverName: "Roberto Nunes",
-  driverDoc: "SP-28.441.903",
-  dockId: "DOCA-03",
-};
+/** Quantas caixas cada pedido leva — 3 por entrega, 9 por rota. */
+export const BOXES_PER_ORDER = 3;
+
+/**
+ * As duas rotas da operacao.
+ *
+ * A SEDE LOG122 (Santa Cruz) e a origem e o retorno de ambas — e por isso
+ * NAO aparece em `stops`: `stops` lista apenas entregas, e o romaneio deriva
+ * origem e retorno do proprio armazem. O Guanabara Santa Cruz, este sim, e
+ * uma entrega, e nao se confunde com a sede.
+ */
+export const ROUTES = [
+  {
+    id: "ROM-000018",
+    code: "ROTA 01",
+    name: "Rota 01 — Zona Oeste",
+    route: "Zona Oeste — Santa Cruz / Paciencia / Campo Grande",
+    vehicle: "VEICULO 01",
+    carrier: "LOG122 Frota Propria",
+    vehiclePlate: "LOG-1A22",
+    vehicleKind: "Truck bau 14t",
+    driverName: "Roberto Nunes",
+    driverDoc: "RJ-28.441.903",
+    dockId: "DOCA-03",
+    /** Ordem das paradas — vira manifest_orders.stop_sequence. */
+    stops: ["PED-000125", "PED-000126", "PED-000127"],
+  },
+  {
+    id: "ROM-000019",
+    code: "ROTA 02",
+    name: "Rota 02 — Zona Norte",
+    route: "Zona Norte — Iraja / Penha / Bonsucesso",
+    vehicle: "VEICULO 02",
+    carrier: "LOG122 Frota Propria",
+    vehiclePlate: "LOG-2B22",
+    vehicleKind: "Truck bau 14t",
+    driverName: "Antonio Beltrao",
+    driverDoc: "RJ-31.775.220",
+    dockId: "DOCA-04",
+    stops: ["PED-000128", "PED-000129", "PED-000130"],
+  },
+] as const;
+
+/** Compatibilidade: a primeira rota, usada onde antes havia um unico romaneio. */
+export const MANIFEST_SEED = ROUTES[0];
 
 /** Contadores iniciais para que os IDs batam com os documentos impressos. */
 export const SEQUENCE_SEEDS: Record<string, number> = {

@@ -9,13 +9,21 @@ import {
 } from "@/app/actions/outbound";
 import { IconDoc, IconX, IconTruckOut } from "@/components/ui/Icons";
 
+export interface ManifestPreset {
+  code: string; route: string; carrier: string; plate: string;
+  kind: string; driver: string; doc: string; dock: string;
+}
+
 export function CreateManifest({
-  docks, defaults,
+  docks, presets,
 }: {
   docks: { id: string; name: string }[];
-  defaults: { route: string; carrier: string; plate: string; kind: string; driver: string; doc: string; dock: string };
+  /** Uma entrada por rota do cenario — a operacao tem duas. */
+  presets: ManifestPreset[];
 }) {
   const [open, setOpen] = useState(false);
+  const [sel, setSel] = useState(0);
+  const defaults = presets[sel] ?? presets[0];
   if (!open) {
     return (
       <button type="button" className="btn btn-primary" onClick={() => setOpen(true)}>
@@ -25,7 +33,29 @@ export function CreateManifest({
   }
   return (
     <ActionForm action={createManifestAction} className="card p-5 w-full" onSuccess={() => setOpen(false)}>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+      {presets.length > 1 && (
+        <div className="flex items-center gap-2 mb-4" role="radiogroup" aria-label="Rota do romaneio">
+          <span className="eyebrow">Rota</span>
+          {presets.map((r, i) => (
+            <button
+              key={r.code}
+              type="button"
+              role="radio"
+              aria-checked={i === sel}
+              onClick={() => setSel(i)}
+              className={`h-8 px-3 rounded-md border text-[12.5px] transition-colors ${
+                i === sel
+                  ? "border-accent-line bg-accent-soft text-accent-fg"
+                  : "border-border bg-bg text-secondary hover:border-border-strong"
+              }`}
+            >
+              {r.code}
+            </button>
+          ))}
+        </div>
+      )}
+      {/* key={sel} refaz os campos para que os defaultValue acompanhem a rota. */}
+      <div key={sel} className="grid grid-cols-1 md:grid-cols-3 gap-3">
         <Field label="Rota" required className="md:col-span-2">
           <input name="route" className="field" required defaultValue={defaults.route} />
         </Field>

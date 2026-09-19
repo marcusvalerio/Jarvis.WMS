@@ -48,7 +48,7 @@ export function DocHeader({
           </span>
           <div>
             <p className="text-[13pt] font-bold leading-tight" style={{ fontFamily: "var(--font-familjen)" }}>
-              JARVIS WMS
+              {WAREHOUSE.tradeName.split(" — ")[0]}
             </p>
             <p className="text-[8pt] leading-snug mt-0.5">{WAREHOUSE.tradeName}</p>
             <p className="text-[8pt] leading-snug">{WAREHOUSE.name}</p>
@@ -195,7 +195,7 @@ export function DocFooter({
   return (
     <footer className="mt-8 pt-2 border-t border-[#999] text-[7pt] leading-snug flex justify-between gap-4">
       <span>
-        Documento gerado pelo Jarvis WMS a partir dos registros da operacao · cenario {SCENARIO_ID} ·
+        Documento gerado pelo WMS a partir dos registros da operacao · cenario {SCENARIO_ID} ·
         identificador {docId}
         {note ? ` · ${note}` : ""}
       </span>

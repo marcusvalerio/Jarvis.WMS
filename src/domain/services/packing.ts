@@ -42,18 +42,30 @@ export async function generatePacking(orderId: string, actor: string): Promise<s
       total_volumes: 0, total_weight_kg: 0, created_at: at,
     });
     for (const it of picked) {
-      // Lote predominante coletado para a linha (rastreabilidade do volume).
-      const lot = await one<any>(
-        `SELECT lot_id FROM picking_items
-          WHERE sales_order_item_id = ? AND picked_qty > 0 ORDER BY picked_qty DESC LIMIT 1`,
+      // UMA linha de embalagem POR LOTE efetivamente coletado.
+      //
+      // O FEFO divide uma linha entre lotes sempre que o saldo do primeiro
+      // nao cobre a quantidade. Registrar apenas o "lote predominante"
+      // atribuiria todas as unidades a um lote so: a etiqueta do volume
+      // mentiria sobre a origem e a expedicao acabaria pedindo do staging
+      // um lote ja esgotado.
+      const porLote = await all<any>(
+        `SELECT lot_id, SUM(picked_qty) AS qty FROM picking_items
+          WHERE sales_order_item_id = ? AND picked_qty > 0
+          GROUP BY lot_id ORDER BY MIN(sequence)`,
         it.item_id,
       );
-      await insert("packing_items", {
-        id: `${id}-${it.product_id}`,
-        packing_order_id: id, sales_order_item_id: it.item_id,
-        product_id: it.product_id, lot_id: lot?.lot_id ?? null,
-        expected_qty: it.picked_qty, packed_qty: 0, status: "PENDING",
-      });
+      const linhas = porLote.length > 0
+        ? porLote
+        : [{ lot_id: null, qty: it.picked_qty }];
+      for (const l of linhas) {
+        await insert("packing_items", {
+          id: `${id}-${it.product_id}-${l.lot_id ?? "NL"}`,
+          packing_order_id: id, sales_order_item_id: it.item_id,
+          product_id: it.product_id, lot_id: l.lot_id,
+          expected_qty: round3(l.qty), packed_qty: 0, status: "PENDING",
+        });
+      }
     }
     await audit({
       actor, action: "PACK", entity: "packing_order", entityId: id,
@@ -127,12 +139,23 @@ export async function listVolumes(orderId?: string) {
 
 export async function getVolume(id: string) {
   const volume = await one<any>(
+    // A etiqueta de expedicao precisa dizer a QUAL rota, veiculo e parada a
+    // caixa pertence. Esses dados ja existem no romaneio; o join os traz ate
+    // aqui para que a etiqueta continue sendo derivada do banco, nunca
+    // preenchida por fora.
     `SELECT v.*, so.id AS order_id, c.name AS customer_name, c.city AS customer_city,
             c.state AS customer_state, c.address AS customer_address, c.zip AS customer_zip,
-            so.carrier, so.due_at
+            so.carrier, so.due_at,
+            m.id AS manifest_id, m.route, m.vehicle_plate, m.vehicle_kind,
+            m.driver_name, mo.stop_sequence,
+            (SELECT COUNT(*) FROM volumes vv
+              WHERE vv.sales_order_id = v.sales_order_id
+                AND vv.status <> 'CANCELLED') AS order_volumes
        FROM volumes v
        LEFT JOIN sales_orders so ON so.id = v.sales_order_id
        LEFT JOIN customers c ON c.id = so.customer_id
+       LEFT JOIN manifest_orders mo ON mo.sales_order_id = v.sales_order_id
+       LEFT JOIN shipping_manifests m ON m.id = mo.manifest_id
       WHERE v.id = ?`,
     id,
   );
@@ -206,15 +229,32 @@ export async function addToVolume(params: {
     if (!vol) throw new PackingError("Volume inexistente", "NO_VOLUME");
     if (vol.status !== "OPEN") throw new PackingError(`Volume ${params.volumeId} ja esta fechado`, "VOLUME_CLOSED");
 
-    const pi = await one<any>(
-      `SELECT * FROM packing_items WHERE packing_order_id = ? AND product_id = ?`,
+    // Um mesmo produto pode ter sido coletado de MAIS DE UM LOTE (e o que o
+    // FEFO faz quando o saldo de um lote nao cobre a linha). Cada linha de
+    // packing_items representa um lote coletado, entao a quantidade pedida e
+    // distribuida entre elas, na ordem da coleta, ate completar. Atribuir
+    // tudo ao primeiro lote quebraria a rastreabilidade e deixaria a
+    // expedicao pedindo de um lote ja esgotado no staging.
+    const linhas = await all<any>(
+      `SELECT * FROM packing_items
+        WHERE packing_order_id = ? AND product_id = ? AND expected_qty > packed_qty
+        ORDER BY id`,
       vol.packing_order_id, params.productId,
     );
-    if (!pi) throw new PackingError("Produto nao faz parte desta embalagem", "NOT_IN_PACKING");
+    if (linhas.length === 0) {
+      const existe = await one<any>(
+        `SELECT 1 AS ok FROM packing_items WHERE packing_order_id = ? AND product_id = ?`,
+        vol.packing_order_id, params.productId,
+      );
+      if (!existe) throw new PackingError("Produto nao faz parte desta embalagem", "NOT_IN_PACKING");
+      throw new PackingError("Quantidade excede o coletado. Restante para embalar: 0", "OVER_PACK");
+    }
 
     const qty = round3(params.quantity);
     if (qty <= 0) throw new PackingError("Quantidade invalida", "BAD_QTY");
-    const remaining = round3(pi.expected_qty - pi.packed_qty);
+    const remaining = round3(
+      linhas.reduce((acc: number, l: any) => acc + (l.expected_qty - l.packed_qty), 0),
+    );
     if (qty > remaining + 0.0001) {
       throw new PackingError(
         `Quantidade excede o coletado. Restante para embalar: ${remaining}`,
@@ -222,30 +262,41 @@ export async function addToVolume(params: {
       );
     }
 
-    const existing = await one<any>(
-      `SELECT * FROM volume_items WHERE volume_id = ? AND product_id = ? AND lot_id IS ?`,
-      params.volumeId, params.productId, pi.lot_id,
-    );
-    if (existing) {
-      await run(`UPDATE volume_items SET quantity = quantity + ? WHERE id = ?`, qty, existing.id);
-    } else {
-      await insert("volume_items", {
-        id: `${params.volumeId}-${params.productId}`,
-        volume_id: params.volumeId, product_id: params.productId,
-        lot_id: pi.lot_id, quantity: qty,
-      });
-    }
+    let falta = qty;
+    for (const pi of linhas) {
+      if (falta <= 0.0001) break;
+      const disponivel = round3(pi.expected_qty - pi.packed_qty);
+      const usar = round3(Math.min(disponivel, falta));
+      if (usar <= 0) continue;
+      falta = round3(falta - usar);
 
-    await run(
-      `UPDATE packing_items SET packed_qty = packed_qty + ?,
-              status = CASE WHEN packed_qty + ? >= expected_qty THEN 'COMPLETED' ELSE 'IN_PROGRESS' END
-        WHERE id = ?`,
-      qty, qty, pi.id,
-    );
-    await run(
-      `UPDATE sales_order_items SET packed_qty = packed_qty + ? WHERE id = ?`,
-      qty, pi.sales_order_item_id,
-    );
+      const existing = await one<any>(
+        `SELECT * FROM volume_items WHERE volume_id = ? AND product_id = ? AND lot_id IS ?`,
+        params.volumeId, params.productId, pi.lot_id,
+      );
+      if (existing) {
+        await run(`UPDATE volume_items SET quantity = quantity + ? WHERE id = ?`, usar, existing.id);
+      } else {
+        await insert("volume_items", {
+          // O lote entra na chave: o mesmo produto pode ocupar duas linhas do
+          // volume quando vem de lotes diferentes.
+          id: `${params.volumeId}-${params.productId}-${pi.lot_id ?? "NL"}`,
+          volume_id: params.volumeId, product_id: params.productId,
+          lot_id: pi.lot_id, quantity: usar,
+        });
+      }
+
+      await run(
+        `UPDATE packing_items SET packed_qty = packed_qty + ?,
+                status = CASE WHEN packed_qty + ? >= expected_qty THEN 'COMPLETED' ELSE 'IN_PROGRESS' END
+          WHERE id = ?`,
+        usar, usar, pi.id,
+      );
+      await run(
+        `UPDATE sales_order_items SET packed_qty = packed_qty + ? WHERE id = ?`,
+        usar, pi.sales_order_item_id,
+      );
+    }
 
     await recalcVolumeWeight(params.volumeId);
 
@@ -262,28 +313,35 @@ export async function removeFromVolume(params: {
   volumeId: string; productId: string; operatorId: string;
 }) {
   return await tx(async () => {
-    const vi = await one<any>(
+    // O produto pode ocupar varias linhas do volume, uma por lote.
+    const itens = await all<any>(
       `SELECT * FROM volume_items WHERE volume_id = ? AND product_id = ?`,
       params.volumeId, params.productId,
     );
-    if (!vi) return;
+    if (itens.length === 0) return;
     const vol = await one<any>(`SELECT * FROM volumes WHERE id = ?`, params.volumeId);
     if (vol.status !== "OPEN") throw new PackingError("Volume fechado", "VOLUME_CLOSED");
-    const pi = await one<any>(
-      `SELECT * FROM packing_items WHERE packing_order_id = ? AND product_id = ?`,
-      vol.packing_order_id, params.productId,
-    );
-    await run(`DELETE FROM volume_items WHERE id = ?`, vi.id);
-    if (pi) {
-      await run(
-        `UPDATE packing_items SET packed_qty = packed_qty - ?, status = 'IN_PROGRESS' WHERE id = ?`,
-        vi.quantity, pi.id,
+
+    const total = round3(itens.reduce((acc: number, i: any) => acc + i.quantity, 0));
+    for (const vi of itens) {
+      const pi = await one<any>(
+        `SELECT * FROM packing_items
+          WHERE packing_order_id = ? AND product_id = ? AND lot_id IS ?`,
+        vol.packing_order_id, params.productId, vi.lot_id,
       );
-      await run(
-        `UPDATE sales_order_items SET packed_qty = packed_qty - ? WHERE id = ?`,
-        vi.quantity, pi.sales_order_item_id,
-      );
+      await run(`DELETE FROM volume_items WHERE id = ?`, vi.id);
+      if (pi) {
+        await run(
+          `UPDATE packing_items SET packed_qty = packed_qty - ?, status = 'IN_PROGRESS' WHERE id = ?`,
+          vi.quantity, pi.id,
+        );
+        await run(
+          `UPDATE sales_order_items SET packed_qty = packed_qty - ? WHERE id = ?`,
+          vi.quantity, pi.sales_order_item_id,
+        );
+      }
     }
+    const vi = { quantity: total };
     await recalcVolumeWeight(params.volumeId);
     await audit({
       actor: params.operatorId, action: "PACK", entity: "volume", entityId: params.volumeId,

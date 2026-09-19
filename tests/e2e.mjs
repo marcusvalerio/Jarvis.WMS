@@ -110,7 +110,7 @@ try {
   log(true, "Cenario reiniciado pela interface");
 
   // ------------------------------------------------------ 1. recebimento
-  for (const [orderId, lines] of [["OR-000001", 2], ["OR-000002", 1]]) {
+  for (const [orderId, lines] of [["OR-000001", 2], ["OR-000002", 2]]) {
     await go(`/receiving/${orderId}`);
     await act('button:has-text("Registrar chegada")', { expect: "Chegada registrada" });
     await act('button:has-text("Iniciar descarga")', { expect: "Descarga iniciada" });
@@ -187,8 +187,9 @@ try {
 
   // ------------------------------------------------------ 2. estoque
   await go("/inventory");
-  const sku005 = await cellValue("SKU-005", 4);
-  log(sku005 === "40", "Estoque reflete a entrada do SKU-005", `saldo ${sku005}`);
+  // 120 iniciais + 119 conferidos (uma unidade faltou na conferencia de OR-000001).
+  const shampoo = await cellValue("SKU-001", 4);
+  log(shampoo === "239", "Estoque reflete as 10 caixas recebidas", `SKU-001=${shampoo}`);
 
   // ------------------------------------------------------ 3. reserva
   await go("/shipping/orders/PED-000125");
@@ -247,7 +248,7 @@ try {
       const sku = (await page.locator('input[name="code"]').getAttribute("placeholder")) ?? "";
       if (!recusouProduto) {
         // teste critico: produto diferente do esperado e recusado
-        await page.locator('input[name="code"]').fill(sku === "SKU-002" ? "SKU-004" : "SKU-002");
+        await page.locator('input[name="code"]').fill(sku === "SKU-001" ? "SKU-002" : "SKU-001");
         await act(BTN_PRODUTO, { expect: "PRODUTO INCORRETO" });
         log(true, "Coletora RECUSOU produto incorreto");
         recusouProduto = true;
@@ -356,10 +357,10 @@ try {
   // ------------------------------------------------------ 10. resultado
   await go("/inventory");
   const s1 = await cellValue("SKU-001", 4);
-  const s3 = await cellValue("SKU-003", 4);
-  const s5 = await cellValue("SKU-005", 4);
-  const esperado = s1 === "44" && s3 === "70" && s5 === "30";
-  log(esperado, "Saldos finais conferem com o roteiro", `SKU-001=${s1} SKU-003=${s3} SKU-005=${s5}`);
+  const s2 = await cellValue("SKU-002", 4);
+  // 239 - 36 e 240 - 36: a primeira entrega da Rota 01 levou 3 caixas.
+  const esperado = s1 === "203" && s2 === "204";
+  log(esperado, "Saldos finais conferem com o roteiro", `SKU-001=${s1} SKU-002=${s2}`);
 
   await go("/audit/trace?q=PED-000125");
   const etapas = ["Reserva", "Picking", "Packing", "Conferencia", "Romaneio", "Carregamento", "Expedicao"];
