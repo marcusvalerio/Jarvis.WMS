@@ -2,7 +2,7 @@
   "name": "jarvis-wms",
   "version": "1.0.0",
   "private": true,
-  "description": "WMS Operacional — sistema de gestao de armazem para operacao logistica simulada",
+  "description": "WMS Operacional \u2014 sistema de gestao de armazem para operacao logistica simulada",
   "scripts": {
     "dev": "next dev -p 3000",
     "build": "next build",
@@ -16,7 +16,8 @@
     "test:smoke": "node tests/smoke.mjs",
     "test:a11y": "node tests/a11y.mjs",
     "db:migrate": "node --import ./scripts/register.mjs --experimental-strip-types --no-warnings scripts/migrate.ts",
-    "db:schema": "node --import ./scripts/register.mjs --experimental-strip-types --no-warnings scripts/gen-schema.ts"
+    "db:schema": "node --import ./scripts/register.mjs --experimental-strip-types --no-warnings scripts/gen-schema.ts",
+    "sim:run": "node --import ./scripts/register.mjs --experimental-strip-types --no-warnings scripts/run-operation.ts"
   },
   "dependencies": {
     "@neondatabase/serverless": "^0.10.4",

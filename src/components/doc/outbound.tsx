@@ -296,6 +296,11 @@ export function ManifestDoc({
       />
 
       <DocSection title="Sequencia de entrega">
+        {/* Origem e retorno sao a propria sede: aparecem como moldura do
+            roteiro, fora da tabela de paradas, porque nao sao entregas. */}
+        <p className="text-[8.5pt] mb-2">
+          <b>Origem:</b> {WAREHOUSE.tradeName} — {WAREHOUSE.address}, {WAREHOUSE.city}/{WAREHOUSE.state}
+        </p>
         <DocTable head={[
           { label: "Parada", width: "14mm", align: "center" },
           { label: "Pedido", width: "26mm" }, { label: "Cliente" },
@@ -315,6 +320,9 @@ export function ManifestDoc({
             </tr>
           ))}
         </DocTable>
+        <p className="text-[8.5pt] mt-2">
+          <b>Retorno:</b> {WAREHOUSE.tradeName} — o retorno a sede encerra a rota e nao constitui entrega.
+        </p>
         <DocTotals rows={[
           { label: "Pedidos", value: manifest.total_orders },
           { label: "Volumes", value: manifest.total_volumes },

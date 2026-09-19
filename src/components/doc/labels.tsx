@@ -21,7 +21,7 @@ function LabelHeader({ kind }: { kind: string }) {
   return (
     <div className="flex items-center justify-between border-b-2 border-black pb-1.5 mb-2.5">
       <span className="text-[9pt] font-bold tracking-[0.1em]" style={{ fontFamily: "var(--font-familjen)" }}>
-        JARVIS WMS
+        {WAREHOUSE.tradeName.split(" — ")[0]}
       </span>
       <span className="text-[7.5pt] tracking-[0.14em] uppercase">{kind}</span>
     </div>
@@ -31,7 +31,7 @@ function LabelHeader({ kind }: { kind: string }) {
 function Line({ label, value, big = false }: { label: string; value: React.ReactNode; big?: boolean }) {
   return (
     <div className="flex items-baseline gap-2 py-[3px] border-b border-[#DDD]">
-      <span className="text-[6.8pt] tracking-[0.1em] uppercase text-[#555] w-[24mm] flex-none">{label}</span>
+      <span className="text-[6.8pt] tracking-[0.06em] uppercase text-[#555] w-[27mm] flex-none">{label}</span>
       <span className={`${big ? "text-[13pt] font-bold" : "text-[9pt]"} leading-tight break-words`}>
         {value || "—"}
       </span>
@@ -109,10 +109,13 @@ export function VolumeLabel({ volume, items }: { volume: any; items: any[] }) {
       <LabelHeader kind="Etiqueta de volume" />
       <div className="flex items-start justify-between gap-2">
         <div>
-          <p className="text-[24pt] font-bold leading-none" style={{ fontFamily: "var(--font-familjen)" }}>
+          <p className="text-[21pt] font-bold leading-none" style={{ fontFamily: "var(--font-familjen)" }}>
             {volume.id}
           </p>
-          <p className="text-[8.5pt] mt-1">Volume {volume.sequence} · {volume.container_kind}</p>
+          <p className="text-[8.5pt] mt-1">
+            {volume.container_kind} {String(volume.sequence).padStart(2, "0")}
+            {volume.order_volumes ? `/${String(volume.order_volumes).padStart(2, "0")}` : ""}
+          </p>
         </div>
         <div className="text-right">
           <p className="text-[6.8pt] tracking-[0.1em] uppercase text-[#555]">Pedido</p>
@@ -120,12 +123,35 @@ export function VolumeLabel({ volume, items }: { volume: any; items: any[] }) {
         </div>
       </div>
 
-      <div className="flex justify-center my-3">
-        <Barcode value={volume.id} height={62} moduleWidth={2.1} fontSize={9} />
+      {/* Rota e veiculo vem do romaneio; sem romaneio ainda, a etiqueta
+          simplesmente nao exibe o bloco em vez de inventar um destino. */}
+      {volume.route && (
+        <div className="border-2 border-black mt-1.5 px-2 py-1 flex items-center justify-between gap-2">
+          <div className="min-w-0">
+            <p className="text-[6pt] tracking-[0.1em] uppercase text-[#555] leading-none">Rota</p>
+            <p className="text-[8.5pt] font-bold leading-tight uppercase truncate">{volume.route}</p>
+          </div>
+          <div className="text-right flex-none">
+            <p className="text-[6pt] tracking-[0.1em] uppercase text-[#555] leading-none">Veiculo</p>
+            <p className="text-[8.5pt] font-bold leading-tight">{volume.vehicle_plate ?? "—"}</p>
+          </div>
+          {volume.stop_sequence != null && (
+            <div className="text-right border-l-2 border-black pl-2 flex-none">
+              <p className="text-[6pt] tracking-[0.1em] uppercase text-[#555] leading-none">Parada</p>
+              <p className="text-[12pt] font-bold leading-none tnum">
+                {String(volume.stop_sequence).padStart(2, "0")}
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+
+      <div className="flex justify-center my-2">
+        <Barcode value={volume.id} height={50} moduleWidth={2.1} fontSize={9} />
       </div>
 
-      <div className="border-2 border-black p-2 mb-2">
-        <p className="text-[6.8pt] tracking-[0.1em] uppercase text-[#555]">Destinatario</p>
+      <div className="border-2 border-black px-2 py-1.5 mb-1.5">
+        <p className="text-[6.8pt] tracking-[0.1em] uppercase text-[#555]">Destino da entrega</p>
         <p className="text-[11pt] font-bold leading-tight">{volume.customer_name}</p>
         <p className="text-[8pt] leading-snug mt-0.5">{volume.customer_address}</p>
         <p className="text-[8pt] leading-snug">

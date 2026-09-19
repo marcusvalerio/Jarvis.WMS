@@ -2,7 +2,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { listManifests, eligibleOrdersForManifest } from "@/domain/services/shipping";
 import { listDocks } from "@/domain/services/warehouse";
-import { MANIFEST_SEED } from "@/seed/scenario";
+import { ROUTES } from "@/seed/scenario";
 import { PageHeader, Card, EmptyState, IdChip } from "@/components/ui/Primitives";
 import { StatusBadge } from "@/components/ui/Badge";
 import { FilterBar } from "@/components/FilterBar";
@@ -36,12 +36,11 @@ export default async function ManifestsPage({
         actions={
           <CreateManifest
             docks={docks}
-            defaults={{
-              route: MANIFEST_SEED.route, carrier: MANIFEST_SEED.carrier,
-              plate: MANIFEST_SEED.vehiclePlate, kind: MANIFEST_SEED.vehicleKind,
-              driver: MANIFEST_SEED.driverName, doc: MANIFEST_SEED.driverDoc,
-              dock: MANIFEST_SEED.dockId,
-            }}
+            presets={ROUTES.map((r) => ({
+              code: r.code, route: r.route, carrier: r.carrier,
+              plate: r.vehiclePlate, kind: r.vehicleKind,
+              driver: r.driverName, doc: r.driverDoc, dock: r.dockId,
+            }))}
           />
         }
       />
