@@ -7,9 +7,12 @@
 import { chromium } from "playwright";
 
 const BASE = process.env.BASE ?? "http://localhost:3000";
-const EXE = "/opt/pw-browsers/chromium-1194/chrome-linux/chrome";
 
-const browser = await chromium.launch({ executablePath: EXE });
+// Usa o Chromium do Playwright (`npx playwright install chromium`).
+// CHROMIUM_PATH permite apontar um binario proprio, se preferir.
+const browser = await chromium.launch({
+  executablePath: process.env.CHROMIUM_PATH || undefined,
+});
 const page = await browser.newPage({ viewport: { width: 1500, height: 1000 } });
 
 const errors = [];
@@ -32,7 +35,7 @@ async function go(path) {
  * Toda acao publica um aviso no Toaster; esperar por ele e o unico sinal
  * confiavel de que a operacao terminou e a tela ja revalidou.
  */
-async function act(selector, { expect: expectText, timeout = 25000, ui = false } = {}) {
+async function act(selector, { expect: expectText, timeout = 45000, ui = false } = {}) {
   await page.locator(selector).first().click();
   if (ui) {
     // Botao que apenas revela um formulario — nao dispara server action.
@@ -78,13 +81,18 @@ try {
     log(liquido > 0, `${orderId}: pesagem com liquido calculado (1180 − 50)`);
 
     await act('button:has-text("Iniciar conferencia")', { expect: "Conferencia iniciada" });
+    await page.locator('form:has(button:has-text("Confirmar linha"))')
+      .first().waitFor({ timeout: 45000 });
 
     // conferencia: primeira linha do OR-000001 com divergencia proposital
     let conferidas = 0;
     for (let i = 0; i < 8; i++) {
-      // o formulario e substituido a cada confirmacao: sempre re-consultar
+      // O formulario e substituido a cada confirmacao, entao sempre
+      // re-consultar. A linha conferida ganha um selo de status; a
+      // pendente nao tem nenhum — sinal mais confiavel que o atributo
+      // `value`, que o React nao reescreve no DOM.
       const pending = page.locator('form:has(button:has-text("Confirmar linha"))')
-        .filter({ has: page.locator('input[name="quantity"][value=""]') });
+        .filter({ hasNot: page.locator("span.badge") });
       if ((await pending.count()) === 0) break;
       const form = pending.first();
       const input = form.locator('input[name="quantity"]');
@@ -92,6 +100,9 @@ try {
       const divergente = orderId === "OR-000001" && conferidas === 0;
       await input.fill(String(divergente ? esperado - 1 : esperado));
       await form.locator('button:has-text("Confirmar linha")').click();
+      // espera o aviso da acao, nao apenas a rede: a revalidacao pode
+      // chegar depois do networkidle
+      await page.locator("[data-toast]").first().waitFor({ timeout: 45000 });
       await page.waitForLoadState("networkidle");
       await page.waitForTimeout(350);
       conferidas++;
@@ -103,6 +114,9 @@ try {
       log(abriu, "Divergencia de conferencia gerou ocorrencia");
     }
 
+    // so encerra quando o botao deixa de estar bloqueado por linha pendente
+    await page.locator('button:has-text("Encerrar conferencia"):not([disabled])')
+      .first().waitFor({ timeout: 45000 });
     await act('button:has-text("Encerrar conferencia")');
     if (orderId === "OR-000001") {
       await page.locator('textarea[name="reason"]').fill("Falta de 1 CX aceita — debito ao fornecedor.");
@@ -146,6 +160,7 @@ try {
   await page.locator("a", { hasText: "PCK-" }).first().click();
   await page.waitForLoadState("networkidle");
   await act('button:has-text("Iniciar")', { expect: "Bipe o endereco" });
+  await page.locator('input[name="code"]').first().waitFor({ timeout: 45000 });
   log(true, "Separacao iniciada na coletora");
 
   // teste critico: endereco incorreto e recusado
@@ -153,34 +168,62 @@ try {
   await act('button:has-text("Validar endereco")', { expect: "ENDERECO INCORRETO" });
   log(true, "Coletora RECUSOU endereco incorreto");
 
-  // percorre todas as linhas corretamente
-  let lines = 0;
-  for (let i = 0; i < 12; i++) {
-    const locField = page.locator('input[name="code"]');
-    if ((await locField.count()) === 0 && (await page.locator('input[name="quantity"]').count()) === 0) break;
+  // Percorre as linhas. Cada volta aguarda a tela assentar em UM dos
+  // passos e trata apenas ele — o aviso da acao chega antes da arvore
+  // revalidada, entao contar elementos sem esperar leria a tela anterior.
+  // Cada passo da coletora renderiza EXATAMENTE um botao de acao, entao a
+  // presenca do botao identifica o passo sem ambiguidade — mais confiavel
+  // que ler o texto da tela, que o CSS ainda transforma em caixa alta.
+  const BTN_ENDERECO = 'button:has-text("Validar endereco")';
+  const BTN_PRODUTO = 'button:has-text("Validar produto")';
+  const BTN_QTD = 'button:has-text("Confirmar coleta")';
 
-    if (await page.getByText("Bipe o endereco", { exact: false }).count()) {
-      const expected = (await page.locator('input[name="code"]').getAttribute("placeholder")) ?? "";
-      await page.locator('input[name="code"]').fill(expected);
-      await act('button:has-text("Validar endereco")');
+  const passoVisivel = () =>
+    page.locator(BTN_ENDERECO)
+      .or(page.locator(BTN_PRODUTO))
+      .or(page.locator(BTN_QTD))
+      .or(page.getByText("SEPARACAO FINALIZADA", { exact: false }))
+      .first();
+
+  let lines = 0;
+  let recusouProduto = false;
+
+  for (let volta = 0; volta < 16; volta++) {
+    await passoVisivel().waitFor({ state: "visible", timeout: 45000 });
+
+    if (await page.getByText("SEPARACAO FINALIZADA", { exact: false }).count()) break;
+
+    if (await page.locator(BTN_ENDERECO).count()) {
+      const esperado = (await page.locator('input[name="code"]').getAttribute("placeholder")) ?? "";
+      await page.locator('input[name="code"]').fill(esperado);
+      await act(BTN_ENDERECO);
+      continue;
     }
-    if (await page.getByText("Bipe o produto", { exact: false }).count()) {
+
+    if (await page.locator(BTN_PRODUTO).count()) {
       const sku = (await page.locator('input[name="code"]').getAttribute("placeholder")) ?? "";
-      // produto errado e recusado
-      if (lines === 0) {
+      if (!recusouProduto) {
+        // teste critico: produto diferente do esperado e recusado
         await page.locator('input[name="code"]').fill(sku === "SKU-002" ? "SKU-004" : "SKU-002");
-        await act('button:has-text("Validar produto")', { expect: "PRODUTO INCORRETO" });
+        await act(BTN_PRODUTO, { expect: "PRODUTO INCORRETO" });
         log(true, "Coletora RECUSOU produto incorreto");
+        recusouProduto = true;
+        await page.locator(BTN_PRODUTO).first().waitFor({ timeout: 20000 });
       }
       await page.locator('input[name="code"]').fill(sku);
-      await act('button:has-text("Validar produto")');
+      await act(BTN_PRODUTO);
+      continue;
     }
-    if (await page.locator('input[name="quantity"]').count()) {
-      await act('button:has-text("Confirmar coleta")');
+
+    if (await page.locator(BTN_QTD).count()) {
+      await act(BTN_QTD);
       lines++;
+      continue;
     }
-    await page.waitForTimeout(200);
   }
+
+  await page.getByText("SEPARACAO FINALIZADA", { exact: false })
+    .first().waitFor({ timeout: 30000 }).catch(() => {});
   const pickDone = await has("SEPARACAO FINALIZADA");
   log(pickDone, `Separacao concluida na coletora (${lines} linhas)`);
 
@@ -194,6 +237,7 @@ try {
   await act('button:has-text("Iniciar embalagem")', { expect: "Novo volume" });
   await act('button:has-text("Novo volume")', { ui: true });
   await act('button:has-text("Criar volume")', { expect: "VOL-" });
+  await page.locator('button:has-text("Embalar")').first().waitFor({ timeout: 45000 });
   log(true, "Volume criado na embalagem");
 
   let packed = 0;
@@ -203,6 +247,8 @@ try {
     packed++;
     await page.waitForTimeout(250);
   }
+  await page.getByText("ja esta embalado", { exact: false })
+    .first().waitFor({ timeout: 30000 }).catch(() => {});
   const tudoEmbalado = await has("ja esta embalado");
   log(tudoEmbalado, `Itens embalados no volume (${packed})`);
 
@@ -212,6 +258,7 @@ try {
   // ------------------------------------------------------ 6. conferencia de expedicao
   await go("/shipping/orders/PED-000125");
   await act('button:has-text("Iniciar conferencia de expedicao")', { expect: "Bipe o volume" });
+  await page.locator('input[name="code"]').first().waitFor({ timeout: 45000 });
 
   const volumeIds = await page.locator("a[href^='/documents/volume-label/']").allInnerTexts();
   const vols = [...new Set(volumeIds.map((v) => v.trim()).filter((v) => /^VOL-\d+$/.test(v)))];
@@ -239,10 +286,13 @@ try {
   // ------------------------------------------------------ 8. carregamento
   await act('button:has-text("Iniciar carregamento")', { expect: "CAR-" });
   await go("/mobile/loading");
+  await page.locator('input[name="code"]').first().waitFor({ timeout: 45000 });
   for (const v of vols) {
     await page.locator('input[name="code"]').first().fill(v);
     await act('button:has-text("Carregar volume")');
   }
+  await page.getByText("CARGA COMPLETA", { exact: false })
+    .first().waitFor({ timeout: 30000 }).catch(() => {});
   const cargaCompleta = await has("CARGA COMPLETA");
   log(cargaCompleta, `Volumes carregados pela coletora (${vols.length})`);
 

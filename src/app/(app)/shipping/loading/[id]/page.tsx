@@ -97,7 +97,7 @@ export default async function LoadingDetailPage({ params }: { params: Promise<{ 
             <div className="p-5 pb-0">
               <CardHeader title="Volumes previstos" subtitle="Checklist do romaneio" />
             </div>
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto" tabIndex={0} role="group" aria-label="Tabela rolavel">
               <table className="table">
                 <thead>
                   <tr><th>Parada</th><th>Volume</th><th>Pedido</th><th>Cliente</th><th>Status</th>

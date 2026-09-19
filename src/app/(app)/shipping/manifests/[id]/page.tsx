@@ -127,7 +127,7 @@ export default async function ManifestPage({ params }: { params: Promise<{ id: s
           {orders.length === 0 ? (
             <EmptyState title="Romaneio vazio" description="Inclua pedidos prontos para carregar." />
           ) : (
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto" tabIndex={0} role="group" aria-label="Tabela rolavel">
               <table className="table">
                 <thead>
                   <tr><th>Parada</th><th>Pedido</th><th>Cliente</th><th>CNPJ</th><th>Destino</th>
@@ -209,7 +209,11 @@ export default async function ManifestPage({ params }: { params: Promise<{ id: s
             <Card>
               <CardHeader
                 title="Documento de transporte"
-                action={<Link href={`/documents/transport/${transportDoc.id}`} className="btn btn-sm"><IconPrint size={12} /></Link>}
+                action={
+                  <Link href={`/documents/transport/${transportDoc.id}`} className="btn btn-sm" aria-label="Imprimir documento de transporte">
+                    <IconPrint size={12} />
+                  </Link>
+                }
               />
               <div className="flex flex-col gap-2 text-[12.5px]">
                 <MetaItem label="Numero" value={`${transportDoc.number}/${transportDoc.series}`} />

@@ -44,7 +44,7 @@ export default async function PalletsPage({
         </Card>
       ) : (
         <Card padded={false}>
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto" tabIndex={0} role="group" aria-label="Tabela rolavel">
             <table className="table">
               <thead>
                 <tr>

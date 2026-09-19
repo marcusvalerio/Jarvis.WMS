@@ -65,7 +65,7 @@ export default async function ReceivingPage({
         </Card>
       ) : (
         <Card padded={false}>
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto" tabIndex={0} role="group" aria-label="Tabela rolavel">
             <table className="table">
               <thead>
                 <tr>
@@ -130,7 +130,7 @@ export default async function ReceivingPage({
               <p className="label">{d.name}</p>
               <span
                 className={`w-2 h-2 rounded-full ${d.status === "OCCUPIED" ? "bg-accent pulse-dot" : d.status === "BLOCKED" ? "bg-error" : "bg-[#3A4245]"}`}
-                aria-label={d.status}
+                aria-hidden
               />
             </div>
             <p className="text-[13px] text-primary">

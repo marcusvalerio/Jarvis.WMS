@@ -63,7 +63,7 @@ export default function WeighingPage() {
       ) : (
         <Card padded={false}>
           <div className="p-5 pb-0"><CardHeader title="Historico de pesagens" /></div>
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto" tabIndex={0} role="group" aria-label="Tabela rolavel">
             <table className="table">
               <thead>
                 <tr><th>Documento</th><th>Referencia</th><th className="num">Bruto</th><th className="num">Tara</th>

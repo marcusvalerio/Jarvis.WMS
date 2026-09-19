@@ -46,7 +46,7 @@ export default async function PurchasingPage({
         <Card><EmptyState icon={<IconCart size={18} />} title="Nenhum pedido de compra" /></Card>
       ) : (
         <Card padded={false}>
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto" tabIndex={0} role="group" aria-label="Tabela rolavel">
             <table className="table">
               <thead>
                 <tr><th>Pedido</th><th>Fornecedor</th><th>Status</th><th>Comprador</th>

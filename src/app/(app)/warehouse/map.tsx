@@ -114,7 +114,7 @@ export function WarehouseMap({
                                 selected?.id === l.id ? "ring-1 ring-accent" : ""
                               }`}
                             >
-                              <span className="text-[9.5px] text-faint leading-none font-[family-name:var(--font-mono)]">
+                              <span className="text-[9.5px] text-secondary leading-none font-[family-name:var(--font-mono)]">
                                 {l.rack}·{l.level}
                               </span>
                               <span className="text-[11px] tnum leading-none mt-1 text-primary">

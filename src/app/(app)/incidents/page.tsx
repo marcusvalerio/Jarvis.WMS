@@ -4,7 +4,8 @@ import { listIncidents, incidentCounts } from "@/domain/services/incidents";
 import { PageHeader, Card, EmptyState, IdChip, Metric } from "@/components/ui/Primitives";
 import { StatusBadge, Badge } from "@/components/ui/Badge";
 import { FilterBar } from "@/components/FilterBar";
-import { IncidentActions } from "./parts";
+import { IncidentActions, NewIncident } from "./parts";
+import { all } from "@/lib/db";
 import {
   INCIDENT_STATUS, INCIDENT_STATUS_META, INCIDENT_KIND, INCIDENT_KIND_LABEL, SEVERITY_META,
 } from "@/domain/states";
@@ -27,6 +28,12 @@ export default async function IncidentsPage({
         eyebrow="Controle"
         title="Ocorrencias"
         description="Registradas automaticamente pelas validacoes da operacao — divergencias de conferencia, picking, inventario, pesagem e expedicao."
+        actions={
+          <NewIncident
+            products={all<any>(`SELECT id, sku FROM products ORDER BY sku`)}
+            locations={all<any>(`SELECT id, code FROM locations WHERE kind = 'PALLET' ORDER BY code`)}
+          />
+        }
       />
 
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-5">

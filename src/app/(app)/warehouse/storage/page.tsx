@@ -57,7 +57,7 @@ export default function StoragePage() {
           <div className="p-5 pb-0">
             <CardHeader title="Armazenagens concluidas" subtitle={`${done.length} ordem(ns)`} />
           </div>
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto" tabIndex={0} role="group" aria-label="Tabela rolavel">
             <table className="table">
               <thead>
                 <tr><th>Ordem</th><th>Palete</th><th>SKU</th><th className="num">Qtd</th><th>Sugerido</th><th>Confirmado</th><th>Operador</th><th>Conclusao</th></tr>

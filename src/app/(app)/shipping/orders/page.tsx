@@ -1,6 +1,8 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import { listOrders, orderCounts } from "@/domain/services/orders";
+import { listOrders, orderCounts, listCustomers } from "@/domain/services/orders";
+import { stockByProduct } from "@/domain/services/inventory";
+import { NewOrder } from "./new-order";
 import { PageHeader, Card, EmptyState, IdChip, Progress, Metric } from "@/components/ui/Primitives";
 import { StatusBadge } from "@/components/ui/Badge";
 import { FilterBar } from "@/components/FilterBar";
@@ -17,6 +19,13 @@ export default async function OrdersPage({
   const sp = await searchParams;
   const rows = listOrders({ status: sp.status, search: sp.search, priority: sp.priority });
   const counts = orderCounts();
+  const customers = listCustomers().map((c: any) => ({
+    id: c.id, name: c.name, city: c.city, state: c.state,
+  }));
+  const products = stockByProduct().map((p) => ({
+    id: p.product_id, sku: p.sku, description: p.description,
+    unit: p.unit, available: p.available,
+  }));
 
   return (
     <>
@@ -24,7 +33,12 @@ export default async function OrdersPage({
         eyebrow="Saida"
         title="Pedidos de venda"
         description="Liberar um pedido reserva o estoque disponivel. O sistema nunca reserva acima do saldo — a falta e reportada linha a linha."
-        actions={<Link href="/shipping" className="btn btn-sm">Painel de expedicao <IconArrowRight size={13} /></Link>}
+        actions={
+          <>
+            <Link href="/shipping" className="btn btn-sm">Painel de expedicao <IconArrowRight size={13} /></Link>
+            <NewOrder customers={customers} products={products} warehouseId="CD-01" />
+          </>
+        }
       />
 
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3 mb-5">
@@ -60,7 +74,7 @@ export default async function OrdersPage({
         <Card><EmptyState icon={<IconDoc size={18} />} title="Nenhum pedido encontrado" /></Card>
       ) : (
         <Card padded={false}>
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto" tabIndex={0} role="group" aria-label="Tabela rolavel">
             <table className="table">
               <thead>
                 <tr>

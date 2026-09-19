@@ -59,7 +59,7 @@ export default async function PalletPage({ params }: { params: Promise<{ id: str
         <div className="xl:col-span-2 flex flex-col gap-5">
           <Card padded={false}>
             <div className="p-5 pb-0"><CardHeader title="Conteudo do palete" subtitle={`${items.length} item(ns)`} /></div>
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto" tabIndex={0} role="group" aria-label="Tabela rolavel">
               <table className="table">
                 <thead>
                   <tr><th>SKU</th><th>Produto</th><th>Lote</th><th>Validade</th><th className="num">Montado</th><th className="num">Saldo atual</th></tr>
@@ -92,7 +92,7 @@ export default async function PalletPage({ params }: { params: Promise<{ id: str
             {moves.length === 0 ? (
               <EmptyState title="Sem movimentacao" />
             ) : (
-              <div className="overflow-x-auto">
+              <div className="overflow-x-auto" tabIndex={0} role="group" aria-label="Tabela rolavel">
                 <table className="table">
                   <thead>
                     <tr><th>Movimento</th><th>Tipo</th><th>SKU</th><th className="num">Qtd</th><th>De</th><th>Para</th><th>Operador</th><th>Data</th></tr>

@@ -66,7 +66,7 @@ export default function LoadingPage() {
         </Card>
       ) : (
         <Card padded={false}>
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto" tabIndex={0} role="group" aria-label="Tabela rolavel">
             <table className="table">
               <thead>
                 <tr><th>Carregamento</th><th>Romaneio</th><th>Rota</th><th>Veiculo</th><th>Doca</th>
@@ -90,7 +90,11 @@ export default function LoadingPage() {
                     <td className="code text-secondary">{l.seal ?? "—"}</td>
                     <td className="text-secondary">{l.operator_name ?? "—"}</td>
                     <td className="text-secondary text-[12px]">{fmtDateTime(l.started_at)}</td>
-                    <td><Link href={`/shipping/loading/${l.id}`} className="btn btn-sm btn-ghost"><IconArrowRight size={13} /></Link></td>
+                    <td>
+                      <Link href={`/shipping/loading/${l.id}`} className="btn btn-sm btn-ghost" aria-label={`Abrir carregamento ${l.id}`}>
+                        <IconArrowRight size={13} />
+                      </Link>
+                    </td>
                   </tr>
                 ))}
               </tbody>

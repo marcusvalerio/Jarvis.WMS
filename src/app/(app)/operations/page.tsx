@@ -128,7 +128,11 @@ export default function OperationsPage() {
             <CardHeader
               title="Coletora"
               subtitle={`${scanStat.total} leituras · ${scanStat.rejected} recusadas`}
-              action={<Link href="/mobile" className="btn btn-sm btn-ghost"><IconScan size={13} /></Link>}
+              action={
+              <Link href="/mobile" className="btn btn-sm btn-ghost" aria-label="Abrir a coletora">
+                <IconScan size={13} />
+              </Link>
+            }
             />
             {scans.length === 0 ? (
               <p className="text-[12.5px] text-faint">Nenhuma leitura registrada.</p>
@@ -151,7 +155,11 @@ export default function OperationsPage() {
             <CardHeader
               title="Ocorrencias abertas"
               subtitle={`${inc.open} aberta(s) · ${inc.critical} de alta severidade`}
-              action={<Link href="/incidents" className="btn btn-sm btn-ghost"><IconArrowRight size={13} /></Link>}
+              action={
+              <Link href="/incidents" className="btn btn-sm btn-ghost" aria-label="Ver todas as ocorrencias">
+                <IconArrowRight size={13} />
+              </Link>
+            }
             />
             {openIncidents.length === 0 ? (
               <p className="text-[12.5px] text-success">Nenhuma ocorrencia em aberto.</p>

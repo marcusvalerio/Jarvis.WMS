@@ -13,7 +13,8 @@
     "docs:pdf": "node --import ./scripts/register.mjs --experimental-strip-types --no-warnings scripts/generate-pdfs.ts",
     "test": "WMS_DATA_DIR=.test-data node --import ./scripts/register.mjs --experimental-strip-types --no-warnings --test tests/*.test.ts",
     "test:e2e": "node tests/e2e.mjs",
-    "test:smoke": "node tests/smoke.mjs"
+    "test:smoke": "node tests/smoke.mjs",
+    "test:a11y": "node tests/a11y.mjs"
   },
   "dependencies": {
     "next": "15.5.25",
@@ -25,6 +26,7 @@
     "@types/node": "22.13.0",
     "@types/react": "19.0.8",
     "@types/react-dom": "19.0.3",
+    "axe-core": "^4.10.2",
     "playwright": "^1.49.1",
     "tailwindcss": "4.3.3",
     "typescript": "5.7.3"

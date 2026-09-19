@@ -64,7 +64,7 @@ export default async function MovementsPage({
         <Card><EmptyState icon={<IconGrid size={18} />} title="Nenhum movimento encontrado" /></Card>
       ) : (
         <Card padded={false}>
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto" tabIndex={0} role="group" aria-label="Tabela rolavel">
             <table className="table">
               <thead>
                 <tr>

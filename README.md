@@ -34,7 +34,9 @@ npm run build       # build de producao
 npm run typecheck   # verificacao de tipos
 npm test            # 36 testes de dominio (banco isolado)
 npm run test:e2e    # percurso completo pela interface (exige npm run dev)
+                    # testes de navegador: npx playwright install chromium
 npm run test:smoke  # verifica todas as rotas (exige npm run dev)
+npm run test:a11y   # auditoria WCAG 2.1 AA (exige npm run dev)
 npm run db:reset    # recarrega o cenario pela linha de comando
 npm run docs:pdf    # gera TODOS os documentos em PDF (exige npm run dev)
 ```

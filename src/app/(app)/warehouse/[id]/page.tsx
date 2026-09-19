@@ -55,7 +55,7 @@ export default async function LocationPage({ params }: { params: Promise<{ id: s
             {contents.length === 0 ? (
               <EmptyState title="Endereco vazio" description="Nenhum estoque alocado nesta posicao." />
             ) : (
-              <div className="overflow-x-auto">
+              <div className="overflow-x-auto" tabIndex={0} role="group" aria-label="Tabela rolavel">
                 <table className="table">
                   <thead>
                     <tr>
@@ -91,7 +91,7 @@ export default async function LocationPage({ params }: { params: Promise<{ id: s
             {lastMoves.length === 0 ? (
               <EmptyState title="Sem movimentacao" description="Nenhum movimento registrado nesta posicao." />
             ) : (
-              <div className="overflow-x-auto">
+              <div className="overflow-x-auto" tabIndex={0} role="group" aria-label="Tabela rolavel">
                 <table className="table">
                   <thead>
                     <tr><th>Movimento</th><th>Tipo</th><th>SKU</th><th className="num">Qtd</th><th>Sentido</th><th>Data</th></tr>

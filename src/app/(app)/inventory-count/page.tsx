@@ -56,7 +56,7 @@ export default function InventoryCountPage() {
         </Card>
       ) : (
         <Card padded={false}>
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto" tabIndex={0} role="group" aria-label="Tabela rolavel">
             <table className="table">
               <thead>
                 <tr><th>Inventario</th><th>Tipo</th><th>Escopo</th><th>Status</th>
@@ -90,7 +90,11 @@ export default function InventoryCountPage() {
                     </td>
                     <td className="text-secondary">{c.operator_name ?? "—"}</td>
                     <td className="text-secondary text-[12px]">{fmtDateTime(c.created_at)}</td>
-                    <td><Link href={`/inventory-count/${c.id}`} className="btn btn-sm btn-ghost"><IconArrowRight size={13} /></Link></td>
+                    <td>
+                      <Link href={`/inventory-count/${c.id}`} className="btn btn-sm btn-ghost" aria-label={`Abrir inventario ${c.id}`}>
+                        <IconArrowRight size={13} />
+                      </Link>
+                    </td>
                   </tr>
                 ))}
               </tbody>

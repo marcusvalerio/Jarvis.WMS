@@ -209,7 +209,11 @@ export default function DashboardPage() {
           <CardHeader
             title="Recebimentos"
             subtitle="Cargas previstas e em andamento"
-            action={<Link href="/receiving" className="btn btn-sm btn-ghost"><IconArrowRight size={13} /></Link>}
+            action={
+              <Link href="/receiving" className="btn btn-sm btn-ghost" aria-label="Ver todos os recebimentos">
+                <IconArrowRight size={13} />
+              </Link>
+            }
           />
           {inbound.length === 0 ? (
             <EmptyState title="Nenhum recebimento aberto" description="Todas as cargas previstas foram concluidas." />

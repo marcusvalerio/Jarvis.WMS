@@ -151,7 +151,7 @@ export default async function InboundDetailPage({ params }: { params: Promise<{ 
                 subtitle={`${items.length} linha(s) · ${fmtNumber(items.reduce((s: number, i: any) => s + i.expected_qty, 0))} unidades previstas`}
               />
             </div>
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto" tabIndex={0} role="group" aria-label="Tabela rolavel">
               <table className="table">
                 <thead>
                   <tr>

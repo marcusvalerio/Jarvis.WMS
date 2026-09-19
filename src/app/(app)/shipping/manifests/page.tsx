@@ -66,7 +66,7 @@ export default async function ManifestsPage({
         </Card>
       ) : (
         <Card padded={false}>
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto" tabIndex={0} role="group" aria-label="Tabela rolavel">
             <table className="table">
               <thead>
                 <tr><th>Romaneio</th><th>Status</th><th>Rota</th><th>Veiculo</th><th>Motorista</th>

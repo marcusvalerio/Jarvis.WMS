@@ -74,7 +74,7 @@ export default function SettingsPage() {
                 subtitle="Zona → corredor → modulo → nivel, no formato A-02-03-01"
               />
             </div>
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto" tabIndex={0} role="group" aria-label="Tabela rolavel">
               <table className="table">
                 <thead>
                   <tr><th>Zona</th><th>Nome</th><th>Tipo</th><th>Classe ABC</th><th>Temperatura</th>
@@ -108,7 +108,7 @@ export default function SettingsPage() {
                 subtitle="O cracha e lido pela coletora; o operador em sessao assina a auditoria"
               />
             </div>
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto" tabIndex={0} role="group" aria-label="Tabela rolavel">
               <table className="table">
                 <thead>
                   <tr><th>Codigo</th><th>Nome</th><th>Turno</th><th>Usuario</th><th>Cracha</th></tr>
@@ -135,7 +135,7 @@ export default function SettingsPage() {
             <div className="p-5 pb-0">
               <CardHeader title="Clientes" subtitle="Destinatarios dos pedidos de venda" />
             </div>
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto" tabIndex={0} role="group" aria-label="Tabela rolavel">
               <table className="table">
                 <thead>
                   <tr><th>Codigo</th><th>Razao social</th><th>CNPJ</th><th>Cidade</th><th>Telefone</th></tr>
@@ -180,7 +180,10 @@ export default function SettingsPage() {
               title="Convencao de identificadores"
               subtitle="O valor do codigo de barras e o proprio ID da entidade"
             />
-            <ul className="flex flex-col gap-1 max-h-[340px] overflow-y-auto">
+            <ul
+              className="flex flex-col gap-1 max-h-[340px] overflow-y-auto"
+              tabIndex={0} aria-label="Prefixos de identificador"
+            >
               {Object.values(PREFIX).map((p) => {
                 const seq = sequences.find((s) => s.prefix === p);
                 return (

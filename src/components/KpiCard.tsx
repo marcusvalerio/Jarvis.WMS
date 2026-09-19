@@ -27,8 +27,9 @@ export function KpiCard({ kpi, featured = false }: { kpi: Kpi; featured?: boolea
       <div className="flex items-start justify-between gap-2">
         <p className="label leading-snug">{kpi.label}</p>
         <span
+          role="img"
           className={`w-1.5 h-1.5 rounded-full flex-none mt-1 ${tone.bar}`}
-          aria-label={tone.label}
+          aria-label={`Indicador ${tone.label}`}
           title={tone.label}
         />
       </div>

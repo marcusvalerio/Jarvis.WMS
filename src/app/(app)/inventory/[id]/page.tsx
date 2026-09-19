@@ -79,7 +79,7 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
             {rows.length === 0 ? (
               <EmptyState title="Sem saldo" description="Este produto nao possui estoque no momento." />
             ) : (
-              <div className="overflow-x-auto">
+              <div className="overflow-x-auto" tabIndex={0} role="group" aria-label="Tabela rolavel">
                 <table className="table">
                   <thead>
                     <tr><th>Endereco</th><th>Zona</th><th>Palete</th><th>Lote</th><th>Validade</th>
@@ -107,7 +107,7 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
           <Card padded={false}>
             <div className="p-5 pb-0"><CardHeader title="Movimentacoes" subtitle="Historico completo deste SKU" /></div>
             {moves.length === 0 ? <EmptyState title="Sem movimentacao" /> : (
-              <div className="overflow-x-auto">
+              <div className="overflow-x-auto" tabIndex={0} role="group" aria-label="Tabela rolavel">
                 <table className="table">
                   <thead>
                     <tr><th>Movimento</th><th>Tipo</th><th className="num">Qtd</th><th>De</th><th>Para</th>

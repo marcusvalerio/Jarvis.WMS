@@ -126,7 +126,7 @@ export default async function OrderPage({ params }: { params: Promise<{ id: stri
                 subtitle="Cobertura calculada com o saldo disponivel no momento"
               />
             </div>
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto" tabIndex={0} role="group" aria-label="Tabela rolavel">
               <table className="table">
                 <thead>
                   <tr>
@@ -170,7 +170,7 @@ export default async function OrderPage({ params }: { params: Promise<{ id: stri
               <div className="p-5 pb-0">
                 <CardHeader title="Reservas de estoque" subtitle="Alocacao FEFO por endereco e lote" />
               </div>
-              <div className="overflow-x-auto">
+              <div className="overflow-x-auto" tabIndex={0} role="group" aria-label="Tabela rolavel">
                 <table className="table">
                   <thead>
                     <tr><th>Reserva</th><th>SKU</th><th>Endereco</th><th>Lote</th>
@@ -212,7 +212,7 @@ export default async function OrderPage({ params }: { params: Promise<{ id: stri
                   <div className="hr my-4" />
                 </>
               )}
-              <div className="overflow-x-auto">
+              <div className="overflow-x-auto" tabIndex={0} role="group" aria-label="Tabela rolavel">
                 <table className="table">
                   <thead>
                     <tr><th>SKU</th><th className="num">Pedido</th><th className="num">Separado</th>
@@ -285,7 +285,11 @@ export default async function OrderPage({ params }: { params: Promise<{ id: stri
               <CardHeader
                 title="Volumes"
                 subtitle={`${volumes.length} volume(s) · ${fmtWeight(order.total_weight_kg, 1)}`}
-                action={<Link href={`/documents/packing-list/${order.id}`} className="btn btn-sm btn-ghost"><IconPrint size={12} /></Link>}
+                action={
+                  <Link href={`/documents/packing-list/${order.id}`} className="btn btn-sm btn-ghost" aria-label="Imprimir packing list">
+                    <IconPrint size={12} />
+                  </Link>
+                }
               />
               <ul className="flex flex-col gap-2">
                 {volumes.map((v: any) => (

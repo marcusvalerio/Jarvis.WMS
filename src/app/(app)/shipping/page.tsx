@@ -93,7 +93,7 @@ export default function ShippingPage() {
               description="Conclua separacao, embalagem e conferencia de expedicao para liberar o pedido."
             />
           ) : (
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto" tabIndex={0} role="group" aria-label="Tabela rolavel">
               <table className="table">
                 <thead>
                   <tr><th>Pedido</th><th>Cliente</th><th>Destino</th><th className="num">Volumes</th>
@@ -157,7 +157,7 @@ export default function ShippingPage() {
           <div className="p-5 pb-0">
             <CardHeader title="Remessas expedidas" subtitle={`${shipments.length} despacho(s) concluido(s)`} />
           </div>
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto" tabIndex={0} role="group" aria-label="Tabela rolavel">
             <table className="table">
               <thead>
                 <tr><th>Remessa</th><th>Pedido</th><th>Cliente</th><th>Romaneio</th><th>Rota</th>

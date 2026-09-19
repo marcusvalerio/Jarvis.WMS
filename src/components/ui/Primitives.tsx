@@ -141,7 +141,7 @@ export function MetaItem({ label, value }: { label: string; value: ReactNode }) 
 
 // ------------------------------------------------------------------ barra
 export function Progress({
-  value, max = 100, tone = "accent", height = 4, label,
+  value, max = 100, tone = "accent", height = 4, label = "Progresso",
 }: { value: number; max?: number; tone?: "accent" | "success" | "warning" | "error" | "info"; height?: number; label?: string }) {
   const pct = max > 0 ? Math.max(0, Math.min(100, (value / max) * 100)) : 0;
   const bg = {
@@ -167,7 +167,7 @@ export function Progress({
 export function TableWrap({ children, className = "" }: { children: ReactNode; className?: string }) {
   return (
     <div className={`card overflow-hidden ${className}`}>
-      <div className="overflow-x-auto">{children}</div>
+      <div className="overflow-x-auto" tabIndex={0} role="group" aria-label="Tabela rolavel">{children}</div>
     </div>
   );
 }

@@ -84,7 +84,7 @@ export default async function PackingDetailPage({ params }: { params: Promise<{ 
             subtitle="So e possivel embalar o que foi efetivamente coletado no picking"
             action={<CreateVolume packingId={packing.id} />}
           />
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto" tabIndex={0} role="group" aria-label="Tabela rolavel">
             <table className="table">
               <thead>
                 <tr><th>SKU</th><th>Lote</th><th className="num">Separado</th><th className="num">Embalado</th>

@@ -58,7 +58,7 @@ export default async function PurchaseOrderPage({ params }: { params: Promise<{ 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-5 items-start">
         <Card className="xl:col-span-2" padded={false}>
           <div className="p-5 pb-0"><CardHeader title="Itens do pedido" /></div>
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto" tabIndex={0} role="group" aria-label="Tabela rolavel">
             <table className="table">
               <thead>
                 <tr><th>#</th><th>SKU</th><th>Descricao</th><th>NCM</th><th>Lote</th><th>Validade</th>

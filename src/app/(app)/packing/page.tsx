@@ -54,7 +54,7 @@ export default async function PackingPage({
         </Card>
       ) : (
         <Card padded={false}>
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto" tabIndex={0} role="group" aria-label="Tabela rolavel">
             <table className="table">
               <thead>
                 <tr><th>Ordem</th><th>Pedido</th><th>Cliente</th><th>Status</th><th>Estacao</th>
@@ -72,7 +72,11 @@ export default async function PackingPage({
                     <td className="num tnum text-secondary">{fmtWeight(p.total_weight_kg, 1)}</td>
                     <td className="text-secondary">{p.operator_name ?? "—"}</td>
                     <td className="text-secondary text-[12px]">{fmtDateTime(p.created_at)}</td>
-                    <td><Link href={`/packing/${p.id}`} className="btn btn-sm btn-ghost"><IconArrowRight size={13} /></Link></td>
+                    <td>
+                      <Link href={`/packing/${p.id}`} className="btn btn-sm btn-ghost" aria-label={`Abrir embalagem ${p.id}`}>
+                        <IconArrowRight size={13} />
+                      </Link>
+                    </td>
                   </tr>
                 ))}
               </tbody>
