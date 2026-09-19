@@ -98,11 +98,19 @@ function pool(): Promise<PoolLike> {
 async function buildSchema(): Promise<void> {
   const c = await (await pool()).connect();
   try {
-    await c.query("SELECT pg_advisory_lock($1)", [727_001]);
+    // Lock TRANSACIONAL, nao de sessao: o endpoint pooled do Neon é um
+    // PgBouncer em modo transacao, onde statements da mesma sessao podem
+    // cair em conexoes diferentes. Um pg_advisory_lock() poderia ser obtido
+    // em um backend e liberado em outro — vazando o lock. A variante _xact_
+    // e liberada pelo proprio COMMIT.
+    await c.query("BEGIN");
     try {
+      await c.query("SELECT pg_advisory_xact_lock($1)", [727_001]);
       await c.query(SCHEMA_SQL);
-    } finally {
-      await c.query("SELECT pg_advisory_unlock($1)", [727_001]);
+      await c.query("COMMIT");
+    } catch (err) {
+      try { await c.query("ROLLBACK"); } catch { /* best-effort */ }
+      throw err;
     }
   } finally {
     c.release();

@@ -70,8 +70,16 @@ export interface SeedResult {
  * os documentos ja impressos continuam validos apos um reset.
  */
 export async function seed(actor = "SISTEMA"): Promise<SeedResult> {
-  await wipe();
+  // A limpeza entra DENTRO da transacao. No SQLite ela precisava ficar de
+  // fora, porque `PRAGMA foreign_keys` era ignorado dentro de uma transacao
+  // aberta; com TRUNCATE ... CASCADE essa restricao deixou de existir. A
+  // diferenca importa: com o banco remoto o seed leva segundos, e com a
+  // limpeza fora da transacao havia uma janela em que o cenario ja tinha
+  // sido apagado e ainda nao fora recriado — quem abrisse uma tela nesse
+  // intervalo recebia 404. Agora o reset e atomico: ate o commit, todos
+  // continuam vendo o cenario anterior.
   return await tx(async () => {
+    await wipe();
     const now = nowIso();
     const SEED_ORIGIN = "SEED" as const;
 
