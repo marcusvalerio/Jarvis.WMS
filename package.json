@@ -2,7 +2,7 @@
   "name": "jarvis-wms",
   "version": "1.0.0",
   "private": true,
-  "description": "WMS Operacional \u2014 sistema de gestao de armazem para operacao logistica simulada",
+  "description": "WMS Operacional — sistema de gestao de armazem para operacao logistica simulada",
   "scripts": {
     "dev": "next dev -p 3000",
     "build": "next build",
@@ -17,13 +17,16 @@
     "test:a11y": "node tests/a11y.mjs"
   },
   "dependencies": {
+    "@neondatabase/serverless": "^0.10.4",
     "next": "15.5.25",
+    "pg": "^8.13.1",
     "react": "19.3.0",
     "react-dom": "19.3.0"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "4.3.3",
     "@types/node": "22.13.0",
+    "@types/pg": "^8.11.10",
     "@types/react": "19.0.8",
     "@types/react-dom": "19.0.3",
     "axe-core": "^4.10.2",
