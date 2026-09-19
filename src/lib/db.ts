@@ -38,12 +38,22 @@ export function closeDb(): void {
 export const dbFile = DB_FILE;
 
 // ------------------------------------------------------------------ queries
+/**
+ * node:sqlite devolve linhas com prototipo nulo, que os React Server
+ * Components nao conseguem serializar para o cliente. Converter aqui, no
+ * unico ponto de leitura, evita ter de tratar isso em cada tela.
+ */
+function plain<T>(row: any): T {
+  return row === undefined || row === null ? row : ({ ...row } as T);
+}
+
 export function all<T = Row>(sql: string, ...params: any[]): T[] {
-  return db().prepare(sql).all(...normalize(params)) as T[];
+  return (db().prepare(sql).all(...normalize(params)) as any[]).map((r) => plain<T>(r));
 }
 
 export function one<T = Row>(sql: string, ...params: any[]): T | undefined {
-  return db().prepare(sql).get(...normalize(params)) as T | undefined;
+  const row = db().prepare(sql).get(...normalize(params));
+  return row === undefined ? undefined : plain<T>(row);
 }
 
 export function scalar<T = number>(sql: string, ...params: any[]): T | undefined {

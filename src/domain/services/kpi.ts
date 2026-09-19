@@ -403,31 +403,34 @@ export function headline() {
   };
 }
 
-/** Serie de movimentacao por hora, para o grafico do dashboard. */
+/**
+ * Serie de movimentacao por hora nas ultimas `hours` horas, ancorada em
+ * AGORA. Durante a apresentacao as barras crescem em tempo real; o estoque
+ * inicial (carregado com data retroativa) fica fora da janela, como deve.
+ */
 export function movementSeries(hours = 12) {
-  const rows = all<any>(
-    `SELECT kind, occurred_at FROM inventory_movements ORDER BY occurred_at`,
+  const now = Date.now();
+  const hourMs = 3_600_000;
+  const start = Math.floor(now / hourMs) * hourMs - (hours - 1) * hourMs;
+
+  const buckets = Array.from({ length: hours }, (_, i) => ({
+    bucket: i,
+    at: new Date(start + i * hourMs).toISOString(),
+    in: 0, out: 0, internal: 0, total: 0,
+  }));
+
+  const rows = all<{ kind: string; occurred_at: string }>(
+    `SELECT kind, occurred_at FROM inventory_movements WHERE occurred_at >= ?`,
+    new Date(start).toISOString(),
   );
-  if (rows.length === 0) return [];
-  const end = new Date(rows[rows.length - 1].occurred_at).getTime();
-  const start = end - hours * 3_600_000;
-  const buckets = new Map<number, { in: number; out: number; internal: number }>();
-  for (let i = 0; i < hours; i++) {
-    buckets.set(i, { in: 0, out: 0, internal: 0 });
-  }
   for (const r of rows) {
-    const t = new Date(r.occurred_at).getTime();
-    if (t < start) continue;
-    const idx = Math.min(hours - 1, Math.floor(((t - start) / (end - start || 1)) * hours));
-    const b = buckets.get(idx)!;
+    const idx = Math.floor((new Date(r.occurred_at).getTime() - start) / hourMs);
+    if (idx < 0 || idx >= hours) continue;
+    const b = buckets[idx];
     if (r.kind === "RECEIPT" || r.kind === "RETURN") b.in++;
     else if (r.kind === "SHIP") b.out++;
     else b.internal++;
+    b.total++;
   }
-  return [...buckets.entries()].map(([i, v]) => ({
-    bucket: i,
-    at: new Date(start + ((end - start) / hours) * i).toISOString(),
-    ...v,
-    total: v.in + v.out + v.internal,
-  }));
+  return buckets;
 }

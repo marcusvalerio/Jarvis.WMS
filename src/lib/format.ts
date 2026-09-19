@@ -27,8 +27,10 @@ export function fmtDate(value?: string | null): string {
 
 export function fmtTime(value?: string | null): string {
   if (!value) return "—";
+  // hour12 explicito: sem ele, o ICU do Node e o do navegador divergem
+  // (02:33 x 14:33) e a hidratacao do React acusa diferenca.
   return new Intl.DateTimeFormat("pt-BR", {
-    timeZone: TZ, hour: "2-digit", minute: "2-digit",
+    timeZone: TZ, hour: "2-digit", minute: "2-digit", hour12: false,
   }).format(new Date(value));
 }
 
@@ -112,13 +114,21 @@ export function pct(part: number, total: number): number {
   return (part / total) * 100;
 }
 
+/** Distancia legivel ate agora — trata passado e futuro. */
 export function relativeTime(value?: string | null): string {
   if (!value) return "—";
   const diff = Date.now() - new Date(value).getTime();
   const min = Math.round(diff / 60_000);
-  if (Math.abs(min) < 1) return "agora";
-  if (Math.abs(min) < 60) return `ha ${min}min`;
-  const h = Math.round(min / 60);
-  if (Math.abs(h) < 24) return `ha ${h}h`;
+  const past = min >= 0;
+  const abs = Math.abs(min);
+  if (abs < 1) return "agora";
+  if (abs < 60) return past ? `ha ${abs}min` : `em ${abs}min`;
+  const h = Math.round(abs / 60);
+  if (h < 24) return past ? `ha ${h}h` : `em ${h}h`;
   return fmtDate(value);
+}
+
+/** Verdadeiro quando o prazo ja passou — usado para destacar atrasos. */
+export function isOverdue(due?: string | null): boolean {
+  return !!due && new Date(due).getTime() < Date.now();
 }

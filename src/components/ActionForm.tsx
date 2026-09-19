@@ -1,0 +1,81 @@
+"use client";
+
+import { useActionState, useEffect, useRef } from "react";
+import { useFormStatus } from "react-dom";
+import type { ActionState } from "@/app/actions/result";
+import { IconCheck, IconAlert } from "@/components/ui/Icons";
+
+type Action = (state: ActionState, form: FormData) => Promise<ActionState>;
+
+/**
+ * Formulario de operacao: executa a server action, mostra o retorno e
+ * mantem o botao desabilitado enquanto a acao roda — evita duplo disparo
+ * de movimentacao, que e o erro mais caro num WMS.
+ */
+export function ActionForm({
+  action, children, className = "", onSuccess, resetOnSuccess = false, feedback = true, id,
+}: {
+  action: Action;
+  children: React.ReactNode | ((state: ActionState) => React.ReactNode);
+  className?: string;
+  onSuccess?: (state: ActionState) => void;
+  resetOnSuccess?: boolean;
+  feedback?: boolean;
+  id?: string;
+}) {
+  const [state, formAction] = useActionState(action, { ok: false } as ActionState);
+  const ref = useRef<HTMLFormElement>(null);
+  const seen = useRef<ActionState | null>(null);
+
+  useEffect(() => {
+    if (state === seen.current) return;
+    seen.current = state;
+    if (state.ok) {
+      if (resetOnSuccess) ref.current?.reset();
+      onSuccess?.(state);
+    }
+  }, [state, onSuccess, resetOnSuccess]);
+
+  return (
+    <form ref={ref} action={formAction} className={className} id={id}>
+      {typeof children === "function" ? children(state) : children}
+      {feedback && (state.error || state.message) && (
+        <ActionMessage state={state} />
+      )}
+    </form>
+  );
+}
+
+export function ActionMessage({ state, className = "" }: { state: ActionState; className?: string }) {
+  if (!state.error && !state.message) return null;
+  const bad = !!state.error;
+  return (
+    <p
+      role="status"
+      aria-live="polite"
+      className={`flex items-start gap-2 mt-3 px-3 py-2 rounded-md text-[12.5px] leading-snug border ${
+        bad
+          ? "border-[#43292B] bg-[#1C1516] text-error"
+          : "border-[#1F3A2C] bg-[#12201A] text-success"
+      } ${className}`}
+    >
+      <span className="flex-none mt-px">{bad ? <IconAlert size={14} /> : <IconCheck size={14} />}</span>
+      <span>{state.error ?? state.message}</span>
+    </p>
+  );
+}
+
+/** Botao de submit que reflete o estado pendente da action. */
+export function SubmitButton({
+  children, className = "btn btn-primary", pendingLabel = "Processando…", disabled, title,
+}: {
+  children: React.ReactNode; className?: string; pendingLabel?: string;
+  disabled?: boolean; title?: string;
+}) {
+  const { pending } = useFormStatus();
+  return (
+    <button type="submit" className={className} disabled={pending || disabled} title={title}>
+      {pending ? pendingLabel : children}
+    </button>
+  );
+}
