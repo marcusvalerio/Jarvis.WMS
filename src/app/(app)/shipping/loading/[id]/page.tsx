@@ -59,7 +59,7 @@ export default async function LoadingDetailPage({ params }: { params: Promise<{ 
                 title="Conferencia de carregamento"
                 subtitle={`${loading.loaded_volumes} de ${loading.expected_volumes} volumes carregados`}
                 action={
-                  <span className="text-[26px] font-[family-name:var(--font-display)] font-semibold tnum text-accent">
+                  <span className="text-[26px] font-[family-name:var(--font-display)] font-semibold tnum text-accent-fg">
                     {loading.loaded_volumes}/{loading.expected_volumes}
                   </span>
                 }
@@ -110,7 +110,7 @@ export default async function LoadingDetailPage({ params }: { params: Promise<{ 
                       <td>
                         <span className="flex items-center gap-2">
                           <span className="code">{v.id}</span>
-                          {v.scanned_at && <span className="text-success"><IconCheck size={13} /></span>}
+                          {v.scanned_at && <span className="text-success-fg"><IconCheck size={13} /></span>}
                         </span>
                       </td>
                       <td><IdChip id={v.sales_order_id} href={`/shipping/orders/${v.sales_order_id}`} /></td>

@@ -51,7 +51,7 @@ export default async function OrderPage({ params }: { params: Promise<{ id: stri
             <StatusBadge status={order.status} meta={SHIPPING_STATUS_META} />
             <StatusBadge status={order.priority} meta={PRIORITY_META} dot={false} />
             <MetaItem label="Emitido" value={fmtDateTime(order.issued_at)} />
-            <MetaItem label="Prazo" value={<span className={isOverdue(order.due_at) && order.status !== "SHIPPED" ? "text-error" : ""}>{fmtDateTime(order.due_at)}</span>} />
+            <MetaItem label="Prazo" value={<span className={isOverdue(order.due_at) && order.status !== "SHIPPED" ? "text-error-fg" : ""}>{fmtDateTime(order.due_at)}</span>} />
             <MetaItem label="Valor" value={fmtMoney(order.total_value)} />
             <MetaItem label="Peso" value={fmtWeight(order.total_weight_kg, 1)} />
           </>
@@ -145,10 +145,10 @@ export default async function OrderPage({ params }: { params: Promise<{ id: stri
                         <td className="max-w-[220px] truncate" title={it.description}>{it.description}</td>
                         <td className="num tnum">{fmtNumber(it.quantity)}</td>
                         <td className="num tnum text-secondary">{fmtNumber(it.stock.available)}</td>
-                        <td className="num tnum text-warning">{fmtNumber(it.reserved_qty)}</td>
+                        <td className="num tnum text-warning-fg">{fmtNumber(it.reserved_qty)}</td>
                         <td className="num tnum">{fmtNumber(it.picked_qty)}</td>
                         <td className="num tnum">{fmtNumber(it.packed_qty)}</td>
-                        <td className="num tnum text-success">{fmtNumber(it.shipped_qty)}</td>
+                        <td className="num tnum text-success-fg">{fmtNumber(it.shipped_qty)}</td>
                         <td>
                           {it.reserved_qty >= it.quantity
                             ? <Badge tone="success">Reservado</Badge>
@@ -227,7 +227,7 @@ export default async function OrderPage({ params }: { params: Promise<{ id: stri
                         <td className="num tnum">{fmtNumber(ci.picked_qty)}</td>
                         <td className="num tnum">{fmtNumber(ci.packed_qty)}</td>
                         <td className="num tnum">{fmtNumber(ci.checked_qty)}</td>
-                        <td className={`num tnum ${ci.divergence === 0 ? "text-secondary" : "text-error"}`}>
+                        <td className={`num tnum ${ci.divergence === 0 ? "text-secondary" : "text-error-fg"}`}>
                           {ci.divergence === 0 ? "0" : `${ci.divergence > 0 ? "+" : ""}${fmtNumber(ci.divergence)}`}
                         </td>
                         <td>
@@ -247,7 +247,7 @@ export default async function OrderPage({ params }: { params: Promise<{ id: stri
                     disabled={openVolumes > 0}
                   />
                   {openVolumes > 0 && (
-                    <p className="text-[12px] text-warning mt-2">
+                    <p className="text-[12px] text-warning-fg mt-2">
                       {openVolumes} volume(s) ainda nao conferido(s).
                     </p>
                   )}
@@ -311,7 +311,7 @@ export default async function OrderPage({ params }: { params: Promise<{ id: stri
                 <Link href={`/documents/invoice/${invoice.id}`} className="btn btn-sm"><IconPrint size={12} /> Abrir</Link>
               } />
               <MetaItem label="Numero" value={`${invoice.number}/${invoice.series}`} />
-              <p className="text-[10px] tracking-[0.16em] uppercase text-warning mt-3">
+              <p className="text-[10px] tracking-[0.16em] uppercase text-warning-fg mt-3">
                 Documento simulado — uso academico
               </p>
             </Card>

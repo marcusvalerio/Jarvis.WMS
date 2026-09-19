@@ -1,5 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Familjen_Grotesk, Geist, Sora } from "next/font/google";
+import { THEME_COLOR } from "@/domain/theme";
+import { currentTheme } from "@/domain/theme.server";
 import "./globals.css";
 
 /* Familjen Grotesk — titulos e numeros de destaque */
@@ -21,16 +23,24 @@ export const metadata: Metadata = {
     "Sistema de gestao de armazem — recebimento, armazenagem, separacao, embalagem e expedicao com rastreabilidade ponta a ponta.",
 };
 
+/* themeColor sai do viewport estatico: e servido por tema no <head> abaixo. */
 export const viewport: Viewport = {
-  themeColor: "#0B0D0E",
   width: "device-width",
   initialScale: 1,
   maximumScale: 5,
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const theme = await currentTheme();
   return (
-    <html lang="pt-BR" className={`${familjen.variable} ${geist.variable} ${sora.variable}`}>
+    <html
+      lang="pt-BR"
+      data-theme={theme}
+      className={`${familjen.variable} ${geist.variable} ${sora.variable}`}
+    >
+      <head>
+        <meta name="theme-color" content={THEME_COLOR[theme]} />
+      </head>
       <body>{children}</body>
     </html>
   );

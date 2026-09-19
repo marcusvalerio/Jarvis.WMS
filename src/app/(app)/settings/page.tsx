@@ -11,6 +11,8 @@ import { Badge } from "@/components/ui/Badge";
 import { Barcode } from "@/components/Barcode";
 import { fmtCnpj, fmtNumber, fmtDateTime } from "@/lib/format";
 import { IconScan, IconPrint } from "@/components/ui/Icons";
+import { ThemeControl } from "@/components/ThemeControl";
+import { currentTheme } from "@/domain/theme.server";
 
 export const metadata: Metadata = { title: "Configuracoes" };
 export const dynamic = "force-dynamic";
@@ -26,7 +28,8 @@ const PREFIX_LABEL: Record<string, string> = {
   EQP: "Equipamento", OPR: "Operador", FOR: "Fornecedor", CLI: "Cliente", LOT: "Lote",
 };
 
-export default function SettingsPage() {
+export default async function SettingsPage() {
+  const theme = await currentTheme();
   const operators = listOperators();
   const users = all<any>(`SELECT * FROM users ORDER BY name`);
   const zones = listZones();
@@ -61,7 +64,7 @@ export default function SettingsPage() {
               <MetaItem label="Cidade" value={`${WAREHOUSE.city}/${WAREHOUSE.state}`} />
               <MetaItem label="CEP" value={WAREHOUSE.zip} />
             </div>
-            <p className="text-[11.5px] text-warning mt-3">
+            <p className="text-[11.5px] text-warning-fg mt-3">
               Dados ficticios — o cenario e uma simulacao academica.
             </p>
           </Card>
@@ -157,6 +160,19 @@ export default function SettingsPage() {
         </div>
 
         <div className="flex flex-col gap-5">
+          {/* ------------------------------------------------ aparencia */}
+          <Card>
+            <CardHeader
+              title="Aparencia"
+              subtitle="A preferencia fica gravada neste navegador e vale para todas as telas"
+            />
+            <ThemeControl theme={theme} />
+            <p className="text-[11.5px] text-faint mt-3 leading-relaxed">
+              Documentos, etiquetas e codigos de barras sao impressos sempre em papel branco
+              com tinta preta, independentemente do tema escolhido.
+            </p>
+          </Card>
+
           {/* ------------------------------------------------ coletora */}
           <Card>
             <CardHeader title="Coletora" subtitle="Configuracao do leitor de codigo de barras" />

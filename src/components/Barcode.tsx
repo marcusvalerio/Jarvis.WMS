@@ -24,7 +24,7 @@ export function Barcode({
 }) {
   if (!value || !isEncodable(value)) {
     return (
-      <span className="text-[11px] text-error" role="alert">
+      <span className="text-[11px] text-error-fg" role="alert">
         Codigo nao codificavel: {value || "(vazio)"}
       </span>
     );

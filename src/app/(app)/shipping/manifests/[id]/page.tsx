@@ -113,7 +113,7 @@ export default async function ManifestPage({ params }: { params: Promise<{ id: s
           </div>
         )}
         {manifest.status === "SHIPPED" && (
-          <p className="text-[13px] text-success">
+          <p className="text-[13px] text-success-fg">
             Carga expedida em {fmtDateTime(manifest.departed_at)} — estoque baixado e pedidos encerrados.
           </p>
         )}
@@ -162,7 +162,7 @@ export default async function ManifestPage({ params }: { params: Promise<{ id: s
                 {orders.flatMap((o: any) => o.volumeList).map((v: any) => (
                   <Link
                     key={v.id} href={`/documents/volume-label/${v.id}`}
-                    className="flex items-center gap-2 px-2.5 h-8 rounded-md border border-border bg-bg hover:border-[#363D3F] transition-colors"
+                    className="flex items-center gap-2 px-2.5 h-8 rounded-md border border-border bg-bg hover:border-border-strong transition-colors"
                   >
                     <span className="code text-[11.5px]">{v.id}</span>
                     <StatusBadge status={v.status} meta={VOLUME_STATUS_META} dot={false} />
@@ -222,7 +222,7 @@ export default async function ManifestPage({ params }: { params: Promise<{ id: s
                 <MetaItem label="Destino" value={transportDoc.destination_city ?? "—"} />
                 <MetaItem label="Frete" value={fmtMoney(transportDoc.freight_value)} />
               </div>
-              <p className="text-[10px] tracking-[0.16em] uppercase text-warning mt-3">
+              <p className="text-[10px] tracking-[0.16em] uppercase text-warning-fg mt-3">
                 Documento simulado — uso academico
               </p>
             </Card>

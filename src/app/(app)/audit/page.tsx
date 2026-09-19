@@ -89,12 +89,12 @@ export default async function AuditPage({
                             <summary className="cursor-pointer text-faint hover:text-secondary">ver</summary>
                             <div className="mt-1.5 flex flex-col gap-1 min-w-[220px]">
                               {a.before_value && (
-                                <code className="block p-1.5 rounded bg-bg border border-border text-[10.5px] text-error break-all">
+                                <code className="block p-1.5 rounded bg-bg border border-border text-[10.5px] text-error-fg break-all">
                                   − {a.before_value}
                                 </code>
                               )}
                               {a.after_value && (
-                                <code className="block p-1.5 rounded bg-bg border border-border text-[10.5px] text-success break-all">
+                                <code className="block p-1.5 rounded bg-bg border border-border text-[10.5px] text-success-fg break-all">
                                   + {a.after_value}
                                 </code>
                               )}

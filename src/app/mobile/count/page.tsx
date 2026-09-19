@@ -58,7 +58,7 @@ export default async function MobileCountPage({
         </div>
         <div className="text-right flex-none">
           <p className="text-[11px] tracking-[0.12em] uppercase text-faint">Posicoes</p>
-          <p className="text-[24px] font-[family-name:var(--font-display)] font-semibold tnum text-accent leading-none mt-1">
+          <p className="text-[24px] font-[family-name:var(--font-display)] font-semibold tnum text-accent-fg leading-none mt-1">
             {count.counted_items}/{count.total_items}
           </p>
         </div>
@@ -91,8 +91,8 @@ export default async function MobileCountPage({
               className={`flex items-center gap-2.5 px-3 py-2.5 rounded-lg border ${
                 current?.id === i.id ? "border-accent bg-accent/[0.07]"
                 : i.status === "PENDING" ? "border-border bg-surface"
-                : i.divergence === 0 ? "border-[#1F3A2C] bg-[#12201A]"
-                : "border-[#5A451E] bg-[#1A1613]"
+                : i.divergence === 0 ? "border-success-line bg-success-soft"
+                : "border-warning-line bg-warning-soft"
               }`}
             >
               <span className="code text-[13px] flex-none">{i.location_code}</span>

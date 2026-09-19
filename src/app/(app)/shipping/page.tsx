@@ -52,10 +52,10 @@ export default function ShippingPage() {
                 <Link
                   href={`/shipping/orders?status=${s}`}
                   className={`flex flex-col items-center justify-center min-w-[112px] h-[74px] rounded-lg border px-3 transition-colors ${
-                    n > 0 ? "border-accent/35 bg-accent/[0.06] hover:border-accent/60" : "border-border bg-surface hover:border-[#363D3F]"
+                    n > 0 ? "border-accent/35 bg-accent/[0.06] hover:border-accent/60" : "border-border bg-surface hover:border-border-strong"
                   }`}
                 >
-                  <span className={`text-[26px] leading-none font-[family-name:var(--font-display)] font-semibold tnum ${n > 0 ? "text-accent" : "text-faint"}`}>
+                  <span className={`text-[26px] leading-none font-[family-name:var(--font-display)] font-semibold tnum ${n > 0 ? "text-accent-fg" : "text-faint"}`}>
                     {n}
                   </span>
                   <span className="text-[11px] text-secondary mt-1.5 text-center leading-tight">
@@ -121,7 +121,7 @@ export default function ShippingPage() {
           <ul className="flex flex-col gap-2">
             {docks.map((d) => (
               <li key={d.id} className="flex items-center gap-2.5 h-10 px-3 rounded-md border border-border bg-bg">
-                <span className={`w-2 h-2 rounded-full ${d.status === "OCCUPIED" ? "bg-accent pulse-dot" : d.status === "BLOCKED" ? "bg-error" : "bg-[#3A4245]"}`} />
+                <span className={`w-2 h-2 rounded-full ${d.status === "OCCUPIED" ? "bg-accent pulse-dot" : d.status === "BLOCKED" ? "bg-error" : "bg-neutral"}`} />
                 <span className="text-[13px]">{d.name}</span>
                 <span className="ml-auto text-[12px] text-secondary">
                   {d.current_ref
@@ -140,7 +140,7 @@ export default function ShippingPage() {
             <ul className="flex flex-col gap-2">
               {manifests.slice(0, 5).map((m) => (
                 <li key={m.id}>
-                  <Link href={`/shipping/manifests/${m.id}`} className="flex items-center gap-2 p-2.5 rounded-md border border-border bg-bg hover:border-[#363D3F] transition-colors">
+                  <Link href={`/shipping/manifests/${m.id}`} className="flex items-center gap-2 p-2.5 rounded-md border border-border bg-bg hover:border-border-strong transition-colors">
                     <span className="code text-[12.5px]">{m.id}</span>
                     <StatusBadge status={m.status} meta={MANIFEST_STATUS_META} />
                     <span className="ml-auto text-[11.5px] text-secondary tnum">{m.total_volumes} vol</span>

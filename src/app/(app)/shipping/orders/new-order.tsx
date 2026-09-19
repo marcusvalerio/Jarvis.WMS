@@ -86,7 +86,7 @@ export function NewOrder({
                   <td><span className="chip-id">{p.sku}</span></td>
                   <td className="max-w-[300px] truncate" title={p.description}>{p.description}</td>
                   <td className="num tnum">
-                    <span className={p.available > 0 ? "text-success" : "text-faint"}>
+                    <span className={p.available > 0 ? "text-success-fg" : "text-faint"}>
                       {fmtNumber(p.available)} {p.unit}
                     </span>
                   </td>

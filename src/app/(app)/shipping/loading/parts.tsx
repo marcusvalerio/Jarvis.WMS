@@ -14,7 +14,7 @@ export function LoadingScanner({ loadingId }: { loadingId: string }) {
       <div className="flex items-end gap-2">
         <Field label="Bipe o volume a carregar" className="flex-1">
           <div className="relative">
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-accent pointer-events-none">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-accent-fg pointer-events-none">
               <IconScan size={17} />
             </span>
             <input
@@ -50,7 +50,7 @@ export function CompleteLoading({
         <input name="seal" className="field code" required autoFocus placeholder="LCR-88421" />
       </Field>
       {missing > 0 && (
-        <label className="flex items-start gap-2 mt-3 text-[12.5px] text-warning">
+        <label className="flex items-start gap-2 mt-3 text-[12.5px] text-warning-fg">
           <input type="checkbox" name="allowPartial" className="mt-0.5" />
           <span>
             Encerrar mesmo com {missing} volume(s) faltante(s) — sera registrada uma ocorrencia

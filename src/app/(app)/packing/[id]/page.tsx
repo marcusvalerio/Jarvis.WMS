@@ -98,7 +98,7 @@ export default async function PackingDetailPage({ params }: { params: Promise<{ 
                     <td className="num tnum">{fmtNumber(i.expected_qty)}</td>
                     <td className="num tnum">{fmtNumber(i.packed_qty)}</td>
                     <td className="num tnum">
-                      <span className={i.packed_qty >= i.expected_qty ? "text-success" : "text-warning"}>
+                      <span className={i.packed_qty >= i.expected_qty ? "text-success-fg" : "text-warning-fg"}>
                         {fmtNumber(round3(i.expected_qty - i.packed_qty))}
                       </span>
                     </td>

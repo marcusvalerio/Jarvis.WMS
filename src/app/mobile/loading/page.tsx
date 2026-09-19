@@ -66,7 +66,7 @@ export default async function MobileLoadingPage({
         </div>
         <div className="text-right flex-none">
           <p className="text-[11px] tracking-[0.12em] uppercase text-faint">Volumes</p>
-          <p className="text-[24px] font-[family-name:var(--font-display)] font-semibold tnum text-accent leading-none mt-1">
+          <p className="text-[24px] font-[family-name:var(--font-display)] font-semibold tnum text-accent-fg leading-none mt-1">
             {loading.loaded_volumes}/{loading.expected_volumes}
           </p>
         </div>
@@ -97,10 +97,10 @@ export default async function MobileLoadingPage({
             <li
               key={v.id}
               className={`flex items-center gap-2.5 px-3 py-2.5 rounded-lg border ${
-                v.scanned_at ? "border-[#1F3A2C] bg-[#12201A]" : "border-border bg-surface"
+                v.scanned_at ? "border-success-line bg-success-soft" : "border-border bg-surface"
               }`}
             >
-              <span className={`w-1.5 h-1.5 rounded-full flex-none ${v.scanned_at ? "bg-success" : "bg-[#3A4245]"}`} />
+              <span className={`w-1.5 h-1.5 rounded-full flex-none ${v.scanned_at ? "bg-success" : "bg-neutral"}`} />
               <span className="code text-[13px] flex-none">{v.id}</span>
               <span className="text-[12px] text-secondary truncate flex-1">{v.customer_name}</span>
               <span className="text-[11.5px] text-faint tnum flex-none">

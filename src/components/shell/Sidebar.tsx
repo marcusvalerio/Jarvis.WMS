@@ -37,13 +37,13 @@ export function Sidebar({ counts }: { counts: NavCounts }) {
                     }`}
                   >
                     <span
-                      className={`flex-none transition-colors ${active ? "text-accent" : "text-faint group-hover:text-secondary"}`}
+                      className={`flex-none transition-colors ${active ? "text-accent-fg" : "text-faint group-hover:text-secondary"}`}
                     >
                       <Icon size={15} />
                     </span>
                     <span className="truncate font-[family-name:var(--font-editorial)]">{item.label}</span>
                     {count > 0 && (
-                      <span className="ml-auto tnum text-[10.5px] px-1.5 h-[17px] leading-[17px] rounded bg-[#23282A] text-secondary">
+                      <span className="ml-auto tnum text-[10.5px] px-1.5 h-[17px] leading-[17px] rounded bg-neutral-line text-secondary">
                         {count}
                       </span>
                     )}
@@ -72,7 +72,7 @@ export function Sidebar({ counts }: { counts: NavCounts }) {
 
       {open && (
         <div
-          className="fixed inset-0 bg-black/60 z-30 lg:hidden"
+          className="fixed inset-0 bg-scrim/60 z-30 lg:hidden"
           onClick={() => setOpen(false)}
           aria-hidden
         />
@@ -89,8 +89,8 @@ export function Sidebar({ counts }: { counts: NavCounts }) {
         >
           <span className="w-6 h-6 rounded-[5px] bg-accent flex items-center justify-center flex-none">
             <svg width="13" height="13" viewBox="0 0 16 16" aria-hidden>
-              <path d="M2 4.5 8 1.5l6 3v7l-6 3-6-3z" fill="none" stroke="#0B0D0E" strokeWidth="1.6" strokeLinejoin="round" />
-              <path d="M8 7.8v6.7M2 4.5l6 3.3 6-3.3" fill="none" stroke="#0B0D0E" strokeWidth="1.6" strokeLinejoin="round" />
+              <path d="M2 4.5 8 1.5l6 3v7l-6 3-6-3z" fill="none" stroke="var(--color-on-accent)" strokeWidth="1.6" strokeLinejoin="round" />
+              <path d="M8 7.8v6.7M2 4.5l6 3.3 6-3.3" fill="none" stroke="var(--color-on-accent)" strokeWidth="1.6" strokeLinejoin="round" />
             </svg>
           </span>
           <span className="min-w-0">

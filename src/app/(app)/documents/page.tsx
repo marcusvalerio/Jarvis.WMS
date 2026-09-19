@@ -46,12 +46,12 @@ export default async function DocumentsPage({
 
       <div className="flex flex-wrap gap-2 mb-5">
         <Link href="/documents" className={`badge ${!active ? "badge-accent" : "badge-neutral"}`}>
-          Todos <span className="tnum opacity-70">{catalog.length}</span>
+          Todos <span className="tnum opacity-90">{catalog.length}</span>
         </Link>
         {GROUPS.map((g) => (
           <Link key={g} href={`/documents?group=${g}`} className={`badge ${active === g ? "badge-accent" : "badge-neutral"}`}>
             {GROUP_LABEL[g]}
-            <span className="tnum opacity-70">{catalog.filter((c) => c.group === g).length}</span>
+            <span className="tnum opacity-90">{catalog.filter((c) => c.group === g).length}</span>
           </Link>
         ))}
       </div>
@@ -82,7 +82,7 @@ export default async function DocumentsPage({
           SEFAZ, nao ha emissao, transmissao ou autorizacao de documento fiscal eletronico, e as
           chaves de acesso sao geradas por funcao local deterministica. Todo documento dessa
           natureza traz, em destaque, a marcacao{" "}
-          <span className="text-warning">DOCUMENTO SIMULADO — USO ACADEMICO</span> no cabecalho e no
+          <span className="text-warning-fg">DOCUMENTO SIMULADO — USO ACADEMICO</span> no cabecalho e no
           rodape. Os demais documentos (ordens, checklists, romaneio, etiquetas e comprovantes) sao
           documentos operacionais internos, sem natureza fiscal.
         </p>

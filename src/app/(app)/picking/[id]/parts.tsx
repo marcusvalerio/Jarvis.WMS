@@ -58,7 +58,7 @@ export function PickExecutor({ pickingId, item }: { pickingId: string; item: any
         </div>
         <div className="text-right">
           <p className="label mb-1">Quantidade a coletar</p>
-          <p className="text-[34px] leading-none font-[family-name:var(--font-display)] font-semibold text-accent tnum">
+          <p className="text-[34px] leading-none font-[family-name:var(--font-display)] font-semibold text-accent-fg tnum">
             {fmtNumber(item.expected_qty)}
             <span className="text-[14px] text-secondary ml-1.5">{item.unit}</span>
           </p>
@@ -141,7 +141,7 @@ function ScanInput({
 }: { inputRef: React.RefObject<HTMLInputElement | null>; name: string; placeholder: string }) {
   return (
     <div className="relative">
-      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-accent pointer-events-none">
+      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-accent-fg pointer-events-none">
         <IconScan size={17} />
       </span>
       <input
@@ -155,8 +155,8 @@ function ScanInput({
 function Step({ n, label, done, active }: { n: number; label: string; done: boolean; active: boolean }) {
   return (
     <li className={`flex items-center gap-2 h-7 px-2.5 rounded-md border text-[12px] ${
-      done ? "border-[#1F3A2C] bg-[#12201A] text-success"
-      : active ? "border-accent/40 bg-accent/10 text-accent"
+      done ? "border-success-line bg-success-soft text-success-fg"
+      : active ? "border-accent/40 bg-accent/10 text-accent-fg"
       : "border-border text-faint"
     }`}>
       <span className="w-4 h-4 rounded-full border border-current flex items-center justify-center text-[9.5px] tnum">

@@ -74,7 +74,7 @@ export default function EquipmentPage() {
                     </span>
                     <span className="flex justify-between">
                       <span>Indisponibilidade</span>
-                      <span className={`tnum ${e.downtime_minutes > 0 ? "text-warning" : "text-primary"}`}>
+                      <span className={`tnum ${e.downtime_minutes > 0 ? "text-warning-fg" : "text-primary"}`}>
                         {fmtDuration(e.downtime_minutes)}
                       </span>
                     </span>

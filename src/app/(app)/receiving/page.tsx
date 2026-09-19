@@ -129,7 +129,7 @@ export default async function ReceivingPage({
             <div className="flex items-center justify-between gap-2 mb-2">
               <p className="label">{d.name}</p>
               <span
-                className={`w-2 h-2 rounded-full ${d.status === "OCCUPIED" ? "bg-accent pulse-dot" : d.status === "BLOCKED" ? "bg-error" : "bg-[#3A4245]"}`}
+                className={`w-2 h-2 rounded-full ${d.status === "OCCUPIED" ? "bg-accent pulse-dot" : d.status === "BLOCKED" ? "bg-error" : "bg-neutral"}`}
                 aria-hidden
               />
             </div>

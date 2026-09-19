@@ -3,7 +3,7 @@ import { fmtDateTime, fmtTime, fmtDate } from "@/lib/format";
 import type { TraceNode } from "@/domain/services/traceability";
 
 const DOT: Record<string, string> = {
-  neutral: "bg-[#3A4245]", accent: "bg-accent", success: "bg-success",
+  neutral: "bg-neutral", accent: "bg-accent", success: "bg-success",
   warning: "bg-warning", info: "bg-info", error: "bg-error",
 };
 

@@ -53,7 +53,7 @@ export function WeighingStation({
         <div>
           <p className="label mb-1.5">Peso liquido</p>
           <p className={`text-[24px] font-[family-name:var(--font-display)] font-semibold tnum leading-[34px] ${
-            net < 0 ? "text-error" : net > 0 ? "text-accent" : "text-faint"
+            net < 0 ? "text-error-fg" : net > 0 ? "text-accent-fg" : "text-faint"
           }`}>
             {net ? fmtNumber(net, 3) : "—"}
           </p>
@@ -75,7 +75,7 @@ export function WeighingStation({
             {divergence !== null && net > 0 && (
               <>
                 {" · divergencia "}
-                <span className={`tnum ${Math.abs(divergence) > target.expected * 0.02 ? "text-warning" : "text-success"}`}>
+                <span className={`tnum ${Math.abs(divergence) > target.expected * 0.02 ? "text-warning-fg" : "text-success-fg"}`}>
                   {divergence > 0 ? "+" : ""}{fmtNumber(divergence, 3)} kg
                 </span>
               </>

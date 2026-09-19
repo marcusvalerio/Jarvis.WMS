@@ -24,7 +24,7 @@ export function TraceSearch({ defaultValue }: { defaultValue: string }) {
       <label className="flex-1">
         <span className="label block mb-1.5">Identificador ou leitura de codigo</span>
         <span className="relative block">
-          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-accent pointer-events-none">
+          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-accent-fg pointer-events-none">
             <IconScan size={16} />
           </span>
           <input

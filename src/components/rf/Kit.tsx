@@ -37,7 +37,7 @@ export function ScanField({
         {label}
       </span>
       <span className="relative block">
-        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-accent pointer-events-none">
+        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-accent-fg pointer-events-none">
           <IconScan size={24} />
         </span>
         <input
@@ -64,9 +64,9 @@ export function RfButton({
   const { pending } = useFormStatus();
   const base = "w-full h-14 rounded-xl text-[16px] font-semibold tracking-[0.03em] uppercase transition-colors disabled:opacity-40";
   const styles: Record<string, string> = {
-    "rf-primary": "bg-accent text-[#0B0D0E] hover:bg-[#C6FF5E]",
-    "rf-secondary": "bg-elevated border border-border text-primary hover:bg-[#1F2426]",
-    "rf-danger": "bg-[#2A1B1C] border border-[#5C3437] text-error hover:bg-[#33201F]",
+    "rf-primary": "bg-accent text-on-accent hover:bg-accent-hover",
+    "rf-secondary": "bg-elevated border border-border text-primary hover:bg-elevated-hover",
+    "rf-danger": "bg-rf-danger-bg border border-rf-danger-line text-error-fg hover:bg-rf-danger-hover",
   };
   return (
     <button
@@ -87,13 +87,13 @@ export function RfResult({ state }: { state: ActionState }) {
       role="status"
       aria-live="assertive"
       className={`scan-flash rounded-xl border-2 p-4 flex items-start gap-3 ${
-        bad ? "border-error bg-[#241617]" : "border-success bg-[#12201A]"
+        bad ? "border-error bg-rf-bad-bg" : "border-success bg-success-soft"
       }`}
     >
-      <span className={`flex-none mt-0.5 ${bad ? "text-error" : "text-success"}`}>
+      <span className={`flex-none mt-0.5 ${bad ? "text-error-fg" : "text-success-fg"}`}>
         {bad ? <IconAlert size={22} /> : <IconCheck size={22} />}
       </span>
-      <p className={`text-[16px] leading-snug font-medium ${bad ? "text-error" : "text-success"}`}>
+      <p className={`text-[16px] leading-snug font-medium ${bad ? "text-error-fg" : "text-success-fg"}`}>
         {state.error ?? state.message}
       </p>
     </div>
@@ -146,8 +146,8 @@ export function RfSteps({ steps, current }: { steps: string[]; current: number }
         <li
           key={s}
           className={`flex-1 rounded-lg border px-2.5 py-2 text-center ${
-            i < current ? "border-success/40 bg-[#12201A] text-success"
-            : i === current ? "border-accent bg-accent/10 text-accent"
+            i < current ? "border-success/40 bg-success-soft text-success-fg"
+            : i === current ? "border-accent bg-accent/10 text-accent-fg"
             : "border-border text-faint"
           }`}
         >
@@ -174,7 +174,7 @@ export function RfLink({
         {subtitle && <span className="block text-[13px] text-secondary mt-1 leading-snug">{subtitle}</span>}
       </span>
       {badge !== undefined && badge !== 0 && (
-        <span className="flex-none min-w-[30px] h-[30px] px-2 rounded-lg bg-accent text-[#0B0D0E] text-[15px] font-semibold flex items-center justify-center tnum">
+        <span className="flex-none min-w-[30px] h-[30px] px-2 rounded-lg bg-accent text-on-accent text-[15px] font-semibold flex items-center justify-center tnum">
           {badge}
         </span>
       )}

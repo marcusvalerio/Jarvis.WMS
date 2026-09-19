@@ -53,7 +53,7 @@ export function VolumeScanForm({ orderId, checkId }: { orderId: string; checkId:
       <div className="flex items-end gap-2">
         <Field label="Bipe o volume" className="flex-1">
           <div className="relative">
-            <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-accent pointer-events-none">
+            <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-accent-fg pointer-events-none">
               <IconScan size={15} />
             </span>
             <input

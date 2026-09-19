@@ -63,7 +63,7 @@ export default async function MobilePickingPage({
         </div>
         <div className="text-right flex-none">
           <p className="text-[11px] tracking-[0.12em] uppercase text-faint">Linhas</p>
-          <p className="text-[24px] font-[family-name:var(--font-display)] font-semibold tnum text-accent leading-none mt-1">
+          <p className="text-[24px] font-[family-name:var(--font-display)] font-semibold tnum text-accent-fg leading-none mt-1">
             {picking.done_lines}/{picking.total_lines}
           </p>
         </div>
@@ -100,7 +100,7 @@ export default async function MobilePickingPage({
               className={`flex items-center gap-2.5 px-3 py-2.5 rounded-lg border ${
                 current?.id === it.id ? "border-accent bg-accent/[0.07]"
                 : it.status === "COMPLETED" ? "border-border bg-surface opacity-60"
-                : it.status === "DIVERGENCE" || it.status === "SKIPPED" ? "border-[#5A451E] bg-[#1A1613]"
+                : it.status === "DIVERGENCE" || it.status === "SKIPPED" ? "border-warning-line bg-warning-soft"
                 : "border-border bg-surface"
               }`}
             >

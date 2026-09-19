@@ -75,9 +75,9 @@ export default async function InventoryPage({
                     <td className="text-secondary">{l.category}</td>
                     <td><Badge tone={l.abc_class === "A" ? "accent" : l.abc_class === "B" ? "info" : "neutral"}>{l.abc_class}</Badge></td>
                     <td className="num tnum">{fmtNumber(l.on_hand)}</td>
-                    <td className="num tnum text-warning">{l.reserved > 0 ? fmtNumber(l.reserved) : "—"}</td>
-                    <td className="num tnum text-error">{l.blocked > 0 ? fmtNumber(l.blocked) : "—"}</td>
-                    <td className="num tnum font-medium text-success">{fmtNumber(l.available)}</td>
+                    <td className="num tnum text-warning-fg">{l.reserved > 0 ? fmtNumber(l.reserved) : "—"}</td>
+                    <td className="num tnum text-error-fg">{l.blocked > 0 ? fmtNumber(l.blocked) : "—"}</td>
+                    <td className="num tnum font-medium text-success-fg">{fmtNumber(l.available)}</td>
                     <td>
                       <Progress
                         value={l.reserved + l.blocked} max={Math.max(1, l.on_hand)}

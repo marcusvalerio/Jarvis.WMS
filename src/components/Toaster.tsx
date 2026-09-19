@@ -49,13 +49,13 @@ export function Toaster() {
           key={t.id}
           data-toast={t.ok ? "ok" : "error"}
           className={`fade-in flex items-start gap-2.5 p-3.5 rounded-lg border shadow-2xl backdrop-blur-md ${
-            t.ok ? "border-[#1F3A2C] bg-[#12201A]/95" : "border-[#43292B] bg-[#1C1516]/95"
+            t.ok ? "border-success-line bg-success-soft/95" : "border-error-line bg-error-soft/95"
           }`}
         >
-          <span className={`flex-none mt-px ${t.ok ? "text-success" : "text-error"}`}>
+          <span className={`flex-none mt-px ${t.ok ? "text-success-fg" : "text-error-fg"}`}>
             {t.ok ? <IconCheck size={15} /> : <IconAlert size={15} />}
           </span>
-          <p className={`text-[12.5px] leading-snug flex-1 ${t.ok ? "text-success" : "text-error"}`}>
+          <p className={`text-[12.5px] leading-snug flex-1 ${t.ok ? "text-success-fg" : "text-error-fg"}`}>
             {t.text}
           </p>
           <button

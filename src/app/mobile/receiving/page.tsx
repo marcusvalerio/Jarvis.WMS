@@ -69,7 +69,7 @@ export default async function MobileReceivingPage({
         </div>
         <div className="text-right flex-none">
           <p className="text-[11px] tracking-[0.12em] uppercase text-faint">Linhas</p>
-          <p className="text-[24px] font-[family-name:var(--font-display)] font-semibold tnum text-accent leading-none mt-1">
+          <p className="text-[24px] font-[family-name:var(--font-display)] font-semibold tnum text-accent-fg leading-none mt-1">
             {inbound.checkItems.length - pending.length}/{inbound.checkItems.length}
           </p>
         </div>
@@ -101,8 +101,8 @@ export default async function MobileReceivingPage({
               key={i.id}
               className={`flex items-center gap-2.5 px-3 py-2.5 rounded-lg border ${
                 current?.id === i.id ? "border-accent bg-accent/[0.07]"
-                : i.status === "OK" ? "border-[#1F3A2C] bg-[#12201A]"
-                : i.status === "DIVERGENCE" ? "border-[#5A451E] bg-[#1A1613]"
+                : i.status === "OK" ? "border-success-line bg-success-soft"
+                : i.status === "DIVERGENCE" ? "border-warning-line bg-warning-soft"
                 : "border-border bg-surface"
               }`}
             >

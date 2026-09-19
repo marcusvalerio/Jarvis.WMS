@@ -18,8 +18,8 @@ export function ResetSimulation() {
   }
 
   return (
-    <ActionForm action={resetSimulationAction} className="card p-5 border-[#43292B]">
-      <p className="text-[14px] font-semibold text-error mb-2">Reiniciar a simulacao</p>
+    <ActionForm action={resetSimulationAction} className="card p-5 border-error-line">
+      <p className="text-[14px] font-semibold text-error-fg mb-2">Reiniciar a simulacao</p>
       <p className="text-[12.5px] text-secondary leading-relaxed mb-4 max-w-xl">
         Esta acao restaura o cenario ao estado inicial: estoque, recebimentos, pedidos, paletes,
         volumes, movimentacoes, ocorrencias e auditoria da simulacao voltam ao ponto de partida.

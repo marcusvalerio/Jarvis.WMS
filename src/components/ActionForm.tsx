@@ -66,8 +66,8 @@ export function ActionMessage({ state, className = "" }: { state: ActionState; c
       aria-live="polite"
       className={`flex items-start gap-2 mt-3 px-3 py-2 rounded-md text-[12.5px] leading-snug border ${
         bad
-          ? "border-[#43292B] bg-[#1C1516] text-error"
-          : "border-[#1F3A2C] bg-[#12201A] text-success"
+          ? "border-error-line bg-error-soft text-error-fg"
+          : "border-success-line bg-success-soft text-success-fg"
       } ${className}`}
     >
       <span className="flex-none mt-px">{bad ? <IconAlert size={14} /> : <IconCheck size={14} />}</span>

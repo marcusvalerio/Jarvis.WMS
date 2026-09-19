@@ -17,11 +17,11 @@ export interface MapLocation {
 }
 
 const FILL: Record<string, string> = {
-  AVAILABLE: "bg-[#161A1B] border-[#262B2D] hover:border-[#3A4245]",
-  OCCUPIED: "bg-[#1B2416] border-[#3C5722] hover:border-accent",
-  RESERVED: "bg-[#241E12] border-[#5A451E] hover:border-warning",
-  BLOCKED: "bg-[#241617] border-[#5C3437] hover:border-error",
-  MOVING: "bg-[#131F2B] border-[#2C4A6B] hover:border-info",
+  AVAILABLE: "bg-map-free-bg border-map-free-line hover:border-neutral",
+  OCCUPIED: "bg-map-occupied-bg border-map-occupied-line hover:border-accent",
+  RESERVED: "bg-map-reserved-bg border-map-reserved-line hover:border-warning",
+  BLOCKED: "bg-map-blocked-bg border-map-blocked-line hover:border-error",
+  MOVING: "bg-map-moving-bg border-map-moving-line hover:border-info",
 };
 
 /**

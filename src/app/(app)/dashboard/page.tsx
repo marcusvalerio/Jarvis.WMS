@@ -116,7 +116,7 @@ export default function DashboardPage() {
           <CardHeader
             title="Roteiro da operacao"
             subtitle={`${progress.done} de ${progress.total} etapas executadas`}
-            action={<span className="text-[19px] font-[family-name:var(--font-display)] font-semibold tnum text-accent">{fmtPercent(progress.pct, 0)}</span>}
+            action={<span className="text-[19px] font-[family-name:var(--font-display)] font-semibold tnum text-accent-fg">{fmtPercent(progress.pct, 0)}</span>}
           />
           <Progress value={progress.done} max={progress.total} label="Progresso do roteiro" />
           <ol className="mt-4 flex flex-col gap-px">
@@ -126,7 +126,7 @@ export default function DashboardPage() {
                   href={s.href}
                   className="flex items-center gap-2.5 h-[30px] px-2 -mx-2 rounded-md hover:bg-elevated transition-colors"
                 >
-                  <span className={`flex-none ${s.done ? "text-accent" : "text-faint"}`}>
+                  <span className={`flex-none ${s.done ? "text-accent-fg" : "text-faint"}`}>
                     {s.done
                       ? <IconCheck size={13} />
                       : <span className="block w-[13px] h-[13px] rounded-full border border-current" />}
@@ -189,7 +189,7 @@ export default function DashboardPage() {
               >
                 <span
                   className={`w-1.5 h-1.5 rounded-full flex-none ${
-                    d.status === "OCCUPIED" ? "bg-accent pulse-dot" : d.status === "BLOCKED" ? "bg-error" : "bg-[#3A4245]"
+                    d.status === "OCCUPIED" ? "bg-accent pulse-dot" : d.status === "BLOCKED" ? "bg-error" : "bg-neutral"
                   }`}
                   aria-hidden
                 />
@@ -272,12 +272,12 @@ export default function DashboardPage() {
                       <td><StatusBadge status={o.status} meta={SHIPPING_STATUS_META} /></td>
                       <td className="num tnum">{fmtNumber(o.total_qty)}</td>
                       <td className="num tnum">
-                        <span className={o.total_reserved >= o.total_qty ? "text-success" : "text-secondary"}>
+                        <span className={o.total_reserved >= o.total_qty ? "text-success-fg" : "text-secondary"}>
                           {fmtNumber(o.total_reserved)}
                         </span>
                       </td>
                       <td
-                        className={`text-[12px] ${isOverdue(o.due_at) ? "text-error" : "text-secondary"}`}
+                        className={`text-[12px] ${isOverdue(o.due_at) ? "text-error-fg" : "text-secondary"}`}
                         title={fmtDateTime(o.due_at)}
                       >
                         {relativeTime(o.due_at)}
@@ -294,9 +294,9 @@ export default function DashboardPage() {
       {inc.critical > 0 && (
         <Link
           href="/incidents"
-          className="mt-5 flex items-center gap-3 p-4 rounded-lg border border-[#43292B] bg-[#1C1516] hover:bg-[#221819] transition-colors"
+          className="mt-5 flex items-center gap-3 p-4 rounded-lg border border-error-line bg-error-soft hover:border-error transition-colors"
         >
-          <span className="text-error flex-none"><IconAlert size={17} /></span>
+          <span className="text-error-fg flex-none"><IconAlert size={17} /></span>
           <span className="min-w-0">
             <span className="block text-[13px] text-primary font-medium">
               {inc.critical} ocorrencia(s) de severidade alta ou critica em aberto
@@ -305,7 +305,7 @@ export default function DashboardPage() {
               Divergencias nao tratadas bloqueiam a expedicao dos pedidos afetados.
             </span>
           </span>
-          <span className="ml-auto text-error flex-none"><IconArrowRight size={15} /></span>
+          <span className="ml-auto text-error-fg flex-none"><IconArrowRight size={15} /></span>
         </Link>
       )}
     </>
@@ -320,7 +320,7 @@ function Headline({
       <p className="label truncate mb-1.5">{label}</p>
       <p
         className={`text-[24px] leading-none font-[family-name:var(--font-display)] font-semibold tnum ${
-          danger ? "text-error" : accent ? "text-accent" : "text-primary"
+          danger ? "text-error-fg" : accent ? "text-accent-fg" : "text-primary"
         }`}
       >
         {fmtNumber(value)}
@@ -332,6 +332,6 @@ function Headline({
 function dotClass(tone: string) {
   return {
     success: "bg-success", accent: "bg-accent", warning: "bg-warning",
-    error: "bg-error", info: "bg-info", neutral: "bg-[#3A4245]",
-  }[tone] ?? "bg-[#3A4245]";
+    error: "bg-error", info: "bg-info", neutral: "bg-neutral",
+  }[tone] ?? "bg-neutral";
 }

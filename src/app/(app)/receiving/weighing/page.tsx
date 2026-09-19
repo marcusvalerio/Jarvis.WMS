@@ -77,9 +77,9 @@ export default function WeighingPage() {
                     <td className="code text-secondary">{w.ref_id}</td>
                     <td className="num tnum">{fmtNumber(w.gross_kg, 3)}</td>
                     <td className="num tnum">{fmtNumber(w.tare_kg, 3)}</td>
-                    <td className="num tnum text-accent font-medium">{fmtNumber(w.net_kg, 3)}</td>
+                    <td className="num tnum text-accent-fg font-medium">{fmtNumber(w.net_kg, 3)}</td>
                     <td className="num tnum text-secondary">{w.expected_kg ? fmtNumber(w.expected_kg, 3) : "—"}</td>
-                    <td className={`num tnum ${w.divergence_kg === 0 ? "text-secondary" : "text-warning"}`}>
+                    <td className={`num tnum ${w.divergence_kg === 0 ? "text-secondary" : "text-warning-fg"}`}>
                       {w.expected_kg ? `${w.divergence_kg > 0 ? "+" : ""}${fmtNumber(w.divergence_kg, 3)}` : "—"}
                     </td>
                     <td className="text-secondary text-[12px] max-w-[160px] truncate">{w.equipment_model ?? "—"}</td>

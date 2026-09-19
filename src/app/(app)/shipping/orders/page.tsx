@@ -43,7 +43,7 @@ export default async function OrdersPage({
 
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3 mb-5">
         {(["PENDING", "PICKING", "CHECKING", "READY_TO_LOAD", "LOADING", "LOADED", "SHIPPED"] as const).map((s) => (
-          <Link key={s} href={`/shipping/orders?status=${s}`} className="card p-3.5 hover:border-[#363D3F] transition-colors">
+          <Link key={s} href={`/shipping/orders?status=${s}`} className="card p-3.5 hover:border-border-strong transition-colors">
             <p className="label truncate mb-1.5">{SHIPPING_STATUS_META[s].label}</p>
             <p className="text-[22px] font-[family-name:var(--font-display)] font-semibold tnum leading-none">
               {counts[s] ?? 0}
@@ -94,7 +94,7 @@ export default async function OrdersPage({
                     <td><StatusBadge status={o.status} meta={SHIPPING_STATUS_META} /></td>
                     <td className="num tnum">{fmtNumber(o.total_qty)}</td>
                     <td className="num tnum">
-                      <span className={o.total_reserved >= o.total_qty ? "text-success" : o.total_reserved > 0 ? "text-warning" : "text-faint"}>
+                      <span className={o.total_reserved >= o.total_qty ? "text-success-fg" : o.total_reserved > 0 ? "text-warning-fg" : "text-faint"}>
                         {fmtNumber(o.total_reserved)}
                       </span>
                     </td>
@@ -105,7 +105,7 @@ export default async function OrdersPage({
                     </td>
                     <td className="num tnum">{o.volume_count || "—"}</td>
                     <td className="num tnum text-secondary">{fmtMoney(o.total_value)}</td>
-                    <td className={`text-[12px] ${isOverdue(o.due_at) && o.status !== "SHIPPED" ? "text-error" : "text-secondary"}`} title={fmtDateTime(o.due_at)}>
+                    <td className={`text-[12px] ${isOverdue(o.due_at) && o.status !== "SHIPPED" ? "text-error-fg" : "text-secondary"}`} title={fmtDateTime(o.due_at)}>
                       {relativeTime(o.due_at)}
                     </td>
                     <td>

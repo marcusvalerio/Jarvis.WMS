@@ -45,7 +45,7 @@ export default function OperationsPage() {
               <div className="flex items-start justify-between gap-2 mb-3">
                 <p className="text-[13px] font-semibold text-primary">{s.stage}</p>
                 {s.running > 0 && (
-                  <span className="flex items-center gap-1.5 text-[11px] text-accent">
+                  <span className="flex items-center gap-1.5 text-[11px] text-accent-fg">
                     <span className="w-1.5 h-1.5 rounded-full bg-accent pulse-dot" aria-hidden />
                     ativo
                   </span>
@@ -115,7 +115,7 @@ export default function OperationsPage() {
             <ul className="grid grid-cols-2 gap-2">
               {docks.map((d) => (
                 <li key={d.id} className="flex items-center gap-2 h-8 px-2.5 rounded-md border border-border bg-bg">
-                  <span className={`w-1.5 h-1.5 rounded-full flex-none ${d.status === "OCCUPIED" ? "bg-accent pulse-dot" : d.status === "BLOCKED" ? "bg-error" : "bg-[#3A4245]"}`} />
+                  <span className={`w-1.5 h-1.5 rounded-full flex-none ${d.status === "OCCUPIED" ? "bg-accent pulse-dot" : d.status === "BLOCKED" ? "bg-error" : "bg-neutral"}`} />
                   <span className="text-[11.5px] truncate">{d.id.replace("DOCA-", "Doca ")}</span>
                   <span className="ml-auto text-[10.5px] text-faint truncate max-w-[64px]">{d.current_ref ?? "livre"}</span>
                 </li>
@@ -162,14 +162,14 @@ export default function OperationsPage() {
             }
             />
             {openIncidents.length === 0 ? (
-              <p className="text-[12.5px] text-success">Nenhuma ocorrencia em aberto.</p>
+              <p className="text-[12.5px] text-success-fg">Nenhuma ocorrencia em aberto.</p>
             ) : (
               <ul className="flex flex-col gap-2">
                 {openIncidents.map((i) => (
-                  <li key={i.id} className="p-2.5 rounded-md border border-[#3A2B1E] bg-[#1A1613]">
+                  <li key={i.id} className="p-2.5 rounded-md border border-warning-line bg-warning-soft">
                     <div className="flex items-center gap-2 mb-1">
-                      <span className="text-warning flex-none"><IconAlert size={12} /></span>
-                      <span className="text-[11px] text-warning truncate">
+                      <span className="text-warning-fg flex-none"><IconAlert size={12} /></span>
+                      <span className="text-[11px] text-warning-fg truncate">
                         {INCIDENT_KIND_LABEL[i.kind as keyof typeof INCIDENT_KIND_LABEL] ?? i.kind}
                       </span>
                     </div>
@@ -187,7 +187,7 @@ export default function OperationsPage() {
 
 function Stat({ label, value, tone }: { label: string; value: number; tone: "accent" | "warning" | "success" | "muted" }) {
   const color = {
-    accent: "text-accent", warning: "text-warning", success: "text-success", muted: "text-faint",
+    accent: "text-accent-fg", warning: "text-warning-fg", success: "text-success-fg", muted: "text-faint",
   }[tone];
   return (
     <div>

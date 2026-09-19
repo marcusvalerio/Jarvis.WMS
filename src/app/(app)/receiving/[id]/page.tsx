@@ -135,7 +135,7 @@ export default async function InboundDetailPage({ params }: { params: Promise<{ 
           </div>
         )}
         {order.status === "COMPLETED" && (
-          <p className="text-[13px] text-success flex items-center gap-2">
+          <p className="text-[13px] text-success-fg flex items-center gap-2">
             Recebimento concluido em {fmtDateTime(order.completed_at)} — todos os paletes armazenados.
           </p>
         )}
@@ -171,7 +171,7 @@ export default async function InboundDetailPage({ params }: { params: Promise<{ 
                         <td className="text-secondary">{it.expires_at ? fmtDate(it.expires_at) : "—"}</td>
                         <td className="num tnum">{fmtNumber(it.expected_qty)}</td>
                         <td className="num tnum">{it.status === "PENDING" ? "—" : fmtNumber(it.checked_qty)}</td>
-                        <td className={`num tnum ${d === 0 ? "text-secondary" : "text-warning"}`}>
+                        <td className={`num tnum ${d === 0 ? "text-secondary" : "text-warning-fg"}`}>
                           {it.status === "PENDING" ? "—" : d === 0 ? "0" : `${d > 0 ? "+" : ""}${fmtNumber(d)}`}
                         </td>
                         <td>
@@ -220,7 +220,7 @@ export default async function InboundDetailPage({ params }: { params: Promise<{ 
                     {pallets.map((p: any) => (
                       <Link
                         key={p.id} href={`/warehouse/pallets/${p.id}`}
-                        className="flex items-center gap-3 p-3 rounded-md border border-border bg-bg hover:border-[#363D3F] transition-colors"
+                        className="flex items-center gap-3 p-3 rounded-md border border-border bg-bg hover:border-border-strong transition-colors"
                       >
                         <Barcode value={p.id} height={34} moduleWidth={1.4} showText={false} quietZone={6} />
                         <span className="min-w-0">
@@ -258,7 +258,7 @@ export default async function InboundDetailPage({ params }: { params: Promise<{ 
                       <IdChip id={so.id} />
                       <span className="text-[12.5px] text-secondary">
                         Palete <span className="code">{so.pallet_id}</span> armazenado em{" "}
-                        <span className="text-accent font-medium">{so.final_code}</span>
+                        <span className="text-accent-fg font-medium">{so.final_code}</span>
                       </span>
                       <span className="ml-auto"><StatusBadge status={so.status} meta={TASK_STATUS_META} /></span>
                     </div>
@@ -296,10 +296,10 @@ export default async function InboundDetailPage({ params }: { params: Promise<{ 
                     <div className="grid grid-cols-3 gap-2 mt-2.5 text-center">
                       <div><p className="label">Bruto</p><p className="text-[13px] tnum">{fmtNumber(w.gross_kg, 3)}</p></div>
                       <div><p className="label">Tara</p><p className="text-[13px] tnum">{fmtNumber(w.tare_kg, 3)}</p></div>
-                      <div><p className="label">Liquido</p><p className="text-[13px] tnum text-accent">{fmtNumber(w.net_kg, 3)}</p></div>
+                      <div><p className="label">Liquido</p><p className="text-[13px] tnum text-accent-fg">{fmtNumber(w.net_kg, 3)}</p></div>
                     </div>
                     {w.divergence_kg !== 0 && (
-                      <p className="text-[11.5px] text-warning mt-2">
+                      <p className="text-[11.5px] text-warning-fg mt-2">
                         Divergencia de {fmtNumber(w.divergence_kg, 3)} kg sobre o previsto
                       </p>
                     )}
@@ -327,7 +327,7 @@ export default async function InboundDetailPage({ params }: { params: Promise<{ 
                 <MetaItem label="Valor" value={fmtNumber(invoice.total_invoice, 2)} />
                 <MetaItem label="Peso" value={fmtWeight(invoice.total_weight_kg)} />
               </div>
-              <p className="text-[10px] tracking-[0.16em] uppercase text-warning mt-3">
+              <p className="text-[10px] tracking-[0.16em] uppercase text-warning-fg mt-3">
                 Documento simulado — uso academico
               </p>
             </Card>
@@ -342,9 +342,9 @@ export default async function InboundDetailPage({ params }: { params: Promise<{ 
               />
               <ul className="flex flex-col gap-2">
                 {incidents.map((i: any) => (
-                  <li key={i.id} className="p-3 rounded-md border border-[#3A2B1E] bg-[#1A1613]">
+                  <li key={i.id} className="p-3 rounded-md border border-warning-line bg-warning-soft">
                     <div className="flex items-center justify-between gap-2 mb-1.5">
-                      <span className="text-[11.5px] text-warning">
+                      <span className="text-[11.5px] text-warning-fg">
                         {INCIDENT_KIND_LABEL[i.kind as keyof typeof INCIDENT_KIND_LABEL] ?? i.kind}
                       </span>
                       <StatusBadge status={i.status} meta={INCIDENT_STATUS_META} />

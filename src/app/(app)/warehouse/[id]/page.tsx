@@ -73,8 +73,8 @@ export default async function LocationPage({ params }: { params: Promise<{ id: s
                         <td className="code text-secondary">{c.lot_code ?? "—"}</td>
                         <td className="text-secondary">{c.expires_at ? fmtDate(c.expires_at) : "—"}</td>
                         <td className="num tnum">{fmtNumber(c.qty_on_hand)}</td>
-                        <td className="num tnum text-warning">{c.qty_reserved > 0 ? fmtNumber(c.qty_reserved) : "—"}</td>
-                        <td className="num tnum text-error">{c.qty_blocked > 0 ? fmtNumber(c.qty_blocked) : "—"}</td>
+                        <td className="num tnum text-warning-fg">{c.qty_reserved > 0 ? fmtNumber(c.qty_reserved) : "—"}</td>
+                        <td className="num tnum text-error-fg">{c.qty_blocked > 0 ? fmtNumber(c.qty_blocked) : "—"}</td>
                         <td className="num tnum text-secondary">{fmtWeight(c.weight_kg, 1)}</td>
                       </tr>
                     ))}
@@ -103,7 +103,7 @@ export default async function LocationPage({ params }: { params: Promise<{ id: s
                         <td className="text-secondary">{MOVEMENT_KIND_LABEL[m.kind as keyof typeof MOVEMENT_KIND_LABEL] ?? m.kind}</td>
                         <td><span className="chip-id">{m.sku}</span></td>
                         <td className="num tnum">{fmtNumber(m.quantity)}</td>
-                        <td className={m.to_location_id === location.id ? "text-success" : "text-info"}>
+                        <td className={m.to_location_id === location.id ? "text-success-fg" : "text-info-fg"}>
                           {m.to_location_id === location.id ? "entrada" : "saida"}
                         </td>
                         <td className="text-secondary text-[12px]">{fmtDateTime(m.occurred_at)}</td>
@@ -131,7 +131,7 @@ export default async function LocationPage({ params }: { params: Promise<{ id: s
             <CardHeader title="Status do endereco" subtitle="Bloqueio impede alocacao e picking" />
             <LocationStatusForm locationId={location.id} current={location.status} />
             {location.blocked_reason && (
-              <p className="text-[12px] text-warning mt-3">Motivo: {location.blocked_reason}</p>
+              <p className="text-[12px] text-warning-fg mt-3">Motivo: {location.blocked_reason}</p>
             )}
           </Card>
         </div>

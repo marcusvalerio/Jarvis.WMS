@@ -119,7 +119,7 @@ export default async function PickingDetailPage({ params }: { params: Promise<{ 
             </thead>
             <tbody>
               {items.map((it: any) => (
-                <tr key={it.id} className={current?.id === it.id ? "bg-[#171C18]" : undefined}>
+                <tr key={it.id} className={current?.id === it.id ? "bg-accent-soft" : undefined}>
                   <td className="tnum text-secondary">{it.sequence}</td>
                   <td>
                     <Link href={`/warehouse/${it.location_id}`} className="link code font-medium">
@@ -133,7 +133,7 @@ export default async function PickingDetailPage({ params }: { params: Promise<{ 
                   <td className="text-secondary text-[12px]">{it.expires_at ? fmtDate(it.expires_at) : "—"}</td>
                   <td className="num tnum">{fmtNumber(it.expected_qty)}</td>
                   <td className="num tnum">
-                    <span className={it.picked_qty === it.expected_qty ? "text-success" : it.picked_qty > 0 ? "text-warning" : "text-faint"}>
+                    <span className={it.picked_qty === it.expected_qty ? "text-success-fg" : it.picked_qty > 0 ? "text-warning-fg" : "text-faint"}>
                       {it.status === "PENDING" ? "—" : fmtNumber(it.picked_qty)}
                     </span>
                   </td>

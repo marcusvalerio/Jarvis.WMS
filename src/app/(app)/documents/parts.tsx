@@ -66,7 +66,7 @@ export function DocTypePanel({ doc }: { doc: DocPanel }) {
                   href={`/documents/${doc.type}/${encodeURIComponent(i.id)}`}
                   className="flex items-center gap-2.5 h-9 px-2 -mx-1 rounded-md hover:bg-elevated transition-colors group"
                 >
-                  <span className="text-faint group-hover:text-accent flex-none"><IconPrint size={13} /></span>
+                  <span className="text-faint group-hover:text-accent-fg flex-none"><IconPrint size={13} /></span>
                   <span className="min-w-0 flex-1">
                     <span className="block text-[12.5px] text-primary truncate">{i.label}</span>
                     {i.sublabel && <span className="block text-[11px] text-faint truncate">{i.sublabel}</span>}

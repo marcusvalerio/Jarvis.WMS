@@ -5,9 +5,9 @@ export interface Bucket {
 }
 
 const SERIES = [
-  { key: "in", label: "Entradas", color: "#B8FF3D" },
-  { key: "out", label: "Saidas", color: "#62A8FF" },
-  { key: "internal", label: "Internos", color: "#3A4245" },
+  { key: "in", label: "Entradas", color: "var(--color-chart-in)" },
+  { key: "out", label: "Saidas", color: "var(--color-chart-out)" },
+  { key: "internal", label: "Internos", color: "var(--color-chart-internal)" },
 ] as const;
 
 /**

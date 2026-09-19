@@ -63,7 +63,7 @@ export default function SimulationPage() {
             title="Roteiro da operacao"
             subtitle="Sequencia executada durante a apresentacao"
             action={
-              <span className="text-[22px] font-[family-name:var(--font-display)] font-semibold tnum text-accent">
+              <span className="text-[22px] font-[family-name:var(--font-display)] font-semibold tnum text-accent-fg">
                 {progress.done}/{progress.total}
               </span>
             }
@@ -77,7 +77,7 @@ export default function SimulationPage() {
                   className="flex items-center gap-3 h-9 px-2 -mx-2 rounded-md hover:bg-elevated transition-colors"
                 >
                   <span className={`w-5 h-5 rounded-full border flex items-center justify-center flex-none text-[10px] tnum ${
-                    s.done ? "border-accent bg-accent text-[#0B0D0E]" : "border-border text-faint"
+                    s.done ? "border-accent bg-accent text-on-accent" : "border-border text-faint"
                   }`}>
                     {s.done ? <IconCheck size={11} /> : i + 1}
                   </span>
@@ -190,7 +190,7 @@ export default function SimulationPage() {
                     <span className="text-secondary truncate flex-1">{s.description}</span>
                     <span className="tnum text-primary flex-none">{fmtNumber(s.on_hand)}</span>
                     {s.reserved > 0 && (
-                      <span className="tnum text-warning flex-none text-[11.5px]">−{fmtNumber(s.reserved)}</span>
+                      <span className="tnum text-warning-fg flex-none text-[11.5px]">−{fmtNumber(s.reserved)}</span>
                     )}
                   </li>
                 ))}
@@ -199,7 +199,7 @@ export default function SimulationPage() {
           </Card>
 
           {/* --------------------------------------------- reset */}
-          <Card className="border-[#3A2124]">
+          <Card className="border-error-line">
             <CardHeader
               title="Reiniciar simulacao"
               subtitle="Restaura o cenario para executar a apresentacao novamente"

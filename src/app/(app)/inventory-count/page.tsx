@@ -77,13 +77,13 @@ export default function InventoryCountPage() {
                         tone={c.status === "COMPLETED" ? "success" : "accent"} label={`Progresso ${c.id}`} />
                     </td>
                     <td className="num tnum">
-                      <span className={c.divergence_items > 0 ? "text-warning" : "text-secondary"}>
+                      <span className={c.divergence_items > 0 ? "text-warning-fg" : "text-secondary"}>
                         {c.divergence_items}
                       </span>
                     </td>
                     <td className="num tnum">
                       {c.accuracy === null ? "—" : (
-                        <span className={c.accuracy >= 99 ? "text-success" : "text-warning"}>
+                        <span className={c.accuracy >= 99 ? "text-success-fg" : "text-warning-fg"}>
                           {fmtPercent(c.accuracy, 2)}
                         </span>
                       )}

@@ -70,7 +70,7 @@ export default function StoragePage() {
                     <td>{o.sku ? <span className="chip-id">{o.sku}</span> : "—"}</td>
                     <td className="num tnum">{fmtNumber(o.qty)}</td>
                     <td className="code text-secondary">{o.suggested_code ?? "—"}</td>
-                    <td className={`code ${o.final_code !== o.suggested_code ? "text-warning" : "text-accent"}`}>
+                    <td className={`code ${o.final_code !== o.suggested_code ? "text-warning-fg" : "text-accent-fg"}`}>
                       {o.final_code ?? "—"}
                     </td>
                     <td className="text-secondary">{o.operator_name ?? "—"}</td>

@@ -2,6 +2,7 @@ import { Sidebar, type NavCounts } from "@/components/shell/Sidebar";
 import { Topbar } from "@/components/shell/Topbar";
 import { Toaster } from "@/components/Toaster";
 import { currentOperator, listOperators } from "@/domain/context";
+import { currentTheme } from "@/domain/theme.server";
 import { ensureSeeded, getScenario } from "@/domain/services/simulation";
 import { scalar } from "@/lib/db";
 
@@ -12,6 +13,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   ensureSeeded();
 
   const [operator, operators] = [await currentOperator(), listOperators()];
+  const theme = await currentTheme();
   const scenario = getScenario();
 
   const counts: NavCounts = {
@@ -28,6 +30,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         <Topbar
           operator={operator}
           operators={operators}
+          theme={theme}
           scenario={scenario ? { id: scenario.id, name: scenario.name, status: scenario.status } : null}
         />
         <main className="flex-1 min-w-0 px-4 lg:px-6 py-6 fade-in">{children}</main>

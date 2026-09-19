@@ -90,7 +90,7 @@ export function CountRow({ countId, item, closed }: { countId: string; item: any
             <div className="text-center w-[90px]">
               <p className="label mb-1">Divergencia</p>
               <p className={`text-[17px] font-[family-name:var(--font-display)] font-semibold tnum ${
-                item.divergence === 0 ? "text-success" : "text-warning"
+                item.divergence === 0 ? "text-success-fg" : "text-warning-fg"
               }`}>
                 {item.divergence === 0 ? "0" : `${item.divergence > 0 ? "+" : ""}${fmtNumber(item.divergence)}`}
               </p>

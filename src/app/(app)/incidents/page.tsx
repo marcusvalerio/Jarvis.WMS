@@ -95,7 +95,7 @@ export default async function IncidentsPage({
                     <span>Responsavel {i.owner ?? "—"}</span>
                   </div>
                   {i.resolution && (
-                    <p className="text-[12.5px] text-success mt-2.5 leading-snug">
+                    <p className="text-[12.5px] text-success-fg mt-2.5 leading-snug">
                       Tratamento: {i.resolution} · {fmtDateTime(i.resolved_at)}
                     </p>
                   )}

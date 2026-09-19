@@ -2,9 +2,9 @@ import { fmtNumber } from "@/lib/format";
 import { kpiTone, type Kpi } from "@/domain/services/kpi";
 
 const TONE = {
-  good:  { text: "text-success", bar: "bg-success", label: "dentro da meta" },
-  warn:  { text: "text-warning", bar: "bg-warning", label: "em atencao" },
-  bad:   { text: "text-error",   bar: "bg-error",   label: "fora da meta" },
+  good:  { text: "text-success-fg", bar: "bg-success", label: "dentro da meta" },
+  warn:  { text: "text-warning-fg", bar: "bg-warning", label: "em atencao" },
+  bad:   { text: "text-error-fg",   bar: "bg-error",   label: "fora da meta" },
   muted: { text: "text-faint",   bar: "bg-border",  label: "sem base de calculo" },
 } as const;
 

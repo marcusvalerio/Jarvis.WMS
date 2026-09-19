@@ -74,7 +74,7 @@ export default async function CountPage({ params }: { params: Promise<{ id: stri
             </div>
           )}
           {closed && (
-            <p className="text-[13px] text-success">
+            <p className="text-[13px] text-success-fg">
               Encerrado com acuracidade de {fmtPercent(accuracy, 2)}
             </p>
           )}

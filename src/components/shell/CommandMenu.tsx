@@ -95,7 +95,7 @@ export function CommandMenu() {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="flex items-center gap-2 h-8 pl-2.5 pr-2 rounded-md border border-border bg-bg text-secondary hover:border-[#363D3F] hover:text-primary transition-colors w-[210px] xl:w-[280px]"
+        className="flex items-center gap-2 h-8 pl-2.5 pr-2 rounded-md border border-border bg-bg text-secondary hover:border-border-strong hover:text-primary transition-colors w-[210px] xl:w-[280px]"
         aria-label="Busca global e leitura de codigo"
       >
         <IconSearch size={14} />
@@ -109,7 +109,7 @@ export function CommandMenu() {
 
       {open && (
         <div
-          className="fixed inset-0 z-[60] bg-black/70 flex items-start justify-center pt-[12vh] px-4"
+          className="fixed inset-0 z-[60] bg-scrim/70 flex items-start justify-center pt-[12vh] px-4"
           onClick={() => setOpen(false)}
           role="presentation"
         >
@@ -121,7 +121,7 @@ export function CommandMenu() {
             aria-label="Busca global"
           >
             <div className="flex items-center gap-2.5 px-4 h-12 border-b border-border">
-              <span className="text-accent flex-none"><IconScan size={16} /></span>
+              <span className="text-accent-fg flex-none"><IconScan size={16} /></span>
               <input
                 ref={inputRef}
                 value={query}
@@ -163,7 +163,7 @@ export function CommandMenu() {
                     onMouseEnter={() => setCursor(i)}
                     onClick={() => go(hit)}
                     className={`w-full flex items-center gap-3 px-4 py-2 text-left transition-colors ${
-                      i === cursor ? "bg-[#1F2426]" : ""
+                      i === cursor ? "bg-elevated-hover" : ""
                     }`}
                   >
                     <span className="w-[76px] flex-none eyebrow truncate">{hit.kindLabel}</span>
@@ -173,7 +173,7 @@ export function CommandMenu() {
                         <span className="block text-[11.5px] text-faint truncate">{hit.subtitle}</span>
                       )}
                     </span>
-                    <span className={i === cursor ? "text-accent" : "text-faint"}>
+                    <span className={i === cursor ? "text-accent-fg" : "text-faint"}>
                       <IconArrowRight size={14} />
                     </span>
                   </button>

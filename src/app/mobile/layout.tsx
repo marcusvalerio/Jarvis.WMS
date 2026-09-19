@@ -27,8 +27,8 @@ export default async function MobileLayout({ children }: { children: React.React
           <Link href="/mobile" className="flex items-center gap-2 min-w-0">
             <span className="w-6 h-6 rounded-[5px] bg-accent flex items-center justify-center flex-none">
               <svg width="13" height="13" viewBox="0 0 16 16" aria-hidden>
-                <path d="M2 4.5 8 1.5l6 3v7l-6 3-6-3z" fill="none" stroke="#0B0D0E" strokeWidth="1.6" strokeLinejoin="round" />
-                <path d="M8 7.8v6.7M2 4.5l6 3.3 6-3.3" fill="none" stroke="#0B0D0E" strokeWidth="1.6" strokeLinejoin="round" />
+                <path d="M2 4.5 8 1.5l6 3v7l-6 3-6-3z" fill="none" stroke="var(--color-on-accent)" strokeWidth="1.6" strokeLinejoin="round" />
+                <path d="M8 7.8v6.7M2 4.5l6 3.3 6-3.3" fill="none" stroke="var(--color-on-accent)" strokeWidth="1.6" strokeLinejoin="round" />
               </svg>
             </span>
             <span className="text-[14px] font-semibold font-[family-name:var(--font-display)]">WMS RF</span>

@@ -66,8 +66,8 @@ export function Metric({
   size?: "sm" | "md" | "lg";
 }) {
   const color = {
-    default: "text-primary", accent: "text-accent", success: "text-success",
-    warning: "text-warning", error: "text-error", muted: "text-faint",
+    default: "text-primary", accent: "text-accent-fg", success: "text-success-fg",
+    warning: "text-warning-fg", error: "text-error-fg", muted: "text-faint",
   }[tone];
   const fontSize = { sm: "text-[19px]", md: "text-[26px]", lg: "text-[38px]" }[size];
   return (
@@ -116,7 +116,7 @@ export function Field({
     <label className={`block ${className}`}>
       <span className="label block mb-1.5">
         {label}
-        {required && <span className="text-accent ml-1">*</span>}
+        {required && <span className="text-accent-fg ml-1">*</span>}
       </span>
       {children}
       {hint && <span className="block text-[11.5px] text-faint mt-1.5">{hint}</span>}

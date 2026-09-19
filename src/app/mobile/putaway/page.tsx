@@ -36,7 +36,7 @@ export default function PutawayPage() {
                 <span className="text-[12px] text-secondary truncate flex-1">
                   {o.sku ?? "—"} · {fmtNumber(o.qty)}
                 </span>
-                <span className="text-[13px] text-accent flex-none font-medium">{o.suggested_code ?? "—"}</span>
+                <span className="text-[13px] text-accent-fg flex-none font-medium">{o.suggested_code ?? "—"}</span>
               </li>
             ))}
           </ul>

@@ -2,31 +2,97 @@
 
 /* =====================================================================
    JARVIS WMS — sistema visual
-   Superficie escura, densidade operacional, verde tecnico usado apenas
-   onde existe acao ou estado ativo.
+   Dois temas sobre o MESMO conjunto de tokens. O tema claro e o padrao
+   e vive no bloco @theme; o escuro redefine os mesmos tokens em
+   :root[data-theme="dark"], preservando a identidade original.
+   Nenhum componente de interface deve usar cor fixa: tudo passa por
+   token, para que a troca de tema alcance a tela inteira.
    ===================================================================== */
 
 @theme {
-  /* superficies */
-  --color-bg:          #0B0D0E;
-  --color-surface:     #121516;
-  --color-elevated:    #181C1D;
-  --color-border:      #292E30;
-  --color-border-soft: #1E2324;
+  /* ------------------------------------------------------ superficies */
+  --color-bg:             #F5F6F3;
+  --color-surface:        #FFFFFF;
+  --color-elevated:       #ECEFEC;
+  --color-hover:          #F0F2EF;  /* linha de tabela, item de lista */
+  --color-elevated-hover: #E2E6E2;  /* menus e botoes sobre elevado */
+  --color-subtle:         #F0F2EF;  /* preenchimento discreto: chips, itens de menu */
 
-  /* texto */
-  --color-primary:   #E7E9E6;
-  --color-secondary: #969C9A;
-  --color-faint:     #7F8582;
+  --color-border:         #D9DEDA;
+  --color-border-soft:    #E7EAE7;  /* divisor interno de tabela */
+  --color-border-strong:  #BCC3BE;  /* borda em hover de controle */
 
-  /* estados */
-  --color-accent:  #B8FF3D;
-  --color-success: #42D392;
-  --color-warning: #FFB547;
-  --color-error:   #FF5C5C;
-  --color-info:    #62A8FF;
+  /* ------------------------------------------------------------ texto */
+  --color-primary:    #171A19;
+  --color-secondary:  #5B625E;
+  --color-faint:      #616965;
+  --color-on-accent:  #17210B;  /* texto sobre o accent solido */
 
-  /* tipografia */
+  /* ------------------------------------------------- marcas de estado */
+  --color-accent:       #8FD62E;
+  --color-accent-hover: #7FC522;
+  --color-success:      #229A68;
+  --color-warning:      #B97800;
+  --color-error:        #D64545;
+  --color-info:         #2878C8;
+  --color-neutral:      #A9B0AC;  /* indicador inativo */
+
+  /* superficie / borda / texto de cada estado (avisos, selos, paineis) */
+  --color-accent-soft:  #EDF9DC;
+  --color-accent-line:  #C3E68C;
+  --color-accent-fg:    #3D6B0F;
+  --color-accent-flash: #D9F5A6;  /* realce momentaneo apos leitura */
+
+  --color-success-soft: #E3F5EC;
+  --color-success-line: #A8DCC3;
+  --color-success-fg:   #17704B;
+
+  --color-warning-soft: #FDF0DC;
+  --color-warning-line: #ECC98F;
+  --color-warning-fg:   #8A5A00;
+
+  --color-error-soft:   #FBE7E7;
+  --color-error-line:   #EFB4B4;
+  --color-error-fg:     #A82B2B;
+
+  --color-info-soft:    #E4EFFA;
+  --color-info-line:    #AFCCEC;
+  --color-info-fg:      #1F5F9E;
+
+  --color-neutral-soft: #EDEFEC;
+  --color-neutral-line: #DCE1DD;
+
+  /* -------------------------------------------- componentes RF/coletora */
+  --color-rf-bad-bg:       #FBE7E7;  /* leitura recusada */
+  --color-rf-danger-bg:    #FAE0E0;  /* acao destrutiva na coletora */
+  --color-rf-danger-line:  #EFB4B4;
+  --color-rf-danger-hover: #F5D2D2;
+
+  /* -------------------------------------------------------- graficos */
+  --color-chart-in:       #5E9419;
+  --color-chart-out:      #2878C8;
+  --color-chart-internal: #8A918D;
+
+  /* ------------------------------------------------ mapa do armazem */
+  --color-map-free-bg:      #F2F4F1;
+  --color-map-free-line:    #D4DAD5;
+  --color-map-occupied-bg:  #EAF6D8;
+  --color-map-occupied-line:#A9D171;
+  --color-map-reserved-bg:  #FCF3E1;
+  --color-map-reserved-line:#E2C183;
+  --color-map-blocked-bg:   #FCEAEA;
+  --color-map-blocked-line: #EDAFAF;
+  --color-map-moving-bg:    #E8F1FC;
+  --color-map-moving-line:  #A8C8EA;
+
+  /* --------------------------------------------- sobreposicao modal */
+  --color-scrim: #171A19;
+
+  /* ------------------------------------------------------ scrollbar */
+  --color-scrollbar:       #CFD5D0;
+  --color-scrollbar-hover: #B6BEB8;
+
+  /* ------------------------------------------------------ tipografia */
   --font-display:   var(--font-familjen), ui-sans-serif, system-ui, sans-serif;
   --font-editorial: var(--font-geist), ui-sans-serif, system-ui, sans-serif;
   --font-ui:        var(--font-sora), ui-sans-serif, system-ui, sans-serif;
@@ -39,12 +105,93 @@
   --radius-xl: 16px;
 }
 
+/* =====================================================================
+   TEMA ESCURO — paleta original do sistema.
+   Fora de @layer para vencer o bloco @theme independentemente da ordem.
+   ===================================================================== */
+:root[data-theme="dark"] {
+  --color-bg:             #0B0D0E;
+  --color-surface:        #121516;
+  --color-elevated:       #181C1D;
+  --color-hover:          #15191A;
+  --color-elevated-hover: #1F2426;
+  --color-subtle:         #1A1F20;
+
+  --color-border:         #292E30;
+  --color-border-soft:    #1E2324;
+  --color-border-strong:  #363D3F;
+
+  --color-primary:    #E7E9E6;
+  --color-secondary:  #969C9A;
+  --color-faint:      #7F8582;
+  --color-on-accent:  #0B0D0E;
+
+  --color-accent:       #B8FF3D;
+  --color-accent-hover: #C6FF5E;
+  --color-success:      #42D392;
+  --color-warning:      #FFB547;
+  --color-error:        #FF5C5C;
+  --color-info:         #62A8FF;
+  --color-neutral:      #3A4245;
+
+  --color-accent-soft:  rgba(184, 255, 61, 0.10);
+  --color-accent-line:  rgba(184, 255, 61, 0.26);
+  --color-accent-fg:    #B8FF3D;
+  --color-accent-flash: rgba(184, 255, 61, 0.22);
+
+  --color-success-soft: #12201A;
+  --color-success-line: #1F3A2C;
+  --color-success-fg:   #42D392;
+
+  --color-warning-soft: #1A1613;
+  --color-warning-line: #5A451E;
+  --color-warning-fg:   #FFB547;
+
+  --color-error-soft:   #1C1516;
+  --color-error-line:   #43292B;
+  --color-error-fg:     #FF5C5C;
+
+  --color-info-soft:    #131F2B;
+  --color-info-line:    #2C4A6B;
+  --color-info-fg:      #62A8FF;
+
+  --color-neutral-soft: #1C2122;
+  --color-neutral-line: #2B3133;
+
+  --color-rf-bad-bg:       #241617;
+  --color-rf-danger-bg:    #2A1B1C;
+  --color-rf-danger-line:  #5C3437;
+  --color-rf-danger-hover: #33201F;
+
+  --color-chart-in:       #B8FF3D;
+  --color-chart-out:      #62A8FF;
+  --color-chart-internal: #3A4245;
+
+  --color-map-free-bg:      #161A1B;
+  --color-map-free-line:    #262B2D;
+  --color-map-occupied-bg:  #1B2416;
+  --color-map-occupied-line:#3C5722;
+  --color-map-reserved-bg:  #241E12;
+  --color-map-reserved-line:#5A451E;
+  --color-map-blocked-bg:   #241617;
+  --color-map-blocked-line: #5C3437;
+  --color-map-moving-bg:    #131F2B;
+  --color-map-moving-line:  #2C4A6B;
+
+  --color-scrim: #000000;
+
+  --color-scrollbar:       #23282A;
+  --color-scrollbar-hover: #333A3C;
+}
+
 @layer base {
   * { border-color: var(--color-border); }
 
+  :root { color-scheme: light; }
+  :root[data-theme="dark"] { color-scheme: dark; }
+
   html {
     background: var(--color-bg);
-    color-scheme: dark;
     -webkit-text-size-adjust: 100%;
   }
 
@@ -63,10 +210,10 @@
   /* numeros operacionais sempre alinhados em colunas */
   .tnum { font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1; }
 
-  ::selection { background: var(--color-accent); color: #0B0D0E; }
+  ::selection { background: var(--color-accent); color: var(--color-on-accent); }
 
   :focus-visible {
-    outline: 2px solid var(--color-accent);
+    outline: 2px solid var(--color-accent-fg);
     outline-offset: 2px;
     border-radius: 3px;
   }
@@ -74,9 +221,11 @@
   ::-webkit-scrollbar { width: 10px; height: 10px; }
   ::-webkit-scrollbar-track { background: var(--color-bg); }
   ::-webkit-scrollbar-thumb {
-    background: #23282A; border-radius: 8px; border: 2px solid var(--color-bg);
+    background: var(--color-scrollbar);
+    border-radius: 8px;
+    border: 2px solid var(--color-bg);
   }
-  ::-webkit-scrollbar-thumb:hover { background: #333A3C; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--color-scrollbar-hover); }
 }
 
 @layer components {
@@ -124,20 +273,29 @@
     white-space: nowrap; cursor: pointer;
     transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
   }
-  .btn:hover:not(:disabled) { background: #1F2426; border-color: #363D3F; }
+  .btn:hover:not(:disabled) {
+    background: var(--color-elevated-hover);
+    border-color: var(--color-border-strong);
+  }
   .btn:active:not(:disabled) { transform: translateY(0.5px); }
   .btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
   .btn-primary {
     background: var(--color-accent);
     border-color: var(--color-accent);
-    color: #0B0D0E;
+    color: var(--color-on-accent);
     font-weight: 600;
   }
-  .btn-primary:hover:not(:disabled) { background: #C6FF5E; border-color: #C6FF5E; }
+  .btn-primary:hover:not(:disabled) {
+    background: var(--color-accent-hover);
+    border-color: var(--color-accent-hover);
+  }
 
-  .btn-danger { color: var(--color-error); border-color: #43292B; }
-  .btn-danger:hover:not(:disabled) { background: #2A1B1C; border-color: #5C3437; }
+  .btn-danger { color: var(--color-error-fg); border-color: var(--color-error-line); }
+  .btn-danger:hover:not(:disabled) {
+    background: var(--color-error-soft);
+    border-color: var(--color-error);
+  }
 
   .btn-ghost { background: transparent; border-color: transparent; color: var(--color-secondary); }
   .btn-ghost:hover:not(:disabled) { background: var(--color-elevated); color: var(--color-primary); }
@@ -156,8 +314,8 @@
     transition: border-color 120ms ease;
   }
   .field::placeholder { color: var(--color-faint); }
-  .field:hover { border-color: #363D3F; }
-  .field:focus { border-color: var(--color-accent); outline: none; }
+  .field:hover { border-color: var(--color-border-strong); }
+  .field:focus { border-color: var(--color-accent-fg); outline: none; }
   textarea.field { height: auto; padding: 9px 11px; resize: vertical; }
   select.field { cursor: pointer; }
 
@@ -183,7 +341,7 @@
   }
   .table tbody tr:last-child td { border-bottom: none; }
   .table tbody tr { transition: background 100ms ease; }
-  .table tbody tr:hover { background: #15191A; }
+  .table tbody tr:hover { background: var(--color-hover); }
   .table .num { text-align: right; font-variant-numeric: tabular-nums; }
 
   /* ---------------------------------------------------------- badges */
@@ -198,12 +356,12 @@
   }
   .badge-dot { width: 5px; height: 5px; border-radius: 50%; background: currentColor; flex: none; }
 
-  .badge-neutral { background: #1C2122; border-color: #2B3133; color: var(--color-secondary); }
-  .badge-accent  { background: rgba(184,255,61,0.10); border-color: rgba(184,255,61,0.26); color: var(--color-accent); }
-  .badge-success { background: rgba(66,211,146,0.10); border-color: rgba(66,211,146,0.26); color: var(--color-success); }
-  .badge-warning { background: rgba(255,181,71,0.10); border-color: rgba(255,181,71,0.26); color: var(--color-warning); }
-  .badge-error   { background: rgba(255,92,92,0.10);  border-color: rgba(255,92,92,0.26);  color: var(--color-error); }
-  .badge-info    { background: rgba(98,168,255,0.10); border-color: rgba(98,168,255,0.26); color: var(--color-info); }
+  .badge-neutral { background: var(--color-neutral-soft); border-color: var(--color-neutral-line); color: var(--color-secondary); }
+  .badge-accent  { background: var(--color-accent-soft);  border-color: var(--color-accent-line);  color: var(--color-accent-fg); }
+  .badge-success { background: var(--color-success-soft); border-color: var(--color-success-line); color: var(--color-success-fg); }
+  .badge-warning { background: var(--color-warning-soft); border-color: var(--color-warning-line); color: var(--color-warning-fg); }
+  .badge-error   { background: var(--color-error-soft);   border-color: var(--color-error-line);   color: var(--color-error-fg); }
+  .badge-info    { background: var(--color-info-soft);    border-color: var(--color-info-line);    color: var(--color-info-fg); }
 
   /* ---------------------------------------------------------- codigo */
   .code {
@@ -216,7 +374,8 @@
   .chip-id {
     display: inline-flex; align-items: center;
     padding: 1px 6px;
-    background: #1A1F20; border: 1px solid var(--color-border);
+    background: var(--color-subtle);
+    border: 1px solid var(--color-border);
     border-radius: var(--radius-xs);
     font-family: var(--font-mono); font-size: 11.5px;
     color: var(--color-primary);
@@ -224,7 +383,7 @@
 
   /* ---------------------------------------------------------- links */
   .link { color: var(--color-primary); text-decoration: none; }
-  .link:hover { color: var(--color-accent); }
+  .link:hover { color: var(--color-accent-fg); }
 
   /* ---------------------------------------------------------- divisores */
   .hr { height: 1px; background: var(--color-border); border: 0; }
@@ -233,8 +392,8 @@
 @layer utilities {
   .grid-lines {
     background-image:
-      linear-gradient(to right, rgba(41,46,48,0.35) 1px, transparent 1px),
-      linear-gradient(to bottom, rgba(41,46,48,0.35) 1px, transparent 1px);
+      linear-gradient(to right, var(--color-border-soft) 1px, transparent 1px),
+      linear-gradient(to bottom, var(--color-border-soft) 1px, transparent 1px);
     background-size: 44px 44px;
   }
 
@@ -246,12 +405,17 @@
 
   .scan-flash { animation: scanFlash 420ms ease-out; }
   @keyframes scanFlash {
-    0% { background-color: rgba(184,255,61,0.22); }
+    0% { background-color: var(--color-accent-flash); }
     100% { background-color: transparent; }
   }
 
   .shimmer {
-    background: linear-gradient(90deg, #15191A 25%, #1C2122 50%, #15191A 75%);
+    background: linear-gradient(
+      90deg,
+      var(--color-hover) 25%,
+      var(--color-elevated) 50%,
+      var(--color-hover) 75%
+    );
     background-size: 200% 100%;
     animation: shimmer 1.3s linear infinite;
   }
@@ -259,7 +423,8 @@
 }
 
 /* ===================================================================== */
-/* IMPRESSAO — documentos operacionais em papel branco                   */
+/* IMPRESSAO — documentos operacionais em papel branco.                  */
+/* Independe do tema: o papel e sempre branco com tinta preta.           */
 /* ===================================================================== */
 @media print {
   /*
@@ -273,6 +438,7 @@
     background: #FFFFFF !important;
     color: #000000 !important;
     font-size: 10.5pt;
+    color-scheme: light !important;
   }
   .no-print { display: none !important; }
   .print-only { display: block !important; }

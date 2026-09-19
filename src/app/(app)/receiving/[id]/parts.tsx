@@ -122,7 +122,7 @@ export function WeighingForm({
         </Field>
         <div>
           <p className="label mb-1.5">Peso liquido</p>
-          <p className={`text-[22px] font-[family-name:var(--font-display)] font-semibold tnum leading-[34px] ${net < 0 ? "text-error" : "text-accent"}`}>
+          <p className={`text-[22px] font-[family-name:var(--font-display)] font-semibold tnum leading-[34px] ${net < 0 ? "text-error-fg" : "text-accent-fg"}`}>
             {net ? fmtNumber(net, 3) : "—"}
             <span className="text-[13px] text-secondary ml-1">kg</span>
           </p>
@@ -222,7 +222,7 @@ function CheckRow({
           <p className="label mb-1">Divergencia</p>
           <p
             className={`text-[19px] font-[family-name:var(--font-display)] font-semibold tnum leading-8 ${
-              divergence === null ? "text-faint" : divergence === 0 ? "text-success" : "text-warning"
+              divergence === null ? "text-faint" : divergence === 0 ? "text-success-fg" : "text-warning-fg"
             }`}
           >
             {divergence === null ? "—" : `${divergence > 0 ? "+" : ""}${fmtNumber(divergence)}`}
@@ -339,7 +339,7 @@ export function StorageExecutor({
 
         <div>
           <p className="label mb-1">Endereco sugerido</p>
-          <p className="text-[17px] font-[family-name:var(--font-display)] font-semibold text-accent leading-8">
+          <p className="text-[17px] font-[family-name:var(--font-display)] font-semibold text-accent-fg leading-8">
             {order.suggested_code ?? "—"}
           </p>
         </div>
@@ -369,7 +369,7 @@ export function StorageExecutor({
       </div>
 
       {diverged && (
-        <p className="text-[11.5px] text-warning mt-2.5">
+        <p className="text-[11.5px] text-warning-fg mt-2.5">
           Endereco diferente do sugerido pelo WMS — a justificativa fica registrada na auditoria.
         </p>
       )}

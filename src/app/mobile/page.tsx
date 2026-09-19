@@ -59,7 +59,7 @@ export default function MobileHome() {
               <li
                 key={s.id}
                 className={`flex items-center gap-2.5 px-3 py-2 rounded-lg border ${
-                  s.result === "OK" ? "border-border bg-surface" : "border-[#43292B] bg-[#1C1516]"
+                  s.result === "OK" ? "border-border bg-surface" : "border-error-line bg-error-soft"
                 }`}
               >
                 <span className={`w-1.5 h-1.5 rounded-full flex-none ${s.result === "OK" ? "bg-success" : "bg-error"}`} />

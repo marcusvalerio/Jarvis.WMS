@@ -94,8 +94,8 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
                         <td className="code text-secondary">{r.lot_code ?? "—"}</td>
                         <td className="text-secondary">{r.expires_at ? fmtDate(r.expires_at) : "—"}</td>
                         <td className="num tnum">{fmtNumber(r.qty_on_hand)}</td>
-                        <td className="num tnum text-warning">{r.qty_reserved > 0 ? fmtNumber(r.qty_reserved) : "—"}</td>
-                        <td className="num tnum text-success">{fmtNumber(r.qty_on_hand - r.qty_reserved - r.qty_blocked)}</td>
+                        <td className="num tnum text-warning-fg">{r.qty_reserved > 0 ? fmtNumber(r.qty_reserved) : "—"}</td>
+                        <td className="num tnum text-success-fg">{fmtNumber(r.qty_on_hand - r.qty_reserved - r.qty_blocked)}</td>
                       </tr>
                     ))}
                   </tbody>

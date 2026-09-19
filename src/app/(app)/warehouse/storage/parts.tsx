@@ -37,7 +37,7 @@ export function StorageQueueItem({
 
         <div>
           <p className="label mb-1">Sugestao do WMS</p>
-          <p className="text-[19px] font-[family-name:var(--font-display)] font-semibold text-accent leading-8">
+          <p className="text-[19px] font-[family-name:var(--font-display)] font-semibold text-accent-fg leading-8">
             {order.suggested_code ?? "—"}
           </p>
         </div>
