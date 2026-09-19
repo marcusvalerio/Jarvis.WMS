@@ -272,12 +272,23 @@
   .no-print { display: none !important; }
   .print-only { display: block !important; }
 
+  /* A casca escura do sistema nao pode vazar para o papel. */
+  .doc-shell {
+    background: #FFFFFF !important;
+    min-height: 0 !important;
+    padding: 0 !important;
+  }
+
+  /*
+   * A folha mantem o proprio padding — e ele que define as margens do
+   * documento impresso. O PDF e gerado com margem zero justamente para
+   * que o espacamento venha daqui, sem soma dupla.
+   */
   .doc-sheet {
     box-shadow: none !important;
     border: none !important;
     margin: 0 !important;
-    padding: 0 !important;
-    width: auto !important;
+    width: 100% !important;
     max-width: none !important;
     page-break-after: always;
   }

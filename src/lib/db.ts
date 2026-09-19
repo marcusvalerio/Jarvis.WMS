@@ -178,3 +178,8 @@ export function update(table: string, id: string, data: Record<string, any>) {
 export function databaseExists(): boolean {
   return fs.existsSync(DB_FILE);
 }
+
+/** Verdadeiro quando o processo aponta para o banco padrao da operacao. */
+export function isOperationalDatabase(): boolean {
+  return !process.env.WMS_DATA_DIR;
+}

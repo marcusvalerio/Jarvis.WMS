@@ -21,7 +21,15 @@ import { TABLES } from "../src/domain/services/simulation.ts";
 const OP = "OPR-0002";
 const SUP = "OPR-0001";
 
-before(() => { seed("TESTE"); });
+before(() => {
+  // Os testes destroem e recarregam o cenario. Apontar para o banco da
+  // operacao apagaria uma apresentacao em andamento.
+  assert.ok(
+    process.env.WMS_DATA_DIR,
+    "Defina WMS_DATA_DIR antes de rodar os testes (use `npm test`).",
+  );
+  seed("TESTE");
+});
 
 // ------------------------------------------------------------- 1. estado inicial
 test("01 · estoque inicial carregado conforme o cenario", () => {

@@ -40,7 +40,7 @@ export default async function WarehousePage({
           aisle: l.aisle, rack: l.rack, level: l.level, status: l.status,
           sku: l.sku, description: l.description, qty: l.qty, reserved: l.reserved,
           lot: l.lot_code, expires: l.expires_at, pallet: l.pallet_id,
-          capacity: l.capacity_units,
+          capacity: l.capacity_units, skuCount: l.sku_count,
         }))}
         zones={zones.map((z) => ({ id: z.id, name: z.name, kind: z.kind }))}
       />

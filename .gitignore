@@ -11,3 +11,4 @@ data/*.db-wal
 data/*.db-shm
 generated-docs/
 .DS_Store
+.test-data/

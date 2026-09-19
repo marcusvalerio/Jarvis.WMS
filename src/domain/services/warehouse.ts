@@ -27,6 +27,7 @@ export interface LocationOccupancy extends Location {
   qty: number;
   reserved: number;
   weight_kg: number;
+  sku_count: number;
   occupancy_pct: number;
 }
 
@@ -46,36 +47,63 @@ export function getLocationByCode(code: string): Location | undefined {
   return one<Location>(`SELECT * FROM locations WHERE code = ?`, code);
 }
 
-/** Mapa do armazem: cada endereco com sua ocupacao consolidada. */
+/**
+ * Mapa do armazem: UMA linha por endereco, com a ocupacao consolidada.
+ * Um endereco pode guardar mais de um SKU/lote, entao o conteudo e
+ * agregado aqui — caso contrario o mesmo endereco apareceria repetido no
+ * mapa, uma vez por registro de estoque.
+ */
 export function locationMap(filter?: { zoneId?: string; status?: string; search?: string }): LocationOccupancy[] {
   const where: string[] = [];
   const params: any[] = [];
   if (filter?.zoneId) { where.push("l.zone_id = ?"); params.push(filter.zoneId); }
   if (filter?.status) { where.push("l.status = ?"); params.push(filter.status); }
   if (filter?.search) {
-    where.push("(l.code LIKE ? OR l.id LIKE ? OR p.sku LIKE ?)");
+    where.push(`(l.code LIKE ? OR l.id LIKE ? OR EXISTS (
+        SELECT 1 FROM inventory i2 JOIN products p2 ON p2.id = i2.product_id
+         WHERE i2.location_id = l.id AND i2.qty_on_hand > 0 AND p2.sku LIKE ?))`);
     const q = `%${filter.search}%`;
     params.push(q, q, q);
   }
+
   const rows = all<any>(
     `SELECT l.*, z.name AS zone_name, z.kind AS zone_kind,
-            i.pallet_id, i.product_id, p.sku, p.description,
-            lt.code AS lot_code, lt.expires_at,
-            COALESCE(i.qty_on_hand, 0) AS qty,
-            COALESCE(i.qty_reserved, 0) AS reserved,
-            COALESCE(i.weight_kg, 0) AS weight_kg
+            COALESCE(agg.qty, 0)       AS qty,
+            COALESCE(agg.reserved, 0)  AS reserved,
+            COALESCE(agg.weight, 0)    AS weight_kg,
+            COALESCE(agg.skus, 0)      AS sku_count,
+            main.pallet_id, main.product_id, main.sku, main.description,
+            main.lot_code, main.expires_at
        FROM locations l
        JOIN zones z ON z.id = l.zone_id
-       LEFT JOIN inventory i ON i.location_id = l.id AND i.qty_on_hand > 0
-       LEFT JOIN products p ON p.id = i.product_id
-       LEFT JOIN lots lt ON lt.id = i.lot_id
+       LEFT JOIN (
+            SELECT location_id,
+                   SUM(qty_on_hand) AS qty,
+                   SUM(qty_reserved) AS reserved,
+                   SUM(weight_kg) AS weight,
+                   COUNT(DISTINCT product_id) AS skus
+              FROM inventory WHERE qty_on_hand > 0 GROUP BY location_id
+       ) agg ON agg.location_id = l.id
+       LEFT JOIN (
+            -- item predominante do endereco, para rotular a celula do mapa
+            SELECT i.location_id, i.pallet_id, i.product_id, p.sku, p.description,
+                   lt.code AS lot_code, lt.expires_at,
+                   ROW_NUMBER() OVER (PARTITION BY i.location_id ORDER BY i.qty_on_hand DESC, i.id) AS rn
+              FROM inventory i
+              JOIN products p ON p.id = i.product_id
+              LEFT JOIN lots lt ON lt.id = i.lot_id
+             WHERE i.qty_on_hand > 0
+       ) main ON main.location_id = l.id AND main.rn = 1
       ${where.length ? "WHERE " + where.join(" AND ") : ""}
       ORDER BY z.sort_order, l.code`,
     ...params,
   );
+
   return rows.map((r) => ({
     ...r,
-    occupancy_pct: r.capacity_units > 0 ? Math.min(100, (r.qty / r.capacity_units) * 100) : r.qty > 0 ? 100 : 0,
+    occupancy_pct: r.capacity_units > 0
+      ? Math.min(100, (r.qty / r.capacity_units) * 100)
+      : r.qty > 0 ? 100 : 0,
   }));
 }
 

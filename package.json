@@ -2,7 +2,7 @@
   "name": "jarvis-wms",
   "version": "1.0.0",
   "private": true,
-  "description": "WMS Operacional — sistema de gestao de armazem para operacao logistica simulada",
+  "description": "WMS Operacional \u2014 sistema de gestao de armazem para operacao logistica simulada",
   "scripts": {
     "dev": "next dev -p 3000",
     "build": "next build",
@@ -11,7 +11,9 @@
     "typecheck": "tsc --noEmit",
     "db:reset": "node --import ./scripts/register.mjs --experimental-strip-types --no-warnings scripts/reset.ts",
     "docs:pdf": "node --import ./scripts/register.mjs --experimental-strip-types --no-warnings scripts/generate-pdfs.ts",
-    "test": "node --import ./scripts/register.mjs --experimental-strip-types --no-warnings --test tests/*.test.ts"
+    "test": "WMS_DATA_DIR=.test-data node --import ./scripts/register.mjs --experimental-strip-types --no-warnings --test tests/*.test.ts",
+    "test:e2e": "node tests/e2e.mjs",
+    "test:smoke": "node tests/smoke.mjs"
   },
   "dependencies": {
     "next": "15.5.25",

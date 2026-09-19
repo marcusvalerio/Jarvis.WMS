@@ -13,7 +13,7 @@ export interface MapLocation {
   aisle: string; rack: string; level: string; status: string;
   sku: string | null; description: string | null;
   qty: number; reserved: number; lot: string | null; expires: string | null;
-  pallet: string | null; capacity: number;
+  pallet: string | null; capacity: number; skuCount: number;
 }
 
 const FILL: Record<string, string> = {
@@ -162,7 +162,11 @@ export function WarehouseMap({
               <Row label="Capacidade" value={`${fmtNumber(selected.capacity)} un`} />
               <Row label="Ocupacao" value={selected.qty > 0 ? `${fmtNumber(selected.qty)} un` : "vazio"} />
               <Row label="Reservado" value={selected.reserved > 0 ? `${fmtNumber(selected.reserved)} un` : "—"} />
-              <Row label="SKU" value={selected.sku ?? "—"} mono />
+              <Row
+                label="SKU"
+                value={selected.skuCount > 1 ? `${selected.sku} +${selected.skuCount - 1}` : (selected.sku ?? "—")}
+                mono
+              />
               <Row label="Produto" value={selected.description ?? "—"} />
               <Row label="Palete" value={selected.pallet ?? "—"} mono />
               <Row label="Lote" value={selected.lot ?? "—"} mono />
