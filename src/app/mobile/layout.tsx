@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { ensureSeeded, getScenario } from "@/domain/services/simulation";
 import { currentOperator } from "@/domain/context";
 import { IconArrowRight } from "@/components/ui/Icons";
+import { Toaster } from "@/components/Toaster";
 
 export const dynamic = "force-dynamic";
 
@@ -59,6 +60,8 @@ export default async function MobileLayout({ children }: { children: React.React
           </Link>
         </div>
       </footer>
+
+      <Toaster />
     </div>
   );
 }

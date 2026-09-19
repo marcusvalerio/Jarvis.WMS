@@ -1,9 +1,10 @@
 "use client";
 
-import { useActionState, useEffect, useRef } from "react";
+import { useActionState, useRef } from "react";
 import { useFormStatus } from "react-dom";
 import type { ActionState } from "@/app/actions/result";
 import { IconCheck, IconAlert } from "@/components/ui/Icons";
+import { toast } from "@/components/Toaster";
 
 type Action = (state: ActionState, form: FormData) => Promise<ActionState>;
 
@@ -23,25 +24,35 @@ export function ActionForm({
   feedback?: boolean;
   id?: string;
 }) {
-  const [state, formAction] = useActionState(action, { ok: false } as ActionState);
   const ref = useRef<HTMLFormElement>(null);
-  const seen = useRef<ActionState | null>(null);
+  const onSuccessRef = useRef(onSuccess);
+  onSuccessRef.current = onSuccess;
 
-  useEffect(() => {
-    if (state === seen.current) return;
-    seen.current = state;
-    if (state.ok) {
-      if (resetOnSuccess) ref.current?.reset();
-      onSuccess?.(state);
-    }
-  }, [state, onSuccess, resetOnSuccess]);
+  /**
+   * O resultado e publicado AQUI, logo apos a server action resolver.
+   * Nao pode ser em `useEffect`: a revalidacao do servidor frequentemente
+   * substitui a arvore de componentes no mesmo commit, desmontando este
+   * formulario antes que qualquer efeito rode — e a confirmacao se perderia
+   * exatamente nas operacoes que mudam de etapa.
+   */
+  const [state, formAction] = useActionState(
+    async (prev: ActionState, form: FormData): Promise<ActionState> => {
+      const result = await action(prev, form);
+      if (result.error) toast({ ok: false, text: result.error });
+      else if (result.message) toast({ ok: true, text: result.message });
+      if (result.ok) {
+        if (resetOnSuccess) ref.current?.reset();
+        onSuccessRef.current?.(result);
+      }
+      return result;
+    },
+    { ok: false } as ActionState,
+  );
 
   return (
     <form ref={ref} action={formAction} className={className} id={id}>
       {typeof children === "function" ? children(state) : children}
-      {feedback && (state.error || state.message) && (
-        <ActionMessage state={state} />
-      )}
+      {feedback && (state.error || state.message) && <ActionMessage state={state} />}
     </form>
   );
 }

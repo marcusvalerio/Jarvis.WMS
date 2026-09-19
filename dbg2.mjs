@@ -1,0 +1,15 @@
+import { chromium } from "playwright";
+const b = await chromium.launch({ executablePath: "/opt/pw-browsers/chromium-1194/chrome-linux/chrome" });
+const p = await b.newPage({ viewport: { width: 1500, height: 1000 } });
+p.on("pageerror", (e) => console.log("[pageerror]", e.message));
+p.on("console", (m) => { if (m.type() === "error") console.log("[console]", m.text().slice(0, 300)); });
+await p.goto("http://localhost:3000/receiving/OR-000001", { waitUntil: "networkidle" });
+console.log("status na pagina:", await p.locator(".badge").first().innerText());
+console.log("botoes:", await p.locator("button").allInnerTexts());
+await p.locator('button:has-text("Registrar chegada")').first().click();
+await p.waitForTimeout(4000);
+console.log("--- apos clique ---");
+console.log("status:", await p.locator(".badge").first().innerText());
+console.log("texto visivel (trecho):", (await p.locator("main").innerText()).slice(0, 700));
+await p.screenshot({ path: process.argv[2], fullPage: false });
+await b.close();

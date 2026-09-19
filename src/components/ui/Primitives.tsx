@@ -3,10 +3,10 @@ import type { ReactNode } from "react";
 
 // ------------------------------------------------------------------ cartao
 export function Card({
-  children, className = "", padded = true, elevated = false,
-}: { children: ReactNode; className?: string; padded?: boolean; elevated?: boolean }) {
+  children, className = "", padded = true, elevated = false, id,
+}: { children: ReactNode; className?: string; padded?: boolean; elevated?: boolean; id?: string }) {
   return (
-    <section className={`${elevated ? "card-elevated" : "card"} ${padded ? "p-5" : ""} ${className}`}>
+    <section id={id} className={`${elevated ? "card-elevated" : "card"} ${padded ? "p-5" : ""} ${className}`}>
       {children}
     </section>
   );

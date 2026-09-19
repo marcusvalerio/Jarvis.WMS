@@ -213,7 +213,8 @@ function CheckRow({
             name="quantity" type="number" step="0.001" min="0" required
             className="field tnum text-center" value={qty}
             onChange={(e) => setQty(e.target.value)} disabled={closed}
-            aria-label={`Quantidade conferida de ${item.sku}`}
+            placeholder={String(item.expected_qty)}
+            aria-label={`Quantidade conferida de ${item.sku}, esperado ${item.expected_qty}`}
           />
         </Field>
 

@@ -1,0 +1,11 @@
+import { chromium } from "playwright";
+const b = await chromium.launch({ executablePath: "/opt/pw-browsers/chromium-1194/chrome-linux/chrome" });
+const p = await b.newPage({ viewport: { width: 1500, height: 1000 } });
+await p.goto("http://localhost:3000/receiving/OR-000002", { waitUntil: "networkidle" });
+const txt = await p.locator("main").innerText();
+console.log("STATUS:", txt.split("\n").slice(0, 14).join(" | "));
+console.log("\nBOTOES:", (await p.locator("main button").allInnerTexts()).filter(Boolean));
+console.log("\nTEM 'Proxima etapa':", txt.includes("Proxima etapa"));
+const idx = txt.indexOf("Proxima etapa");
+console.log(txt.slice(idx, idx + 400));
+await b.close();

@@ -13,13 +13,50 @@ declare global {
   var __wmsDb: DatabaseSync | undefined;
 }
 
-function open(): DatabaseSync {
-  fs.mkdirSync(DB_DIR, { recursive: true });
+/**
+ * Versao do esquema derivada do proprio arquivo: qualquer alteracao em
+ * schema.sql muda a assinatura. Como `CREATE TABLE IF NOT EXISTS` nao
+ * altera tabelas ja existentes, um banco com assinatura diferente e
+ * recriado — seguro aqui, porque o cenario e sempre recarregavel e
+ * deterministico.
+ */
+function schemaSignature(sql: string): number {
+  let h = 2166136261;
+  for (let i = 0; i < sql.length; i++) {
+    h ^= sql.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return h >>> 1; // user_version e inteiro de 31 bits com sinal
+}
+
+function connect(): DatabaseSync {
   const db = new DatabaseSync(DB_FILE);
   db.exec("PRAGMA journal_mode = WAL;");
   db.exec("PRAGMA foreign_keys = ON;");
   db.exec("PRAGMA busy_timeout = 5000;");
-  db.exec(fs.readFileSync(SCHEMA_FILE, "utf8"));
+  return db;
+}
+
+function open(): DatabaseSync {
+  fs.mkdirSync(DB_DIR, { recursive: true });
+  const sql = fs.readFileSync(SCHEMA_FILE, "utf8");
+  const signature = schemaSignature(sql);
+
+  let db = connect();
+  const row = db.prepare("PRAGMA user_version").get() as { user_version: number } | undefined;
+  const current = row?.user_version ?? 0;
+
+  if (current !== 0 && current !== signature) {
+    // Esquema evoluiu: recria o arquivo e deixa o seed recarregar o cenario.
+    db.close();
+    for (const suffix of ["", "-wal", "-shm", "-journal"]) {
+      try { fs.rmSync(DB_FILE + suffix, { force: true }); } catch { /* ignora */ }
+    }
+    db = connect();
+  }
+
+  db.exec(sql);
+  db.exec(`PRAGMA user_version = ${signature}`);
   return db;
 }
 

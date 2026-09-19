@@ -138,6 +138,9 @@ export function releaseOrder(orderId: string, actor: string): ReleaseResult {
     if (order.status !== "PENDING") {
       throw new OrderError(`Pedido ja liberado (status ${order.status})`, "ALREADY_RELEASED");
     }
+    if (order.reserved) {
+      throw new OrderError("Pedido ja reservado integralmente", "ALREADY_RESERVED");
+    }
 
     const items = all<any>(
       `SELECT si.*, p.sku FROM sales_order_items si JOIN products p ON p.id = si.product_id

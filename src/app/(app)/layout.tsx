@@ -1,5 +1,6 @@
 import { Sidebar, type NavCounts } from "@/components/shell/Sidebar";
 import { Topbar } from "@/components/shell/Topbar";
+import { Toaster } from "@/components/Toaster";
 import { currentOperator, listOperators } from "@/domain/context";
 import { ensureSeeded, getScenario } from "@/domain/services/simulation";
 import { scalar } from "@/lib/db";
@@ -31,6 +32,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         />
         <main className="flex-1 min-w-0 px-4 lg:px-6 py-6 fade-in">{children}</main>
       </div>
+      <Toaster />
     </div>
   );
 }

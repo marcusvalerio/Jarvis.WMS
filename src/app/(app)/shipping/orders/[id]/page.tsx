@@ -69,7 +69,15 @@ export default async function OrderPage({ params }: { params: Promise<{ id: stri
       <Card className="mb-5 border-l-2 border-l-accent">
         <CardHeader title="Proxima etapa" subtitle={SHIPPING_STATUS_META[order.status as keyof typeof SHIPPING_STATUS_META]?.description} />
         <div className="flex flex-wrap items-start gap-5">
-          {order.status === "PENDING" && <ReleaseOrder orderId={order.id} />}
+          {order.status === "PENDING" && !order.reserved && <ReleaseOrder orderId={order.id} />}
+          {order.status === "PENDING" && !!order.reserved && (
+            <>
+              <GeneratePicklist orderId={order.id} />
+              <p className="text-[12.5px] text-secondary max-w-sm">
+                Estoque reservado. A picklist sera sequenciada pela rota fisica do armazem.
+              </p>
+            </>
+          )}
           {order.status === "PICKING" && !picking && <GeneratePicklist orderId={order.id} />}
           {picking && picking.status !== "COMPLETED" && picking.status !== "DIVERGENCE" && (
             <Link href={`/picking/${picking.id}`} className="btn btn-primary">

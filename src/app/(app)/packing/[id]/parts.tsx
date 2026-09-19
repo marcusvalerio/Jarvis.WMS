@@ -59,18 +59,24 @@ export function AddToVolume({
   items: { product_id: string; sku: string; remaining: number; unit: string }[];
 }) {
   const [product, setProduct] = useState(items[0]?.product_id ?? "");
-  const selected = items.find((i) => i.product_id === product);
 
   if (items.length === 0) {
     return <p className="text-[12px] text-faint">Tudo o que foi separado ja esta embalado.</p>;
   }
+
+  // O item selecionado some da lista assim que e totalmente embalado;
+  // sem este ajuste a selecao ficaria apontando para um item inexistente.
+  const selected = items.find((i) => i.product_id === product) ?? items[0];
   return (
     <ActionForm action={addToVolumeAction} resetOnSuccess>
       <input type="hidden" name="packingId" value={packingId} />
       <input type="hidden" name="volumeId" value={volumeId} />
       <div className="flex flex-wrap items-end gap-2">
         <Field label="Produto" className="flex-1 min-w-[190px]">
-          <select name="productId" className="field" value={product} onChange={(e) => setProduct(e.target.value)}>
+          <select
+            name="productId" className="field"
+            value={selected.product_id} onChange={(e) => setProduct(e.target.value)}
+          >
             {items.map((i) => (
               <option key={i.product_id} value={i.product_id}>
                 {i.sku} — restam {fmtNumber(i.remaining)} {i.unit}
@@ -80,9 +86,9 @@ export function AddToVolume({
         </Field>
         <Field label="Quantidade" className="w-[120px]">
           <input
-            key={product} name="quantity" type="number" step="0.001" min="0.001"
-            max={selected?.remaining} required className="field tnum text-center"
-            defaultValue={selected?.remaining ?? 1}
+            key={selected.product_id} name="quantity" type="number" step="0.001" min="0.001"
+            max={selected.remaining} required className="field tnum text-center"
+            defaultValue={selected.remaining}
           />
         </Field>
         <SubmitButton className="btn">Embalar</SubmitButton>
