@@ -6,8 +6,8 @@ import { fmtNumber } from "@/lib/format";
 export const metadata = { title: "Armazenagem" };
 export const dynamic = "force-dynamic";
 
-export default function PutawayPage() {
-  const pending = listStorageOrders({ status: "PENDING" });
+export default async function PutawayPage() {
+  const pending = await listStorageOrders({ status: "PENDING" });
 
   return (
     <>

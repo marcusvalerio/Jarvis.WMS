@@ -32,18 +32,18 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
 
 export default async function InboundDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const data = getInbound(id);
+  const data = await getInbound(id);
   if (!data) notFound();
 
   const { order, items, invoice, weighings, check, checkItems, pallets, storageOrders, incidents } = data;
-  const docks = listDocks().filter((d) => d.kind !== "OUTBOUND");
-  const scales = listEquipment({ kind: "BALANCA" }).map((e) => ({ id: e.id, model: e.model }));
-  const freeLocations = locationMap({ status: "AVAILABLE" })
-    .concat(locationMap({ status: "RESERVED" }))
+  const docks = (await listDocks()).filter((d) => d.kind !== "OUTBOUND");
+  const scales = (await listEquipment({ kind: "BALANCA" })).map((e) => ({ id: e.id, model: e.model }));
+  const freeLocations = (await locationMap({ status: "AVAILABLE" }))
+    .concat(await locationMap({ status: "RESERVED" }))
     .filter((l) => l.kind === "PALLET")
     .map((l) => ({ id: l.id, code: l.code, zone: l.zone_name }))
     .sort((a, b) => a.code.localeCompare(b.code));
-  const trace = traceInbound(id);
+  const trace = await traceInbound(id);
 
   const checkClosed = !check || check.status !== "IN_PROGRESS";
   const pendingStorage = storageOrders.filter((s: any) => s.status !== "COMPLETED");

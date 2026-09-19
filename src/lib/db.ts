@@ -32,7 +32,7 @@ interface PoolLike {
 
 declare global {
   // eslint-disable-next-line no-var
-  var __wmsPool: PoolLike | undefined;
+  var __wmsPool: Promise<PoolLike> | undefined;
   // eslint-disable-next-line no-var
   var __wmsSchema: Promise<void> | undefined;
 }
@@ -53,24 +53,23 @@ function connectionString(): string {
  * PostgreSQL comum; `pg` atende desenvolvimento local e testes. A escolha e
  * feita pela propria URL, entao o mesmo codigo roda nos tres ambientes.
  */
-function createPool(url: string): PoolLike {
-  const isNeon = /\.neon\.tech(:|\/|$)/.test(new URL(url).host + "/");
+async function createPool(url: string): Promise<PoolLike> {
+  const isNeon = /\.neon\.tech$/.test(new URL(url).hostname);
   if (isNeon) {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { Pool, neonConfig, types } = require("@neondatabase/serverless");
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    neonConfig.webSocketConstructor ??= require("ws");
-    applyTypeParsers(types);
-    return new Pool({ connectionString: url, max: 1, idleTimeoutMillis: 10_000 });
+    const neon: any = await import("@neondatabase/serverless");
+    neon.neonConfig.webSocketConstructor ??=
+      (globalThis as any).WebSocket ?? (await import("ws")).default;
+    applyTypeParsers(neon.types);
+    // Uma conexao por instancia: o pooler do Neon faz o rodizio do lado dele.
+    return new neon.Pool({ connectionString: url, max: 1, idleTimeoutMillis: 10_000 });
   }
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const pg = require("pg");
+  const mod: any = await import("pg");
+  const pg = mod.default ?? mod;
   applyTypeParsers(pg.types);
   return new pg.Pool({
     connectionString: url,
     max: Number(process.env.WMS_DB_POOL ?? 10),
     idleTimeoutMillis: 10_000,
-    ssl: /\bsslmode=require\b/.test(url) ? { rejectUnauthorized: false } : undefined,
   });
 }
 
@@ -86,8 +85,8 @@ function applyTypeParsers(types: any): void {
   types.setTypeParser(1700, (v: string) => (v === null ? null : Number(v))); // numeric
 }
 
-function pool(): PoolLike {
-  if (!globalThis.__wmsPool) globalThis.__wmsPool = createPool(connectionString());
+function pool(): Promise<PoolLike> {
+  globalThis.__wmsPool ??= createPool(connectionString());
   return globalThis.__wmsPool;
 }
 
@@ -96,23 +95,27 @@ function pool(): PoolLike {
  * consultivo, para que instancias concorrentes na Vercel nao disputem o
  * mesmo CREATE TABLE.
  */
-export function ensureSchema(): Promise<void> {
-  globalThis.__wmsSchema ??= (async () => {
-    const c = await pool().connect();
+async function buildSchema(): Promise<void> {
+  const c = await (await pool()).connect();
+  try {
+    await c.query("SELECT pg_advisory_lock($1)", [727_001]);
     try {
-      await c.query("SELECT pg_advisory_lock($1)", [727_001]);
-      try {
-        await c.query(SCHEMA_SQL);
-      } finally {
-        await c.query("SELECT pg_advisory_unlock($1)", [727_001]);
-      }
+      await c.query(SCHEMA_SQL);
     } finally {
-      c.release();
+      await c.query("SELECT pg_advisory_unlock($1)", [727_001]);
     }
-  })().catch((err) => {
-    globalThis.__wmsSchema = undefined; // permite nova tentativa
-    throw err;
-  });
+  } finally {
+    c.release();
+  }
+}
+
+export function ensureSchema(): Promise<void> {
+  if (!globalThis.__wmsSchema) {
+    globalThis.__wmsSchema = buildSchema().catch((err) => {
+      globalThis.__wmsSchema = undefined; // permite nova tentativa
+      throw err;
+    });
+  }
   return globalThis.__wmsSchema;
 }
 
@@ -120,10 +123,22 @@ export async function closeDb(): Promise<void> {
   const p = globalThis.__wmsPool;
   globalThis.__wmsPool = undefined;
   globalThis.__wmsSchema = undefined;
-  await p?.end();
+  await (await p)?.end();
 }
 
 // ------------------------------------------------------------ marcadores
+/**
+ * `col IS ?` e valido no SQLite (comparacao que trata NULL como valor), mas
+ * no PostgreSQL `IS` so aceita NULL/TRUE/FALSE/UNKNOWN. O equivalente exato
+ * e `IS NOT DISTINCT FROM`. Traduzir aqui mantem as consultas do dominio
+ * escritas como sempre estiveram.
+ */
+function translateNullSafeEquality(sql: string): string {
+  return sql
+    .replace(/\bIS\s+NOT\s+\?/gi, "IS DISTINCT FROM ?")
+    .replace(/\bIS\s+\?/gi, "IS NOT DISTINCT FROM ?");
+}
+
 /**
  * Converte `?` em `$1..$n` ignorando o que estiver dentro de literais e
  * comentarios, para nao corromper uma query que contenha '?' em texto.
@@ -181,11 +196,11 @@ const txStore = new AsyncLocalStorage<{ client: Client; depth: number }>();
 
 async function query(sql: string, params: any[]): Promise<QueryResult> {
   await ensureSchema();
-  const text = toPgPlaceholders(sql);
+  const text = toPgPlaceholders(translateNullSafeEquality(sql));
   const values = normalize(params);
   const ctx = txStore.getStore();
-  if (ctx) return ctx.client.query(text, values);
-  return pool().query(text, values);
+  if (ctx) return await ctx.client.query(text, values);
+  return (await pool()).query(text, values);
 }
 
 /**
@@ -201,7 +216,7 @@ export async function tx<T>(fn: () => Promise<T> | T): Promise<T> {
     const name = `sp_${ctx.depth}`;
     await ctx.client.query(`SAVEPOINT ${name}`);
     try {
-      const result = await txStore.run({ client: ctx.client, depth: ctx.depth + 1 }, () => fn());
+      const result = await txStore.run({ client: ctx.client, depth: ctx.depth + 1 }, async () => await fn());
       await ctx.client.query(`RELEASE SAVEPOINT ${name}`);
       return result;
     } catch (err) {
@@ -211,11 +226,11 @@ export async function tx<T>(fn: () => Promise<T> | T): Promise<T> {
     }
   }
 
-  const client = await pool().connect();
+  const client = await (await pool()).connect();
   try {
     await client.query("BEGIN");
     try {
-      const result = await txStore.run({ client, depth: 1 }, () => fn());
+      const result = await txStore.run({ client, depth: 1 }, async () => await fn());
       await client.query("COMMIT");
       return result;
     } catch (err) {
@@ -252,7 +267,7 @@ export async function exec(sql: string): Promise<void> {
   await ensureSchema();
   const ctx = txStore.getStore();
   if (ctx) await ctx.client.query(sql);
-  else await pool().query(sql);
+  else await (await pool()).query(sql);
 }
 
 /** Insere a partir de um objeto, ignorando chaves undefined. */
@@ -268,9 +283,4 @@ export async function update(table: string, id: string, data: Record<string, any
   if (keys.length === 0) return;
   const sets = keys.map((k) => `${k} = ?`).join(", ");
   await run(`UPDATE ${table} SET ${sets} WHERE id = ?`, ...keys.map((k) => data[k]), id);
-}
-
-/** Verdadeiro quando o processo aponta para o banco padrao da operacao. */
-export function isOperationalDatabase(): boolean {
-  return !process.env.WMS_TEST_DATABASE;
 }

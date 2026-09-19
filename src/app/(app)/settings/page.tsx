@@ -30,16 +30,16 @@ const PREFIX_LABEL: Record<string, string> = {
 
 export default async function SettingsPage() {
   const theme = await currentTheme();
-  const operators = listOperators();
-  const users = all<any>(`SELECT * FROM users ORDER BY name`);
-  const zones = listZones();
-  const docks = listDocks();
-  const occ = occupancy();
-  const scenario = getScenario();
-  const sequences = all<{ prefix: string; current: number }>(
+  const operators = await listOperators();
+  const users = await all<any>(`SELECT * FROM users ORDER BY name`);
+  const zones = await listZones();
+  const docks = await listDocks();
+  const occ = await occupancy();
+  const scenario = await getScenario();
+  const sequences = await all<{ prefix: string; current: number }>(
     `SELECT * FROM id_sequences ORDER BY prefix`,
   );
-  const customers = all<any>(`SELECT * FROM customers ORDER BY name`);
+  const customers = await all<any>(`SELECT * FROM customers ORDER BY name`);
 
   return (
     <>

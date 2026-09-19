@@ -15,17 +15,17 @@ export const metadata: Metadata = { title: "Painel de operacao" };
 export const dynamic = "force-dynamic";
 
 /** Tela de acompanhamento em tempo real — visao do gestor durante a operacao. */
-export default function OperationsPage() {
-  const stages = operationSnapshot();
-  const pulse = operationalPulse(20);
-  const docks = listDocks();
-  const occ = occupancy();
-  const eq = availability();
-  const inc = incidentCounts();
-  const openIncidents = listIncidents({ status: "OPEN" }).slice(0, 5);
-  const scans = recentScans(10);
-  const scanStat = scanStats();
-  const head = headline();
+export default async function OperationsPage() {
+  const stages = await operationSnapshot();
+  const pulse = await operationalPulse(20);
+  const docks = await listDocks();
+  const occ = await occupancy();
+  const eq = await availability();
+  const inc = await incidentCounts();
+  const openIncidents = (await listIncidents({ status: "OPEN" })).slice(0, 5);
+  const scans = await recentScans(10);
+  const scanStat = await scanStats();
+  const head = await headline();
 
   return (
     <>

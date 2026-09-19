@@ -19,7 +19,7 @@ export class ReceivingError extends Error {
 }
 
 // ------------------------------------------------------------------ consultas
-export function listInbound(filter: { status?: string; search?: string } = {}) {
+export async function listInbound(filter: { status?: string; search?: string } = {}) {
   const where: string[] = [];
   const params: any[] = [];
   if (filter.status) { where.push("io.status = ?"); params.push(filter.status); }
@@ -28,7 +28,7 @@ export function listInbound(filter: { status?: string; search?: string } = {}) {
     const q = `%${filter.search}%`;
     params.push(q, q, q, q);
   }
-  return all<any>(
+  return await all<any>(
     `SELECT io.*, s.name AS supplier_name, s.trade_name AS supplier_trade,
             d.name AS dock_name, o.name AS operator_name,
             inv.number AS invoice_number, inv.series AS invoice_series,
@@ -46,8 +46,8 @@ export function listInbound(filter: { status?: string; search?: string } = {}) {
   );
 }
 
-export function getInbound(id: string) {
-  const order = one<any>(
+export async function getInbound(id: string) {
+  const order = await one<any>(
     `SELECT io.*, s.name AS supplier_name, s.cnpj AS supplier_cnpj, s.city AS supplier_city,
             s.state AS supplier_state, d.name AS dock_name, o.name AS operator_name
        FROM inbound_orders io
@@ -59,7 +59,7 @@ export function getInbound(id: string) {
   );
   if (!order) return null;
 
-  const items = all<any>(
+  const items = await all<any>(
     `SELECT ii.*, p.sku, p.description, p.unit AS product_unit, p.unit_gross_kg
        FROM inbound_order_items ii
        JOIN products p ON p.id = ii.product_id
@@ -67,9 +67,9 @@ export function getInbound(id: string) {
     id,
   );
   const invoice = order.invoice_id
-    ? one<any>(`SELECT * FROM invoices WHERE id = ?`, order.invoice_id)
+    ? await one<any>(`SELECT * FROM invoices WHERE id = ?`, order.invoice_id)
     : null;
-  const weighings = all<any>(
+  const weighings = await all<any>(
     `SELECT w.*, o.name AS operator_name, e.model AS equipment_model
        FROM weighings w
        LEFT JOIN operators o ON o.id = w.operator_id
@@ -78,19 +78,19 @@ export function getInbound(id: string) {
       ORDER BY w.weighed_at`,
     id,
   );
-  const check = one<any>(
+  const check = await one<any>(
     `SELECT * FROM receiving_checks WHERE inbound_order_id = ? ORDER BY started_at DESC LIMIT 1`,
     id,
   );
   const checkItems = check
-    ? all<any>(
+    ? await all<any>(
         `SELECT ci.*, p.sku, p.description FROM receiving_check_items ci
            JOIN products p ON p.id = ci.product_id
           WHERE ci.check_id = ? ORDER BY ci.id`,
         check.id,
       )
     : [];
-  const pallets = all<any>(
+  const pallets = await all<any>(
     `SELECT pl.*, l.code AS location_code,
             (SELECT COUNT(*) FROM pallet_items pi WHERE pi.pallet_id = pl.id) AS line_count
        FROM pallets pl
@@ -98,7 +98,7 @@ export function getInbound(id: string) {
       WHERE pl.origin_ref = ? ORDER BY pl.id`,
     id,
   );
-  const storageOrders = all<any>(
+  const storageOrders = await all<any>(
     `SELECT so.*, sl.code AS suggested_code, fl.code AS final_code, o.name AS operator_name
        FROM storage_orders so
        LEFT JOIN locations sl ON sl.id = so.suggested_location_id
@@ -107,7 +107,7 @@ export function getInbound(id: string) {
       WHERE so.inbound_order_id = ? ORDER BY so.id`,
     id,
   );
-  const incidents = all<any>(
+  const incidents = await all<any>(
     `SELECT * FROM incidents WHERE ref_kind = 'INBOUND_ORDER' AND ref_id = ? ORDER BY opened_at DESC`,
     id,
   );
@@ -116,16 +116,16 @@ export function getInbound(id: string) {
 }
 
 // ------------------------------------------------------------------ estados
-function setStatus(id: string, to: InboundStatus, actor: string, extra: Record<string, any> = {}) {
-  const cur = one<{ status: InboundStatus }>(`SELECT status FROM inbound_orders WHERE id = ?`, id);
+async function setStatus(id: string, to: InboundStatus, actor: string, extra: Record<string, any> = {}) {
+  const cur = await one<{ status: InboundStatus }>(`SELECT status FROM inbound_orders WHERE id = ?`, id);
   if (!cur) throw new ReceivingError(`Ordem de recebimento ${id} inexistente`, "NOT_FOUND");
   assertTransition("inbound_order", INBOUND_TRANSITIONS, cur.status, to);
-  update("inbound_orders", id, { status: to, ...extra });
+  await update("inbound_orders", id, { status: to, ...extra });
   const action =
     to === "APPROVED" ? "APPROVE"
     : to === "RECEIVING" || to === "COMPLETED" ? "RECEIVE"
     : "UPDATE";
-  audit({
+  await audit({
     actor, action,
     entity: "inbound_order", entityId: id,
     before: { status: cur.status }, after: { status: to, ...extra },
@@ -133,13 +133,13 @@ function setStatus(id: string, to: InboundStatus, actor: string, extra: Record<s
   });
 }
 
-export function registerArrival(params: {
+export async function registerArrival(params: {
   inboundId: string; dockId?: string; vehiclePlate?: string;
   driverName?: string; driverDoc?: string; operatorId: string;
 }) {
-  return tx(() => {
+  return await tx(async () => {
     const at = nowIso();
-    setStatus(params.inboundId, "ARRIVING", params.operatorId, {
+    await setStatus(params.inboundId, "ARRIVING", params.operatorId, {
       arrived_at: at,
       dock_id: params.dockId,
       vehicle_plate: params.vehiclePlate,
@@ -147,21 +147,21 @@ export function registerArrival(params: {
       driver_doc: params.driverDoc,
       operator_id: params.operatorId,
     });
-    if (params.dockId) setDock(params.dockId, "OCCUPIED", params.inboundId);
+    if (params.dockId) await setDock(params.dockId, "OCCUPIED", params.inboundId);
     return at;
   });
 }
 
-export function startReceiving(inboundId: string, operatorId: string) {
-  return tx(() => {
+export async function startReceiving(inboundId: string, operatorId: string) {
+  return await tx(async () => {
     const at = nowIso();
-    setStatus(inboundId, "RECEIVING", operatorId, { started_at: at, operator_id: operatorId });
+    await setStatus(inboundId, "RECEIVING", operatorId, { started_at: at, operator_id: operatorId });
     return at;
   });
 }
 
 // ------------------------------------------------------------------ pesagem
-export function registerWeighing(params: {
+export async function registerWeighing(params: {
   refKind: "INBOUND_ORDER" | "PALLET" | "VOLUME" | "SHIPMENT";
   refId: string;
   grossKg: number;
@@ -170,14 +170,14 @@ export function registerWeighing(params: {
   equipmentId?: string;
   operatorId: string;
   notes?: string;
-}): string {
-  return tx(() => {
+}): Promise<string> {
+  return await tx(async () => {
     const at = nowIso();
     const net = round3(params.grossKg - params.tareKg);
     if (net < 0) throw new ReceivingError("Tara maior que o peso bruto", "BAD_TARE");
     const divergence = params.expectedKg ? round3(net - params.expectedKg) : 0;
-    const id = nextId(PREFIX.WEIGHING);
-    insert("weighings", {
+    const id = await nextId(PREFIX.WEIGHING);
+    await insert("weighings", {
       id, ref_kind: params.refKind, ref_id: params.refId,
       gross_kg: round3(params.grossKg), tare_kg: round3(params.tareKg), net_kg: net,
       expected_kg: params.expectedKg ?? null, divergence_kg: divergence,
@@ -186,13 +186,13 @@ export function registerWeighing(params: {
     });
 
     if (params.refKind === "PALLET") {
-      run(
+      await run(
         `UPDATE pallets SET gross_weight_kg = ?, net_weight_kg = ?, tare_kg = ? WHERE id = ?`,
         round3(params.grossKg), net, round3(params.tareKg), params.refId,
       );
     }
 
-    audit({
+    await audit({
       actor: params.operatorId, action: "WEIGH", entity: "weighing", entityId: id,
       after: { gross: params.grossKg, tare: params.tareKg, net, divergence },
       detail: `Pesagem de ${params.refId}: liquido ${net} kg`,
@@ -200,7 +200,7 @@ export function registerWeighing(params: {
 
     // Tolerancia de 2% sobre o peso previsto gera ocorrencia.
     if (params.expectedKg && Math.abs(divergence) > params.expectedKg * 0.02) {
-      openIncident({
+      await openIncident({
         kind: "WEIGHT_DIVERGENCE",
         severity: Math.abs(divergence) > params.expectedKg * 0.05 ? "ALTA" : "MEDIA",
         refKind: params.refKind, refId: params.refId,
@@ -212,12 +212,12 @@ export function registerWeighing(params: {
   });
 }
 
-export function listWeighings(refKind?: string, refId?: string) {
+export async function listWeighings(refKind?: string, refId?: string) {
   const where: string[] = [];
   const params: any[] = [];
   if (refKind) { where.push("w.ref_kind = ?"); params.push(refKind); }
   if (refId) { where.push("w.ref_id = ?"); params.push(refId); }
-  return all<any>(
+  return await all<any>(
     `SELECT w.*, o.name AS operator_name, e.model AS equipment_model
        FROM weighings w
        LEFT JOIN operators o ON o.id = w.operator_id
@@ -228,8 +228,8 @@ export function listWeighings(refKind?: string, refId?: string) {
   );
 }
 
-export function getWeighing(id: string) {
-  return one<any>(
+export async function getWeighing(id: string) {
+  return await one<any>(
     `SELECT w.*, o.name AS operator_name, e.model AS equipment_model, e.kind AS equipment_kind
        FROM weighings w
        LEFT JOIN operators o ON o.id = w.operator_id
@@ -240,30 +240,30 @@ export function getWeighing(id: string) {
 }
 
 // ------------------------------------------------------------------ conferencia
-export function startCheck(inboundId: string, operatorId: string): string {
-  return tx(() => {
+export async function startCheck(inboundId: string, operatorId: string): Promise<string> {
+  return await tx(async () => {
     const at = nowIso();
-    const existing = one<any>(
+    const existing = await one<any>(
       `SELECT * FROM receiving_checks WHERE inbound_order_id = ? AND status = 'IN_PROGRESS'`,
       inboundId,
     );
     if (existing) return existing.id;
 
-    const items = all<any>(
+    const items = await all<any>(
       `SELECT * FROM inbound_order_items WHERE inbound_order_id = ? ORDER BY line_no`,
       inboundId,
     );
     if (items.length === 0) throw new ReceivingError("Recebimento sem itens", "NO_ITEMS");
 
-    const id = nextId(PREFIX.RECEIVING_CHECK);
-    insert("receiving_checks", {
+    const id = await nextId(PREFIX.RECEIVING_CHECK);
+    await insert("receiving_checks", {
       id, inbound_order_id: inboundId, operator_id: operatorId,
       status: "IN_PROGRESS", started_at: at,
       total_expected: round3(items.reduce((s, i) => s + i.expected_qty, 0)),
       total_checked: 0, divergence_count: 0,
     });
     for (const it of items) {
-      insert("receiving_check_items", {
+      await insert("receiving_check_items", {
         id: `${id}-L${String(it.line_no).padStart(2, "0")}`,
         check_id: id, inbound_item_id: it.id, product_id: it.product_id,
         lot_code: it.lot_code, expires_at: it.expires_at,
@@ -271,11 +271,11 @@ export function startCheck(inboundId: string, operatorId: string): string {
         status: "PENDING",
       });
     }
-    const cur = one<{ status: InboundStatus }>(`SELECT status FROM inbound_orders WHERE id = ?`, inboundId);
+    const cur = await one<{ status: InboundStatus }>(`SELECT status FROM inbound_orders WHERE id = ?`, inboundId);
     if (cur && cur.status === "RECEIVING") {
-      setStatus(inboundId, "CHECKING", operatorId, { checked_at: at });
+      await setStatus(inboundId, "CHECKING", operatorId, { checked_at: at });
     }
-    audit({
+    await audit({
       actor: operatorId, action: "CHECK", entity: "receiving_check", entityId: id,
       after: { inbound: inboundId, lines: items.length },
       detail: `Conferencia iniciada para ${inboundId}`,
@@ -294,7 +294,7 @@ export interface CheckItemResult {
 }
 
 /** Registra a contagem fisica de uma linha da conferencia. */
-export function checkItem(params: {
+export async function checkItem(params: {
   checkId: string;
   checkItemId: string;
   quantity: number;
@@ -303,10 +303,10 @@ export function checkItem(params: {
   palletId?: string;
   operatorId: string;
   origin?: "WEB" | "RF";
-}): CheckItemResult {
-  return tx(() => {
+}): Promise<CheckItemResult> {
+  return await tx(async () => {
     const at = nowIso();
-    const item = one<any>(`SELECT * FROM receiving_check_items WHERE id = ?`, params.checkItemId);
+    const item = await one<any>(`SELECT * FROM receiving_check_items WHERE id = ?`, params.checkItemId);
     if (!item) throw new ReceivingError("Linha de conferencia inexistente", "NOT_FOUND");
     if (item.check_id !== params.checkId) {
       throw new ReceivingError("Linha nao pertence a esta conferencia", "MISMATCH");
@@ -317,7 +317,7 @@ export function checkItem(params: {
     const divergence = round3(checked - item.expected_qty);
     const status = divergence === 0 ? "OK" : "DIVERGENCE";
 
-    run(
+    await run(
       `UPDATE receiving_check_items
           SET checked_qty = ?, divergence = ?, status = ?, checked_at = ?,
               lot_code = COALESCE(?, lot_code), expires_at = COALESCE(?, expires_at),
@@ -328,28 +328,28 @@ export function checkItem(params: {
       params.operatorId, params.checkItemId,
     );
 
-    run(
+    await run(
       `UPDATE inbound_order_items SET checked_qty = ?, accepted_qty = ?,
               rejected_qty = ?, status = ? WHERE id = ?`,
       checked, checked, Math.max(0, -divergence), status, item.inbound_item_id,
     );
 
-    const totals = one<any>(
+    const totals = await one<any>(
       `SELECT COALESCE(SUM(checked_qty),0) AS checked,
               SUM(CASE WHEN status = 'DIVERGENCE' THEN 1 ELSE 0 END) AS divs
          FROM receiving_check_items WHERE check_id = ?`,
       params.checkId,
     );
-    run(
+    await run(
       `UPDATE receiving_checks SET total_checked = ?, divergence_count = ? WHERE id = ?`,
       totals.checked, totals.divs, params.checkId,
     );
 
     let incidentId: string | undefined;
     if (divergence !== 0) {
-      const product = one<any>(`SELECT sku, description FROM products WHERE id = ?`, item.product_id);
-      const inbound = one<any>(`SELECT inbound_order_id FROM receiving_checks WHERE id = ?`, params.checkId);
-      incidentId = openIncident({
+      const product = await one<any>(`SELECT sku, description FROM products WHERE id = ?`, item.product_id);
+      const inbound = await one<any>(`SELECT inbound_order_id FROM receiving_checks WHERE id = ?`, params.checkId);
+      incidentId = await openIncident({
         kind: "RECEIVING_DIVERGENCE",
         severity: Math.abs(divergence) / Math.max(1, item.expected_qty) > 0.1 ? "ALTA" : "MEDIA",
         refKind: "INBOUND_ORDER",
@@ -362,7 +362,7 @@ export function checkItem(params: {
       });
     }
 
-    audit({
+    await audit({
       actor: params.operatorId, action: "CHECK", entity: "receiving_check_item",
       entityId: params.checkItemId,
       before: { checked: item.checked_qty }, after: { checked, divergence, status },
@@ -378,12 +378,12 @@ export function checkItem(params: {
   });
 }
 
-export function finishCheck(checkId: string, operatorId: string) {
-  return tx(() => {
+export async function finishCheck(checkId: string, operatorId: string) {
+  return await tx(async () => {
     const at = nowIso();
-    const check = one<any>(`SELECT * FROM receiving_checks WHERE id = ?`, checkId);
+    const check = await one<any>(`SELECT * FROM receiving_checks WHERE id = ?`, checkId);
     if (!check) throw new ReceivingError("Conferencia inexistente", "NOT_FOUND");
-    const pending = scalar<number>(
+    const pending = await scalar<number>(
       `SELECT COUNT(*) FROM receiving_check_items WHERE check_id = ? AND status = 'PENDING'`,
       checkId,
     ) ?? 0;
@@ -392,17 +392,17 @@ export function finishCheck(checkId: string, operatorId: string) {
     }
     const divs = check.divergence_count ?? 0;
     const status = divs > 0 ? "DIVERGENCE" : "OK";
-    run(`UPDATE receiving_checks SET status = ?, finished_at = ? WHERE id = ?`, status, at, checkId);
+    await run(`UPDATE receiving_checks SET status = ?, finished_at = ? WHERE id = ?`, status, at, checkId);
 
-    const cur = one<{ status: InboundStatus }>(
+    const cur = await one<{ status: InboundStatus }>(
       `SELECT status FROM inbound_orders WHERE id = ?`, check.inbound_order_id,
     );
     if (cur) {
-      setStatus(check.inbound_order_id, divs > 0 ? "DIVERGENCE" : "APPROVED", operatorId, {
+      await setStatus(check.inbound_order_id, divs > 0 ? "DIVERGENCE" : "APPROVED", operatorId, {
         checked_at: at,
       });
     }
-    audit({
+    await audit({
       actor: operatorId, action: "CHECK", entity: "receiving_check", entityId: checkId,
       after: { status, divergences: divs },
       detail: `Conferencia encerrada com ${divs} divergencia(s)`,
@@ -412,10 +412,10 @@ export function finishCheck(checkId: string, operatorId: string) {
 }
 
 /** Aprova um recebimento que ficou em DIVERGENCE apos tratamento. */
-export function approveWithDivergence(inboundId: string, operatorId: string, reason: string) {
-  return tx(() => {
-    setStatus(inboundId, "APPROVED", operatorId);
-    audit({
+export async function approveWithDivergence(inboundId: string, operatorId: string, reason: string) {
+  return await tx(async () => {
+    await setStatus(inboundId, "APPROVED", operatorId);
+    await audit({
       actor: operatorId, action: "APPROVE", entity: "inbound_order", entityId: inboundId,
       after: { reason }, detail: `Divergencia tratada: ${reason}`,
     });
@@ -434,7 +434,7 @@ export interface PalletLine {
  * Cria um palete a partir das linhas conferidas e da ENTRADA fisica no
  * estoque (movimento RECEIPT no endereco de recebimento).
  */
-export function createPallet(params: {
+export async function createPallet(params: {
   lines: PalletLine[];
   originKind: "RECEIVING" | "INITIAL_STOCK" | "REPACK";
   originRef?: string;
@@ -443,13 +443,13 @@ export function createPallet(params: {
   locationId?: string;
   occurredAt?: string;
   skipReceipt?: boolean;
-}): string {
+}): Promise<string> {
   const at = params.occurredAt ?? nowIso();
-  const palletId = nextId(PREFIX.PALLET);
+  const palletId = await nextId(PREFIX.PALLET);
   const location = params.locationId ?? receivingLocation();
   if (params.lines.length === 0) throw new ReceivingError("Palete sem itens", "EMPTY");
 
-  insert("pallets", {
+  await insert("pallets", {
     id: palletId,
     kind: "PBR",
     status: params.originKind === "INITIAL_STOCK" ? "STORED" : "AWAITING_PUTAWAY",
@@ -466,18 +466,18 @@ export function createPallet(params: {
   let net = 0;
   for (const line of params.lines) {
     const lotId = line.lotCode
-      ? ensureLot(line.productId, line.lotCode, line.expiresAt ?? null, at)
+      ? await ensureLot(line.productId, line.lotCode, line.expiresAt ?? null, at)
       : null;
-    insert("pallet_items", {
+    await insert("pallet_items", {
       id: `${palletId}-${line.productId}-${lotId ?? "NL"}`,
       pallet_id: palletId, product_id: line.productId, lot_id: lotId,
       quantity: round3(line.quantity),
     });
-    const p = one<any>(`SELECT unit_gross_kg FROM products WHERE id = ?`, line.productId);
+    const p = await one<any>(`SELECT unit_gross_kg FROM products WHERE id = ?`, line.productId);
     net += round3(line.quantity * (p?.unit_gross_kg ?? 0));
 
     if (!params.skipReceipt) {
-      applyMovement({
+      await applyMovement({
         kind: "RECEIPT",
         productId: line.productId,
         lotId,
@@ -493,12 +493,12 @@ export function createPallet(params: {
     }
   }
 
-  run(
+  await run(
     `UPDATE pallets SET net_weight_kg = ?, gross_weight_kg = ? WHERE id = ?`,
     round3(net), round3(net + (params.tareKg ?? 25)), palletId,
   );
 
-  audit({
+  await audit({
     actor: params.operatorId, action: "CREATE", entity: "pallet", entityId: palletId,
     after: { lines: params.lines.length, origin: params.originRef, location },
     detail: `Palete ${palletId} montado com ${params.lines.length} item(ns)`,
@@ -507,23 +507,23 @@ export function createPallet(params: {
   return palletId;
 }
 
-export function ensureLot(
+export async function ensureLot(
   productId: string, code: string, expiresAt: string | null, at: string, supplierId?: string,
-): string {
-  const found = one<{ id: string }>(
+): Promise<string> {
+  const found = await one<{ id: string }>(
     `SELECT id FROM lots WHERE product_id = ? AND code = ?`, productId, code,
   );
   if (found) return found.id;
-  const id = nextId(PREFIX.LOT);
-  insert("lots", {
+  const id = await nextId(PREFIX.LOT);
+  await insert("lots", {
     id, product_id: productId, code, expires_at: expiresAt,
     supplier_id: supplierId ?? null, created_at: at,
   });
   return id;
 }
 
-export function getPallet(id: string) {
-  const pallet = one<any>(
+export async function getPallet(id: string) {
+  const pallet = await one<any>(
     `SELECT pl.*, l.code AS location_code, z.name AS zone_name
        FROM pallets pl
        LEFT JOIN locations l ON l.id = pl.location_id
@@ -532,7 +532,7 @@ export function getPallet(id: string) {
     id,
   );
   if (!pallet) return null;
-  const items = all<any>(
+  const items = await all<any>(
     `SELECT pi.*, p.sku, p.description, p.unit, lt.code AS lot_code, lt.expires_at
        FROM pallet_items pi
        JOIN products p ON p.id = pi.product_id
@@ -540,7 +540,7 @@ export function getPallet(id: string) {
       WHERE pi.pallet_id = ?`,
     id,
   );
-  const stock = all<any>(
+  const stock = await all<any>(
     `SELECT i.*, l.code AS location_code FROM inventory i
        JOIN locations l ON l.id = i.location_id
       WHERE i.pallet_id = ? AND i.qty_on_hand > 0`,
@@ -549,7 +549,7 @@ export function getPallet(id: string) {
   return { pallet, items, stock };
 }
 
-export function listPallets(filter: { status?: string; search?: string } = {}) {
+export async function listPallets(filter: { status?: string; search?: string } = {}) {
   const where: string[] = [];
   const params: any[] = [];
   if (filter.status) { where.push("pl.status = ?"); params.push(filter.status); }
@@ -558,7 +558,7 @@ export function listPallets(filter: { status?: string; search?: string } = {}) {
     const q = `%${filter.search}%`;
     params.push(q, q, q);
   }
-  return all<any>(
+  return await all<any>(
     `SELECT pl.*, l.code AS location_code,
             (SELECT COUNT(*) FROM pallet_items pi WHERE pi.pallet_id = pl.id) AS line_count,
             (SELECT COALESCE(SUM(quantity),0) FROM pallet_items pi WHERE pi.pallet_id = pl.id) AS total_qty,
@@ -575,35 +575,35 @@ export function listPallets(filter: { status?: string; search?: string } = {}) {
 
 // ------------------------------------------------------------------ armazenagem
 /** Gera uma Ordem de Armazenagem por palete aguardando put-away. */
-export function generateStorageOrders(inboundId: string, operatorId: string): string[] {
-  return tx(() => {
+export async function generateStorageOrders(inboundId: string, operatorId: string): Promise<string[]> {
+  return await tx(async () => {
     const at = nowIso();
-    const pallets = all<any>(
+    const pallets = await all<any>(
       `SELECT * FROM pallets WHERE origin_ref = ? AND status = 'AWAITING_PUTAWAY'`,
       inboundId,
     );
     const created: string[] = [];
     for (const p of pallets) {
-      const exists = one<any>(
+      const exists = await one<any>(
         `SELECT id FROM storage_orders WHERE pallet_id = ? AND status IN ('PENDING','IN_PROGRESS')`,
         p.id,
       );
       if (exists) continue;
-      const item = one<any>(
+      const item = await one<any>(
         `SELECT product_id FROM pallet_items WHERE pallet_id = ? LIMIT 1`, p.id,
       );
-      const suggestion = item ? suggestLocation(item.product_id, p.id) : null;
-      const id = nextId(PREFIX.STORAGE_ORDER);
-      insert("storage_orders", {
+      const suggestion = item ? await suggestLocation(item.product_id, p.id) : null;
+      const id = await nextId(PREFIX.STORAGE_ORDER);
+      await insert("storage_orders", {
         id, pallet_id: p.id, inbound_order_id: inboundId,
         suggested_location_id: suggestion?.locationId ?? null,
         status: "PENDING", created_at: at,
       });
       if (suggestion) {
-        run(`UPDATE locations SET status = 'RESERVED' WHERE id = ? AND status = 'AVAILABLE'`, suggestion.locationId);
+        await run(`UPDATE locations SET status = 'RESERVED' WHERE id = ? AND status = 'AVAILABLE'`, suggestion.locationId);
       }
       created.push(id);
-      audit({
+      await audit({
         actor: operatorId, action: "CREATE", entity: "storage_order", entityId: id,
         after: { pallet: p.id, suggested: suggestion?.locationId, reason: suggestion?.reason },
         detail: `Ordem de armazenagem para ${p.id}${suggestion ? ` -> ${suggestion.code}` : ""}`,
@@ -613,11 +613,11 @@ export function generateStorageOrders(inboundId: string, operatorId: string): st
   });
 }
 
-export function listStorageOrders(filter: { status?: string } = {}) {
+export async function listStorageOrders(filter: { status?: string } = {}) {
   const where: string[] = [];
   const params: any[] = [];
   if (filter.status) { where.push("so.status = ?"); params.push(filter.status); }
-  return all<any>(
+  return await all<any>(
     `SELECT so.*, sl.code AS suggested_code, fl.code AS final_code,
             pl.status AS pallet_status, o.name AS operator_name,
             (SELECT p.sku FROM pallet_items pi JOIN products p ON p.id = pi.product_id
@@ -634,8 +634,8 @@ export function listStorageOrders(filter: { status?: string } = {}) {
   );
 }
 
-export function getStorageOrder(id: string) {
-  return one<any>(
+export async function getStorageOrder(id: string) {
+  return await one<any>(
     `SELECT so.*, sl.code AS suggested_code, fl.code AS final_code
        FROM storage_orders so
        LEFT JOIN locations sl ON sl.id = so.suggested_location_id
@@ -645,8 +645,8 @@ export function getStorageOrder(id: string) {
   );
 }
 
-export function storageOrderForPallet(palletId: string) {
-  return one<any>(
+export async function storageOrderForPallet(palletId: string) {
+  return await one<any>(
     `SELECT so.*, sl.code AS suggested_code FROM storage_orders so
        LEFT JOIN locations sl ON sl.id = so.suggested_location_id
       WHERE so.pallet_id = ? AND so.status IN ('PENDING','IN_PROGRESS')
@@ -659,21 +659,21 @@ export function storageOrderForPallet(palletId: string) {
  * Executa a armazenagem: valida o endereco, move o palete inteiro e
  * encerra a ordem. Chamada tanto pelo desktop quanto pela coletora.
  */
-export function executeStorage(params: {
+export async function executeStorage(params: {
   storageOrderId: string;
   locationId: string;
   operatorId: string;
   origin?: "WEB" | "RF";
   overrideReason?: string;
 }) {
-  return tx(() => {
+  return await tx(async () => {
     const at = nowIso();
-    const so = one<any>(`SELECT * FROM storage_orders WHERE id = ?`, params.storageOrderId);
+    const so = await one<any>(`SELECT * FROM storage_orders WHERE id = ?`, params.storageOrderId);
     if (!so) throw new ReceivingError("Ordem de armazenagem inexistente", "NOT_FOUND");
     if (so.status === "COMPLETED") {
       throw new ReceivingError("Ordem de armazenagem ja concluida", "ALREADY_DONE");
     }
-    const loc = getLocation(params.locationId);
+    const loc = await getLocation(params.locationId);
     if (!loc) throw new ReceivingError(`Endereco ${params.locationId} inexistente`, "NO_LOCATION");
     if (loc.status === "BLOCKED") {
       throw new ReceivingError(`Endereco ${loc.code} esta bloqueado`, "LOCATION_BLOCKED");
@@ -681,13 +681,13 @@ export function executeStorage(params: {
     if (loc.kind !== "PALLET") {
       throw new ReceivingError(`Endereco ${loc.code} nao aceita palete`, "BAD_LOCATION_KIND");
     }
-    const occupied = scalar<number>(
+    const occupied = await scalar<number>(
       `SELECT COUNT(DISTINCT pallet_id) FROM inventory
         WHERE location_id = ? AND qty_on_hand > 0 AND pallet_id IS NOT NULL AND pallet_id <> ?`,
       params.locationId, so.pallet_id,
     ) ?? 0;
     if (occupied >= loc.capacity_pallets) {
-      openIncident({
+      await openIncident({
         kind: "LOCATION_OCCUPIED", severity: "MEDIA",
         refKind: "STORAGE_ORDER", refId: so.id, locationId: params.locationId,
         description: `Endereco ${loc.code} ja ocupado ao tentar armazenar ${so.pallet_id}`,
@@ -698,14 +698,14 @@ export function executeStorage(params: {
 
     const diverged = so.suggested_location_id && so.suggested_location_id !== params.locationId;
     if (diverged && !params.overrideReason) {
-      const sug = getLocation(so.suggested_location_id);
+      const sug = await getLocation(so.suggested_location_id);
       throw new ReceivingError(
         `Endereco divergente da sugestao (${sug?.code}). Informe a justificativa.`,
         "LOCATION_MISMATCH",
       );
     }
 
-    movePallet({
+    await movePallet({
       palletId: so.pallet_id,
       toLocationId: params.locationId,
       kind: "PUTAWAY",
@@ -717,23 +717,23 @@ export function executeStorage(params: {
       origin: params.origin ?? "WEB",
     });
 
-    run(
+    await run(
       `UPDATE storage_orders SET status = 'COMPLETED', final_location_id = ?, operator_id = ?,
               started_at = COALESCE(started_at, ?), completed_at = ?, override_reason = ?
         WHERE id = ?`,
       params.locationId, params.operatorId, at, at, params.overrideReason ?? null, so.id,
     );
-    run(`UPDATE pallets SET status = 'STORED', stored_at = ? WHERE id = ?`, at, so.pallet_id);
+    await run(`UPDATE pallets SET status = 'STORED', stored_at = ? WHERE id = ?`, at, so.pallet_id);
 
     // Libera a reserva do endereco sugerido que nao foi usado.
     if (diverged && so.suggested_location_id) {
-      run(
+      await run(
         `UPDATE locations SET status = 'AVAILABLE' WHERE id = ? AND status = 'RESERVED'`,
         so.suggested_location_id,
       );
     }
 
-    audit({
+    await audit({
       actor: params.operatorId, action: "MOVE", entity: "storage_order", entityId: so.id,
       before: { status: so.status, suggested: so.suggested_location_id },
       after: { status: "COMPLETED", final: params.locationId },
@@ -741,42 +741,42 @@ export function executeStorage(params: {
       detail: `Palete ${so.pallet_id} armazenado em ${loc.code}`,
     });
 
-    maybeCompleteInbound(so.inbound_order_id, params.operatorId);
+    await maybeCompleteInbound(so.inbound_order_id, params.operatorId);
     return { palletId: so.pallet_id, locationCode: loc.code };
   });
 }
 
 /** Conclui o recebimento quando todos os paletes foram armazenados. */
-export function maybeCompleteInbound(inboundId: string | null, operatorId: string) {
+export async function maybeCompleteInbound(inboundId: string | null, operatorId: string) {
   if (!inboundId) return false;
-  const pending = scalar<number>(
+  const pending = await scalar<number>(
     `SELECT COUNT(*) FROM storage_orders WHERE inbound_order_id = ? AND status <> 'COMPLETED'`,
     inboundId,
   ) ?? 0;
-  const total = scalar<number>(
+  const total = await scalar<number>(
     `SELECT COUNT(*) FROM storage_orders WHERE inbound_order_id = ?`, inboundId,
   ) ?? 0;
   if (total === 0 || pending > 0) return false;
 
-  const cur = one<{ status: InboundStatus }>(`SELECT status FROM inbound_orders WHERE id = ?`, inboundId);
+  const cur = await one<{ status: InboundStatus }>(`SELECT status FROM inbound_orders WHERE id = ?`, inboundId);
   if (!cur || cur.status === "COMPLETED") return false;
   const at = nowIso();
-  setStatus(inboundId, "COMPLETED", operatorId, { completed_at: at });
+  await setStatus(inboundId, "COMPLETED", operatorId, { completed_at: at });
 
   // Libera a doca ocupada por este recebimento.
-  const io = one<any>(`SELECT dock_id FROM inbound_orders WHERE id = ?`, inboundId);
-  if (io?.dock_id) setDock(io.dock_id, "FREE", null);
+  const io = await one<any>(`SELECT dock_id FROM inbound_orders WHERE id = ?`, inboundId);
+  if (io?.dock_id) await setDock(io.dock_id, "FREE", null);
 
-  const po = one<any>(`SELECT purchase_order_id FROM inbound_orders WHERE id = ?`, inboundId);
+  const po = await one<any>(`SELECT purchase_order_id FROM inbound_orders WHERE id = ?`, inboundId);
   if (po?.purchase_order_id) {
-    run(`UPDATE purchase_orders SET status = 'RECEIVED' WHERE id = ?`, po.purchase_order_id);
+    await run(`UPDATE purchase_orders SET status = 'RECEIVED' WHERE id = ?`, po.purchase_order_id);
   }
   return true;
 }
 
 // ------------------------------------------------------------------ metricas
-export function receivingCycleMinutes(inboundId: string): number | null {
-  const io = one<any>(`SELECT arrived_at, completed_at, checked_at FROM inbound_orders WHERE id = ?`, inboundId);
+export async function receivingCycleMinutes(inboundId: string): Promise<number | null> {
+  const io = await one<any>(`SELECT arrived_at, completed_at, checked_at FROM inbound_orders WHERE id = ?`, inboundId);
   if (!io) return null;
   return minutesBetween(io.arrived_at, io.completed_at ?? io.checked_at);
 }

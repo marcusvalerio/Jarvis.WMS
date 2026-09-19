@@ -15,7 +15,7 @@ export default async function PalletsPage({
   searchParams,
 }: { searchParams: Promise<{ status?: string; search?: string }> }) {
   const sp = await searchParams;
-  const pallets = listPallets({ status: sp.status, search: sp.search });
+  const pallets = await listPallets({ status: sp.status, search: sp.search });
 
   return (
     <>

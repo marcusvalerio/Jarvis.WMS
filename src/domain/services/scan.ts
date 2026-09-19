@@ -48,7 +48,7 @@ const KIND_BY_PREFIX: Record<string, ScanEntityKind> = {
   [PREFIX.PURCHASE_ORDER]: "PURCHASE_ORDER",
 };
 
-export function resolveScan(raw: string): ResolvedScan {
+export async function resolveScan(raw: string): Promise<ResolvedScan> {
   const trimmed = raw.trim().toUpperCase();
   const base: ResolvedScan = {
     raw, normalized: trimmed, kind: "UNKNOWN", id: null,
@@ -59,13 +59,13 @@ export function resolveScan(raw: string): ResolvedScan {
   // 1. Endereco (aceita A-02-03-01, A020301 ou END-A020301)
   const locId = normalizeLocationInput(trimmed);
   if (locId) {
-    const loc = one<any>(
+    const loc = await one<any>(
       `SELECT l.*, z.name AS zone_name FROM locations l
          JOIN zones z ON z.id = l.zone_id WHERE l.id = ?`,
       locId,
     );
     if (loc) {
-      const contents = all<any>(
+      const contents = await all<any>(
         `SELECT i.*, p.sku, p.description, lt.code AS lot_code, lt.expires_at
            FROM inventory i JOIN products p ON p.id = i.product_id
            LEFT JOIN lots lt ON lt.id = i.lot_id
@@ -85,15 +85,15 @@ export function resolveScan(raw: string): ResolvedScan {
   }
 
   // 2. Produto por codigo de barras ou SKU
-  const bc = one<any>(
+  const bc = await one<any>(
     `SELECT pb.code, p.* FROM product_barcodes pb JOIN products p ON p.id = pb.product_id
       WHERE pb.code = ?`,
     trimmed,
   );
-  const direct = bc ? null : one<any>(`SELECT * FROM products WHERE id = ? OR sku = ?`, trimmed, trimmed);
+  const direct = bc ? null : await one<any>(`SELECT * FROM products WHERE id = ? OR sku = ?`, trimmed, trimmed);
   const product = bc ?? direct;
   if (product) {
-    const stock = one<any>(
+    const stock = await one<any>(
       `SELECT COALESCE(SUM(qty_on_hand),0) oh, COALESCE(SUM(qty_reserved),0) rs
          FROM inventory WHERE product_id = ?`,
       product.id,
@@ -119,19 +119,19 @@ export function resolveScan(raw: string): ResolvedScan {
 
   switch (kind) {
     case "PALLET": {
-      const p = one<any>(
+      const p = await one<any>(
         `SELECT pl.*, l.code AS location_code FROM pallets pl
            LEFT JOIN locations l ON l.id = pl.location_id WHERE pl.id = ?`,
         trimmed,
       );
       if (!p) return { ...base, kind, label: `Palete ${trimmed} nao existe` };
-      const items = all<any>(
+      const items = await all<any>(
         `SELECT pi.*, p.sku, p.description, p.unit, lt.code AS lot_code, lt.expires_at
            FROM pallet_items pi JOIN products p ON p.id = pi.product_id
            LEFT JOIN lots lt ON lt.id = pi.lot_id WHERE pi.pallet_id = ?`,
         trimmed,
       );
-      const storage = one<any>(
+      const storage = await one<any>(
         `SELECT so.*, l.code AS suggested_code FROM storage_orders so
            LEFT JOIN locations l ON l.id = so.suggested_location_id
           WHERE so.pallet_id = ? AND so.status IN ('PENDING','IN_PROGRESS') LIMIT 1`,
@@ -150,7 +150,7 @@ export function resolveScan(raw: string): ResolvedScan {
       };
     }
     case "VOLUME": {
-      const v = one<any>(
+      const v = await one<any>(
         `SELECT v.*, so.status AS order_status, c.name AS customer_name
            FROM volumes v
            LEFT JOIN sales_orders so ON so.id = v.sales_order_id
@@ -158,7 +158,7 @@ export function resolveScan(raw: string): ResolvedScan {
         trimmed,
       );
       if (!v) return { ...base, kind, label: `Volume ${trimmed} nao existe` };
-      const items = all<any>(
+      const items = await all<any>(
         `SELECT vi.*, p.sku, p.unit FROM volume_items vi JOIN products p ON p.id = vi.product_id
           WHERE vi.volume_id = ?`,
         trimmed,
@@ -173,13 +173,13 @@ export function resolveScan(raw: string): ResolvedScan {
       };
     }
     case "SALES_ORDER": {
-      const o = one<any>(
+      const o = await one<any>(
         `SELECT so.*, c.name AS customer_name FROM sales_orders so
            JOIN customers c ON c.id = so.customer_id WHERE so.id = ?`,
         trimmed,
       );
       if (!o) return { ...base, kind, label: `Pedido ${trimmed} nao existe` };
-      const picking = one<any>(
+      const picking = await one<any>(
         `SELECT * FROM picking_orders WHERE sales_order_id = ? ORDER BY created_at DESC LIMIT 1`,
         trimmed,
       );
@@ -191,7 +191,7 @@ export function resolveScan(raw: string): ResolvedScan {
       };
     }
     case "INBOUND_ORDER": {
-      const io = one<any>(
+      const io = await one<any>(
         `SELECT io.*, s.name AS supplier_name FROM inbound_orders io
            JOIN suppliers s ON s.id = io.supplier_id WHERE io.id = ?`,
         trimmed,
@@ -205,7 +205,7 @@ export function resolveScan(raw: string): ResolvedScan {
       };
     }
     case "STORAGE_ORDER": {
-      const so = one<any>(
+      const so = await one<any>(
         `SELECT so.*, l.code AS suggested_code FROM storage_orders so
            LEFT JOIN locations l ON l.id = so.suggested_location_id WHERE so.id = ?`,
         trimmed,
@@ -219,7 +219,7 @@ export function resolveScan(raw: string): ResolvedScan {
       };
     }
     case "MANIFEST": {
-      const m = one<any>(`SELECT * FROM shipping_manifests WHERE id = ?`, trimmed);
+      const m = await one<any>(`SELECT * FROM shipping_manifests WHERE id = ?`, trimmed);
       if (!m) return { ...base, kind, label: `Romaneio ${trimmed} nao existe` };
       return {
         ...base, kind, id: m.id, found: true,
@@ -229,7 +229,7 @@ export function resolveScan(raw: string): ResolvedScan {
       };
     }
     case "PICKING_ORDER": {
-      const pk = one<any>(`SELECT * FROM picking_orders WHERE id = ?`, trimmed);
+      const pk = await one<any>(`SELECT * FROM picking_orders WHERE id = ?`, trimmed);
       if (!pk) return { ...base, kind, label: `Picklist ${trimmed} nao existe` };
       return {
         ...base, kind, id: pk.id, found: true,
@@ -239,7 +239,7 @@ export function resolveScan(raw: string): ResolvedScan {
       };
     }
     case "PACKING_ORDER": {
-      const pa = one<any>(`SELECT * FROM packing_orders WHERE id = ?`, trimmed);
+      const pa = await one<any>(`SELECT * FROM packing_orders WHERE id = ?`, trimmed);
       if (!pa) return { ...base, kind, label: `Embalagem ${trimmed} nao existe` };
       return {
         ...base, kind, id: pa.id, found: true,
@@ -248,7 +248,7 @@ export function resolveScan(raw: string): ResolvedScan {
       };
     }
     case "OPERATOR": {
-      const op = one<any>(`SELECT * FROM operators WHERE id = ? OR badge = ?`, trimmed, trimmed);
+      const op = await one<any>(`SELECT * FROM operators WHERE id = ? OR badge = ?`, trimmed, trimmed);
       if (!op) return { ...base, kind, label: `Operador ${trimmed} nao existe` };
       return {
         ...base, kind, id: op.id, found: true,
@@ -257,7 +257,7 @@ export function resolveScan(raw: string): ResolvedScan {
       };
     }
     case "EQUIPMENT": {
-      const eq = one<any>(`SELECT * FROM equipment WHERE id = ?`, trimmed);
+      const eq = await one<any>(`SELECT * FROM equipment WHERE id = ?`, trimmed);
       if (!eq) return { ...base, kind, label: `Equipamento ${trimmed} nao existe` };
       return {
         ...base, kind, id: eq.id, found: true,
@@ -266,7 +266,7 @@ export function resolveScan(raw: string): ResolvedScan {
       };
     }
     case "LOADING": {
-      const lo = one<any>(`SELECT * FROM loading_operations WHERE id = ?`, trimmed);
+      const lo = await one<any>(`SELECT * FROM loading_operations WHERE id = ?`, trimmed);
       if (!lo) return { ...base, kind, label: `Carregamento ${trimmed} nao existe` };
       return {
         ...base, kind, id: lo.id, found: true,
@@ -276,7 +276,7 @@ export function resolveScan(raw: string): ResolvedScan {
       };
     }
     case "INVOICE": {
-      const inv = one<any>(`SELECT * FROM invoices WHERE id = ?`, trimmed);
+      const inv = await one<any>(`SELECT * FROM invoices WHERE id = ?`, trimmed);
       if (!inv) return { ...base, kind, label: `Nota ${trimmed} nao existe` };
       return {
         ...base, kind, id: inv.id, found: true,
@@ -285,7 +285,7 @@ export function resolveScan(raw: string): ResolvedScan {
       };
     }
     case "PURCHASE_ORDER": {
-      const po = one<any>(`SELECT * FROM purchase_orders WHERE id = ?`, trimmed);
+      const po = await one<any>(`SELECT * FROM purchase_orders WHERE id = ?`, trimmed);
       if (!po) return { ...base, kind, label: `Pedido de compra ${trimmed} nao existe` };
       return {
         ...base, kind, id: po.id, found: true,
@@ -298,15 +298,15 @@ export function resolveScan(raw: string): ResolvedScan {
 }
 
 /** Trilha de leituras da coletora (auditoria de RF). */
-export function logScan(params: {
+export async function logScan(params: {
   raw: string; resolved: ResolvedScan; operation: string;
   contextRef?: string; result: "OK" | "REJECTED"; message?: string;
   operatorId?: string; deviceId?: string;
-}): string {
+}): Promise<string> {
   const at = nowIso();
-  const n = (scalar<number>(`SELECT COUNT(*) FROM scan_events`) ?? 0) + 1;
+  const n = (await scalar<number>(`SELECT COUNT(*) FROM scan_events`) ?? 0) + 1;
   const id = `SCN-${String(n).padStart(8, "0")}`;
-  insert("scan_events", {
+  await insert("scan_events", {
     id, raw_code: params.raw,
     resolved_kind: params.resolved.kind, resolved_id: params.resolved.id,
     operation: params.operation, context_ref: params.contextRef ?? null,
@@ -317,8 +317,8 @@ export function logScan(params: {
   return id;
 }
 
-export function recentScans(limit = 30) {
-  return all<any>(
+export async function recentScans(limit = 30) {
+  return await all<any>(
     `SELECT s.*, o.name AS operator_name FROM scan_events s
        LEFT JOIN operators o ON o.id = s.operator_id
       ORDER BY s.occurred_at DESC, s.id DESC LIMIT ?`,
@@ -326,8 +326,8 @@ export function recentScans(limit = 30) {
   );
 }
 
-export function scanStats() {
-  const total = scalar<number>(`SELECT COUNT(*) FROM scan_events`) ?? 0;
-  const rejected = scalar<number>(`SELECT COUNT(*) FROM scan_events WHERE result = 'REJECTED'`) ?? 0;
+export async function scanStats() {
+  const total = await scalar<number>(`SELECT COUNT(*) FROM scan_events`) ?? 0;
+  const rejected = await scalar<number>(`SELECT COUNT(*) FROM scan_events WHERE result = 'REJECTED'`) ?? 0;
   return { total, rejected, ok: total - rejected, rejectRate: total ? (rejected / total) * 100 : 0 };
 }

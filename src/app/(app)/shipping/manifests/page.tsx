@@ -18,9 +18,9 @@ export default async function ManifestsPage({
   searchParams,
 }: { searchParams: Promise<{ status?: string; search?: string }> }) {
   const sp = await searchParams;
-  const rows = listManifests({ status: sp.status, search: sp.search });
-  const eligible = eligibleOrdersForManifest();
-  const docks = listDocks().filter((d) => d.kind !== "INBOUND").map((d) => ({ id: d.id, name: d.name }));
+  const rows = await listManifests({ status: sp.status, search: sp.search });
+  const eligible = await eligibleOrdersForManifest();
+  const docks = (await listDocks()).filter((d) => d.kind !== "INBOUND").map((d) => ({ id: d.id, name: d.name }));
 
   return (
     <>

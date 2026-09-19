@@ -11,8 +11,8 @@ import { IconTruckOut, IconArrowRight } from "@/components/ui/Icons";
 export const metadata: Metadata = { title: "Carregamento" };
 export const dynamic = "force-dynamic";
 
-export default function LoadingPage() {
-  const rows = all<any>(
+export default async function LoadingPage() {
+  const rows = await all<any>(
     `SELECT lo.*, m.route, m.vehicle_plate, m.status AS manifest_status,
             d.name AS dock_name, o.name AS operator_name
        FROM loading_operations lo
@@ -21,7 +21,7 @@ export default function LoadingPage() {
        LEFT JOIN operators o ON o.id = lo.operator_id
       ORDER BY lo.created_at DESC`,
   );
-  const ready = listManifests({ status: "READY" });
+  const ready = await listManifests({ status: "READY" });
 
   return (
     <>

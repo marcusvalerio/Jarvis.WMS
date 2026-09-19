@@ -28,13 +28,13 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
 
 export default async function OrderPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const data = getOrder(id);
+  const data = await getOrder(id);
   if (!data) notFound();
   const { order, items, reservations, picking, packing, volumes, check, manifest, shipment } = data;
-  const cov = coverage(id);
-  const trace = traceOrder(id);
-  const checkData = check ? getShippingCheck(check.id) : null;
-  const invoice = one<any>(`SELECT * FROM invoices WHERE sales_order_id = ? AND kind='OUTBOUND'`, id);
+  const cov = await coverage(id);
+  const trace = await traceOrder(id);
+  const checkData = check ? await getShippingCheck(check.id) : null;
+  const invoice = await one<any>(`SELECT * FROM invoices WHERE sales_order_id = ? AND kind='OUTBOUND'`, id);
 
   const openVolumes = volumes.filter((v: any) => v.status === "OPEN" || v.status === "CLOSED").length;
   const totalQty = items.reduce((s: number, i: any) => s + i.quantity, 0);

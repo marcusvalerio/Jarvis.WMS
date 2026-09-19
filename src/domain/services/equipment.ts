@@ -11,12 +11,12 @@ export interface Equipment {
   last_event_at: string | null; created_at: string;
 }
 
-export function listEquipment(filter: { kind?: string; status?: string } = {}) {
+export async function listEquipment(filter: { kind?: string; status?: string } = {}) {
   const where: string[] = [];
   const params: any[] = [];
   if (filter.kind) { where.push("e.kind = ?"); params.push(filter.kind); }
   if (filter.status) { where.push("e.status = ?"); params.push(filter.status); }
-  return all<any>(
+  return await all<any>(
     `SELECT e.*, o.name AS operator_name FROM equipment e
        LEFT JOIN operators o ON o.id = e.assigned_to
       ${where.length ? "WHERE " + where.join(" AND ") : ""}
@@ -25,14 +25,14 @@ export function listEquipment(filter: { kind?: string; status?: string } = {}) {
   );
 }
 
-export function getEquipment(id: string): Equipment | undefined {
-  return one<Equipment>(`SELECT * FROM equipment WHERE id = ?`, id);
+export async function getEquipment(id: string): Promise<Equipment | undefined> {
+  return await one<Equipment>(`SELECT * FROM equipment WHERE id = ?`, id);
 }
 
-export function setEquipmentStatus(params: {
+export async function setEquipmentStatus(params: {
   id: string; status: EquipmentStatus; operatorId?: string; actor: string; note?: string;
 }) {
-  const before = getEquipment(params.id);
+  const before = await getEquipment(params.id);
   if (!before) return;
   const at = nowIso();
 
@@ -46,7 +46,7 @@ export function setEquipmentStatus(params: {
     downtime += minutesBetween(before.last_event_at, at) ?? 0;
   }
 
-  run(
+  await run(
     `UPDATE equipment SET status = ?, assigned_to = ?, downtime_minutes = ?, last_event_at = ? WHERE id = ?`,
     params.status,
     params.status === "IN_USE" ? (params.operatorId ?? before.assigned_to) : null,
@@ -55,14 +55,14 @@ export function setEquipmentStatus(params: {
     params.id,
   );
 
-  audit({
+  await audit({
     actor: params.actor, action: "UPDATE", entity: "equipment", entityId: params.id,
     before: { status: before.status }, after: { status: params.status, note: params.note },
     detail: `Equipamento ${params.id}: ${before.status} -> ${params.status}`,
   });
 
   if (params.status === "UNAVAILABLE" || params.status === "MAINTENANCE") {
-    openIncident({
+    await openIncident({
       kind: "EQUIPMENT_UNAVAILABLE",
       severity: params.status === "UNAVAILABLE" ? "ALTA" : "MEDIA",
       refKind: "EQUIPMENT", refId: params.id,
@@ -83,8 +83,8 @@ export interface EquipmentAvailability {
   byKind: { kind: string; total: number; available: number; inUse: number; pct: number }[];
 }
 
-export function availability(): EquipmentAvailability {
-  const rows = all<Equipment>(`SELECT * FROM equipment`);
+export async function availability(): Promise<EquipmentAvailability> {
+  const rows = await all<Equipment>(`SELECT * FROM equipment`);
   const total = rows.length;
   const monitored = rows.reduce((s, e) => s + e.monitored_minutes, 0);
   const now = nowIso();
@@ -120,8 +120,8 @@ export function availability(): EquipmentAvailability {
   };
 }
 
-export function countEquipment(status?: string): number {
+export async function countEquipment(status?: string): Promise<number> {
   return status
-    ? scalar<number>(`SELECT COUNT(*) FROM equipment WHERE status = ?`, status) ?? 0
-    : scalar<number>(`SELECT COUNT(*) FROM equipment`) ?? 0;
+    ? await scalar<number>(`SELECT COUNT(*) FROM equipment WHERE status = ?`, status) ?? 0
+    : await scalar<number>(`SELECT COUNT(*) FROM equipment`) ?? 0;
 }

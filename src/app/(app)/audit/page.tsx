@@ -28,8 +28,8 @@ export default async function AuditPage({
   const page = Math.max(1, Number(sp.page ?? 1));
   const limit = 80;
   const filter = { entity: sp.entity, action: sp.action, origin: sp.origin, search: sp.search };
-  const rows = listAudit({ ...filter, limit, offset: (page - 1) * limit });
-  const total = countAudit(filter);
+  const rows = await listAudit({ ...filter, limit, offset: (page - 1) * limit });
+  const total = await countAudit(filter);
   const pages = Math.max(1, Math.ceil(total / limit));
 
   return (
@@ -47,12 +47,12 @@ export default async function AuditPage({
         selects={[
           {
             key: "action", label: "Todas as acoes",
-            options: auditDistinct("action").map((a) => ({
+            options: (await auditDistinct("action")).map((a) => ({
               value: a, label: AUDIT_ACTION_LABEL[a as AuditAction] ?? a,
             })),
           },
-          { key: "entity", label: "Todas as entidades", options: auditDistinct("entity").map((e) => ({ value: e, label: e })) },
-          { key: "origin", label: "Todas as origens", options: auditDistinct("origin").map((o) => ({ value: o, label: o })) },
+          { key: "entity", label: "Todas as entidades", options: (await auditDistinct("entity")).map((e) => ({ value: e, label: e })) },
+          { key: "origin", label: "Todas as origens", options: (await auditDistinct("origin")).map((o) => ({ value: o, label: o })) },
         ]}
       />
 

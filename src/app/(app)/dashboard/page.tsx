@@ -20,19 +20,19 @@ import { IconArrowRight, IconAlert, IconCheck } from "@/components/ui/Icons";
 export const metadata: Metadata = { title: "Dashboard" };
 export const dynamic = "force-dynamic";
 
-export default function DashboardPage() {
-  const kpis = dashboardKpis();
-  const head = headline();
-  const pulse = operationalPulse(14);
-  const occ = occupancy();
-  const docks = listDocks();
-  const eq = availability();
-  const inc = incidentCounts();
-  const div = divergenceIndex();
-  const series = movementSeries(12);
-  const inbound = listInbound().filter((i) => i.status !== "COMPLETED" && i.status !== "CANCELLED").slice(0, 5);
-  const orders = listOrders().filter((o) => o.status !== "SHIPPED" && o.status !== "CANCELLED").slice(0, 6);
-  const progress = scenarioProgress();
+export default async function DashboardPage() {
+  const kpis = await dashboardKpis();
+  const head = await headline();
+  const pulse = await operationalPulse(14);
+  const occ = await occupancy();
+  const docks = await listDocks();
+  const eq = await availability();
+  const inc = await incidentCounts();
+  const div = await divergenceIndex();
+  const series = await movementSeries(12);
+  const inbound = (await listInbound()).filter((i) => i.status !== "COMPLETED" && i.status !== "CANCELLED").slice(0, 5);
+  const orders = (await listOrders()).filter((o) => o.status !== "SHIPPED" && o.status !== "CANCELLED").slice(0, 6);
+  const progress = await scenarioProgress();
 
   const featured = ["accuracy", "divergence", "occupancy", "productivity", "otif"];
   const primary = kpis.filter((k) => featured.includes(k.key));

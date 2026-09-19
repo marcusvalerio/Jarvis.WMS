@@ -17,10 +17,10 @@ export default async function DocumentsPage({
   const sp = await searchParams;
   const active = (GROUPS.includes(sp.group as DocGroup) ? sp.group : null) as DocGroup | null;
 
-  const catalog = DOC_TYPES.map((d) => ({
+  const catalog = await Promise.all(DOC_TYPES.map(async (d) => ({
     type: d.type, label: d.label, group: d.group, description: d.description,
-    format: d.format, simulated: !!d.simulated, items: d.list(),
-  }));
+    format: d.format, simulated: !!d.simulated, items: await d.list(),
+  })));
   const visible = active ? catalog.filter((c) => c.group === active) : catalog;
   const total = catalog.reduce((s, c) => s + c.items.length, 0);
 

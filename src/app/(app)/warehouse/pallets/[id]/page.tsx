@@ -23,12 +23,12 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
 
 export default async function PalletPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const data = getPallet(id);
+  const data = await getPallet(id);
   if (!data) notFound();
   const { pallet, items, stock } = data;
-  const trace = tracePallet(id);
-  const moves = listMovements({ palletId: id, limit: 30 });
-  const locations = locationMap()
+  const trace = await tracePallet(id);
+  const moves = await listMovements({ palletId: id, limit: 30 });
+  const locations = (await locationMap())
     .filter((l) => l.kind === "PALLET" && l.status !== "BLOCKED")
     .map((l) => ({ id: l.id, code: l.code, zone: l.zone_name }))
     .sort((a, b) => a.code.localeCompare(b.code));

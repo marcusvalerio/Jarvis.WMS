@@ -12,10 +12,10 @@ import { IconCount, IconArrowRight, IconScan } from "@/components/ui/Icons";
 export const metadata: Metadata = { title: "Inventario" };
 export const dynamic = "force-dynamic";
 
-export default function InventoryCountPage() {
-  const counts = listCounts();
-  const acc = globalAccuracy();
-  const zones = listZones().filter((z) => ["PICKING", "STORAGE"].includes(z.kind));
+export default async function InventoryCountPage() {
+  const counts = await listCounts();
+  const acc = await globalAccuracy();
+  const zones = (await listZones()).filter((z) => ["PICKING", "STORAGE"].includes(z.kind));
 
   return (
     <>

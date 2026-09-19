@@ -25,19 +25,19 @@ export class PickingError extends Error {
  * A sequencia segue a rota fisica do armazem (pick_sequence do endereco),
  * minimizando o deslocamento do operador.
  */
-export function generatePicklist(orderId: string, actor: string): string {
-  return tx(() => {
+export async function generatePicklist(orderId: string, actor: string): Promise<string> {
+  return await tx(async () => {
     const at = nowIso();
-    const order = one<any>(`SELECT * FROM sales_orders WHERE id = ?`, orderId);
+    const order = await one<any>(`SELECT * FROM sales_orders WHERE id = ?`, orderId);
     if (!order) throw new PickingError("Pedido inexistente", "NOT_FOUND");
 
-    const existing = one<any>(
+    const existing = await one<any>(
       `SELECT * FROM picking_orders WHERE sales_order_id = ? AND status IN ('PENDING','IN_PROGRESS')`,
       orderId,
     );
     if (existing) return existing.id;
 
-    const reservations = all<any>(
+    const reservations = await all<any>(
       `SELECT r.*, l.pick_sequence, l.code AS location_code
          FROM stock_reservations r
          JOIN locations l ON l.id = r.location_id
@@ -52,17 +52,17 @@ export function generatePicklist(orderId: string, actor: string): string {
       );
     }
 
-    const pickId = nextId(PREFIX.PICKING_ORDER);
+    const pickId = await nextId(PREFIX.PICKING_ORDER);
     const totalUnits = round3(reservations.reduce((s, r) => s + (r.quantity - r.picked_qty), 0));
-    insert("picking_orders", {
+    await insert("picking_orders", {
       id: pickId, sales_order_id: orderId, status: "PENDING", strategy: "FEFO",
       priority: order.priority, total_lines: reservations.length, done_lines: 0,
       total_units: totalUnits, picked_units: 0, created_at: at,
     });
 
-    reservations.forEach((r, idx) => {
-      insert("picking_items", {
-        id: nextId(PREFIX.PICKING_ITEM),
+    for (const [idx, r] of reservations.entries()) {
+      await insert("picking_items", {
+        id: await nextId(PREFIX.PICKING_ITEM),
         picking_order_id: pickId,
         sequence: idx + 1,
         reservation_id: r.id,
@@ -75,11 +75,11 @@ export function generatePicklist(orderId: string, actor: string): string {
         picked_qty: 0,
         status: "PENDING",
       });
-    });
+    }
 
-    if (order.status === "PENDING") setOrderStatus(orderId, "PICKING", actor);
+    if (order.status === "PENDING") await setOrderStatus(orderId, "PICKING", actor);
 
-    audit({
+    await audit({
       actor, action: "CREATE", entity: "picking_order", entityId: pickId,
       after: { order: orderId, lines: reservations.length, units: totalUnits },
       detail: `Picklist ${pickId} gerada para ${orderId} (${reservations.length} linhas)`,
@@ -90,7 +90,7 @@ export function generatePicklist(orderId: string, actor: string): string {
 }
 
 // ------------------------------------------------------------------ consultas
-export function listPicking(filter: { status?: string; search?: string } = {}) {
+export async function listPicking(filter: { status?: string; search?: string } = {}) {
   const where: string[] = [];
   const params: any[] = [];
   if (filter.status) { where.push("pk.status = ?"); params.push(filter.status); }
@@ -99,7 +99,7 @@ export function listPicking(filter: { status?: string; search?: string } = {}) {
     const q = `%${filter.search}%`;
     params.push(q, q, q);
   }
-  return all<any>(
+  return await all<any>(
     `SELECT pk.*, so.priority AS order_priority, so.due_at, c.name AS customer_name,
             o.name AS operator_name
        FROM picking_orders pk
@@ -115,8 +115,8 @@ export function listPicking(filter: { status?: string; search?: string } = {}) {
   );
 }
 
-export function getPicking(id: string) {
-  const picking = one<any>(
+export async function getPicking(id: string) {
+  const picking = await one<any>(
     `SELECT pk.*, so.priority AS order_priority, so.due_at, so.status AS order_status,
             c.name AS customer_name, c.city AS customer_city, o.name AS operator_name
        FROM picking_orders pk
@@ -127,12 +127,12 @@ export function getPicking(id: string) {
     id,
   );
   if (!picking) return null;
-  const items = pickingItems(id);
+  const items = await pickingItems(id);
   return { picking, items };
 }
 
-export function pickingItems(pickingId: string) {
-  return all<any>(
+export async function pickingItems(pickingId: string) {
+  return await all<any>(
     `SELECT pi.*, p.sku, p.description, p.unit, l.code AS location_code,
             z.name AS zone_name, lt.code AS lot_code, lt.expires_at
        FROM picking_items pi
@@ -146,8 +146,8 @@ export function pickingItems(pickingId: string) {
 }
 
 /** Proxima linha a executar (a coletora sempre trabalha na sequencia). */
-export function currentItem(pickingId: string) {
-  return one<any>(
+export async function currentItem(pickingId: string) {
+  return await one<any>(
     `SELECT pi.*, p.sku, p.description, p.unit, l.code AS location_code,
             z.name AS zone_name, lt.code AS lot_code, lt.expires_at
        FROM picking_items pi
@@ -163,33 +163,33 @@ export function currentItem(pickingId: string) {
 }
 
 // ------------------------------------------------------------------ execucao
-export function startPicking(pickingId: string, operatorId: string, equipmentId?: string) {
-  return tx(() => {
+export async function startPicking(pickingId: string, operatorId: string, equipmentId?: string) {
+  return await tx(async () => {
     const at = nowIso();
-    const pk = one<any>(`SELECT * FROM picking_orders WHERE id = ?`, pickingId);
+    const pk = await one<any>(`SELECT * FROM picking_orders WHERE id = ?`, pickingId);
     if (!pk) throw new PickingError("Picklist inexistente", "NOT_FOUND");
     if (pk.status === "IN_PROGRESS") return pk;
     assertTransition("picking_order", PICKING_TRANSITIONS, pk.status as PickingStatus, "IN_PROGRESS");
-    run(
+    await run(
       `UPDATE picking_orders SET status = 'IN_PROGRESS', operator_id = ?, equipment_id = ?,
               started_at = COALESCE(started_at, ?) WHERE id = ?`,
       operatorId, equipmentId ?? null, at, pickingId,
     );
     // Marca o inicio da primeira linha para medir o tempo de localizacao.
-    const first = currentItem(pickingId);
+    const first = await currentItem(pickingId);
     if (first && !first.started_at) {
-      run(`UPDATE picking_items SET started_at = ? WHERE id = ?`, at, first.id);
+      await run(`UPDATE picking_items SET started_at = ? WHERE id = ?`, at, first.id);
     }
     if (equipmentId) {
-      run(`UPDATE equipment SET status = 'IN_USE', assigned_to = ?, last_event_at = ? WHERE id = ?`,
+      await run(`UPDATE equipment SET status = 'IN_USE', assigned_to = ?, last_event_at = ? WHERE id = ?`,
         operatorId, at, equipmentId);
     }
-    audit({
+    await audit({
       actor: operatorId, action: "PICK", entity: "picking_order", entityId: pickingId,
       before: { status: pk.status }, after: { status: "IN_PROGRESS", operator: operatorId },
       detail: `Picking ${pickingId} iniciado`,
     });
-    return one<any>(`SELECT * FROM picking_orders WHERE id = ?`, pickingId);
+    return await one<any>(`SELECT * FROM picking_orders WHERE id = ?`, pickingId);
   });
 }
 
@@ -205,12 +205,12 @@ export interface ScanOutcome {
  * BIP do endereco. Rejeita qualquer endereco diferente do da linha atual —
  * esta e a validacao que impede separar do lugar errado.
  */
-export function scanLocation(params: {
+export async function scanLocation(params: {
   pickingId: string; rawCode: string; operatorId: string;
-}): ScanOutcome {
-  return tx(() => {
+}): Promise<ScanOutcome> {
+  return await tx(async () => {
     const at = nowIso();
-    const item = currentItem(params.pickingId);
+    const item = await currentItem(params.pickingId);
     if (!item) {
       return { ok: false, code: "NO_PENDING", message: "Nao ha linha pendente nesta picklist.", nextStep: "DONE" };
     }
@@ -231,8 +231,8 @@ export function scanLocation(params: {
       };
     }
     if (normalized !== item.location_id) {
-      const read = one<any>(`SELECT code FROM locations WHERE id = ?`, normalized);
-      audit({
+      const read = await one<any>(`SELECT code FROM locations WHERE id = ?`, normalized);
+      await audit({
         actor: params.operatorId, action: "SCAN", entity: "picking_item", entityId: item.id,
         after: { expected: item.location_id, read: normalized, result: "REJECTED" },
         origin: "RF",
@@ -245,12 +245,12 @@ export function scanLocation(params: {
       };
     }
 
-    run(
+    await run(
       `UPDATE picking_items SET status = 'LOCATION_SCANNED', location_scanned_at = ?,
               started_at = COALESCE(started_at, ?), operator_id = ? WHERE id = ?`,
       at, at, params.operatorId, item.id,
     );
-    audit({
+    await audit({
       actor: params.operatorId, action: "SCAN", entity: "picking_item", entityId: item.id,
       after: { location: normalized, result: "OK" }, origin: "RF",
       detail: `Endereco ${item.location_code} confirmado`,
@@ -264,12 +264,12 @@ export function scanLocation(params: {
 }
 
 /** BIP do produto. Rejeita SKU diferente do da linha atual. */
-export function scanProduct(params: {
+export async function scanProduct(params: {
   pickingId: string; rawCode: string; operatorId: string;
-}): ScanOutcome {
-  return tx(() => {
+}): Promise<ScanOutcome> {
+  return await tx(async () => {
     const at = nowIso();
-    const item = currentItem(params.pickingId);
+    const item = await currentItem(params.pickingId);
     if (!item) {
       return { ok: false, code: "NO_PENDING", message: "Nao ha linha pendente.", nextStep: "DONE" };
     }
@@ -288,12 +288,12 @@ export function scanProduct(params: {
     }
 
     const code = params.rawCode.trim().toUpperCase();
-    const bc = one<any>(
+    const bc = await one<any>(
       `SELECT pb.*, p.sku FROM product_barcodes pb JOIN products p ON p.id = pb.product_id
         WHERE pb.code = ?`,
       code,
     );
-    const direct = one<any>(`SELECT id, sku FROM products WHERE id = ? OR sku = ?`, code, code);
+    const direct = await one<any>(`SELECT id, sku FROM products WHERE id = ? OR sku = ?`, code, code);
     const productId = bc?.product_id ?? direct?.id;
 
     if (!productId) {
@@ -304,8 +304,8 @@ export function scanProduct(params: {
       };
     }
     if (productId !== item.product_id) {
-      const read = one<any>(`SELECT sku FROM products WHERE id = ?`, productId);
-      audit({
+      const read = await one<any>(`SELECT sku FROM products WHERE id = ?`, productId);
+      await audit({
         actor: params.operatorId, action: "SCAN", entity: "picking_item", entityId: item.id,
         after: { expected: item.product_id, read: productId, result: "REJECTED" }, origin: "RF",
         detail: `PRODUTO INCORRETO: esperado ${item.sku}, lido ${read?.sku ?? productId}`,
@@ -317,11 +317,11 @@ export function scanProduct(params: {
       };
     }
 
-    run(
+    await run(
       `UPDATE picking_items SET status = 'PRODUCT_SCANNED', product_scanned_at = ? WHERE id = ?`,
       at, item.id,
     );
-    audit({
+    await audit({
       actor: params.operatorId, action: "SCAN", entity: "picking_item", entityId: item.id,
       after: { product: productId, result: "OK" }, origin: "RF",
       detail: `Produto ${item.sku} confirmado em ${item.location_code}`,
@@ -335,13 +335,13 @@ export function scanProduct(params: {
 }
 
 /** Confirma a quantidade coletada e baixa o estoque pela reserva. */
-export function confirmPick(params: {
+export async function confirmPick(params: {
   pickingId: string; quantity: number; operatorId: string;
   origin?: "WEB" | "RF"; divergenceReason?: string;
-}): ScanOutcome {
-  return tx(() => {
+}): Promise<ScanOutcome> {
+  return await tx(async () => {
     const at = nowIso();
-    const item = currentItem(params.pickingId);
+    const item = await currentItem(params.pickingId);
     if (!item) {
       return { ok: false, code: "NO_PENDING", message: "Nao ha linha pendente.", nextStep: "DONE" };
     }
@@ -368,7 +368,7 @@ export function confirmPick(params: {
     }
 
     if (qty > 0) {
-      consumeReservation({
+      await consumeReservation({
         reservationId: item.reservation_id,
         quantity: qty,
         toLocationId: shippingLocation(),
@@ -382,20 +382,20 @@ export function confirmPick(params: {
 
     const divergence = round3(qty - item.expected_qty);
     const status = divergence === 0 ? "COMPLETED" : "DIVERGENCE";
-    run(
+    await run(
       `UPDATE picking_items SET picked_qty = ?, status = ?, completed_at = ?,
               operator_id = ?, divergence_reason = ? WHERE id = ?`,
       qty, status, at, params.operatorId,
       divergence === 0 ? null : (params.divergenceReason ?? "Quantidade divergente na coleta"),
       item.id,
     );
-    run(
+    await run(
       `UPDATE sales_order_items SET picked_qty = picked_qty + ? WHERE id = ?`,
       qty, item.sales_order_item_id,
     );
 
     if (divergence !== 0) {
-      openIncident({
+      await openIncident({
         kind: "PICKING_ERROR",
         severity: Math.abs(divergence) / Math.max(1, item.expected_qty) > 0.2 ? "ALTA" : "MEDIA",
         refKind: "PICKING", refId: params.pickingId,
@@ -405,30 +405,30 @@ export function confirmPick(params: {
       });
     }
 
-    const totals = one<any>(
+    const totals = await one<any>(
       `SELECT COUNT(*) AS total,
               SUM(CASE WHEN status IN ('COMPLETED','DIVERGENCE','SKIPPED') THEN 1 ELSE 0 END) AS done,
               COALESCE(SUM(picked_qty),0) AS picked
          FROM picking_items WHERE picking_order_id = ?`,
       params.pickingId,
     );
-    run(
+    await run(
       `UPDATE picking_orders SET done_lines = ?, picked_units = ? WHERE id = ?`,
       totals.done, totals.picked, params.pickingId,
     );
 
-    audit({
+    await audit({
       actor: params.operatorId, action: "PICK", entity: "picking_item", entityId: item.id,
       after: { picked: qty, expected: item.expected_qty, divergence },
       origin: params.origin ?? "RF",
       detail: `Coletado ${qty}/${item.expected_qty} de ${item.sku} em ${item.location_code}`,
     });
 
-    const next = currentItem(params.pickingId);
+    const next = await currentItem(params.pickingId);
     if (next && !next.started_at) {
-      run(`UPDATE picking_items SET started_at = ? WHERE id = ?`, at, next.id);
+      await run(`UPDATE picking_items SET started_at = ? WHERE id = ?`, at, next.id);
     }
-    if (!next) completePicking(params.pickingId, params.operatorId);
+    if (!next) await completePicking(params.pickingId, params.operatorId);
 
     return {
       ok: true, code: divergence === 0 ? "OK" : "DIVERGENCE",
@@ -442,39 +442,39 @@ export function confirmPick(params: {
 }
 
 /** Pula a linha (produto nao localizado) — gera ocorrencia e divergencia. */
-export function skipItem(params: {
+export async function skipItem(params: {
   pickingId: string; reason: string; operatorId: string;
-}): ScanOutcome {
-  return tx(() => {
+}): Promise<ScanOutcome> {
+  return await tx(async () => {
     const at = nowIso();
-    const item = currentItem(params.pickingId);
+    const item = await currentItem(params.pickingId);
     if (!item) return { ok: false, code: "NO_PENDING", message: "Nao ha linha pendente.", nextStep: "DONE" };
-    run(
+    await run(
       `UPDATE picking_items SET status = 'SKIPPED', completed_at = ?, operator_id = ?,
               divergence_reason = ? WHERE id = ?`,
       at, params.operatorId, params.reason, item.id,
     );
-    openIncident({
+    await openIncident({
       kind: "PRODUCT_NOT_FOUND", severity: "ALTA",
       refKind: "PICKING", refId: params.pickingId,
       productId: item.product_id, locationId: item.location_id, quantity: item.expected_qty,
       description: `${item.sku} nao localizado em ${item.location_code}: ${params.reason}`,
       operatorId: params.operatorId,
     });
-    const totals = one<any>(
+    const totals = await one<any>(
       `SELECT COUNT(*) AS total,
               SUM(CASE WHEN status IN ('COMPLETED','DIVERGENCE','SKIPPED') THEN 1 ELSE 0 END) AS done
          FROM picking_items WHERE picking_order_id = ?`,
       params.pickingId,
     );
-    run(`UPDATE picking_orders SET done_lines = ? WHERE id = ?`, totals.done, params.pickingId);
-    audit({
+    await run(`UPDATE picking_orders SET done_lines = ? WHERE id = ?`, totals.done, params.pickingId);
+    await audit({
       actor: params.operatorId, action: "PICK", entity: "picking_item", entityId: item.id,
       after: { status: "SKIPPED", reason: params.reason }, origin: "RF",
       detail: `Linha pulada: ${item.sku} em ${item.location_code}`,
     });
-    const next = currentItem(params.pickingId);
-    if (!next) completePicking(params.pickingId, params.operatorId);
+    const next = await currentItem(params.pickingId);
+    if (!next) await completePicking(params.pickingId, params.operatorId);
     return {
       ok: true, code: "SKIPPED", item,
       message: `Linha pulada. Ocorrencia aberta para ${item.sku}.`,
@@ -483,24 +483,24 @@ export function skipItem(params: {
   });
 }
 
-export function completePicking(pickingId: string, operatorId: string) {
+export async function completePicking(pickingId: string, operatorId: string) {
   const at = nowIso();
-  const pk = one<any>(`SELECT * FROM picking_orders WHERE id = ?`, pickingId);
+  const pk = await one<any>(`SELECT * FROM picking_orders WHERE id = ?`, pickingId);
   if (!pk || pk.status === "COMPLETED") return;
-  const divs = scalar<number>(
+  const divs = await scalar<number>(
     `SELECT COUNT(*) FROM picking_items WHERE picking_order_id = ? AND status IN ('DIVERGENCE','SKIPPED')`,
     pickingId,
   ) ?? 0;
   const status: PickingStatus = divs > 0 ? "DIVERGENCE" : "COMPLETED";
-  run(
+  await run(
     `UPDATE picking_orders SET status = ?, completed_at = ? WHERE id = ?`,
     status, at, pickingId,
   );
   if (pk.equipment_id) {
-    run(`UPDATE equipment SET status = 'AVAILABLE', assigned_to = NULL, last_event_at = ? WHERE id = ?`,
+    await run(`UPDATE equipment SET status = 'AVAILABLE', assigned_to = NULL, last_event_at = ? WHERE id = ?`,
       at, pk.equipment_id);
   }
-  audit({
+  await audit({
     actor: operatorId, action: "PICK", entity: "picking_order", entityId: pickingId,
     before: { status: pk.status }, after: { status, divergences: divs },
     detail: `Picking ${pickingId} finalizado com ${divs} divergencia(s)`,
@@ -522,10 +522,10 @@ export interface PickingMetrics {
   divergences: number;
 }
 
-export function pickingMetrics(pickingId?: string): PickingMetrics {
+export async function pickingMetrics(pickingId?: string): Promise<PickingMetrics> {
   const where = pickingId ? `WHERE pi.picking_order_id = ?` : "";
   const params = pickingId ? [pickingId] : [];
-  const items = all<any>(
+  const items = await all<any>(
     `SELECT pi.* FROM picking_items pi ${where}`, ...params,
   );
   const done = items.filter((i) => i.completed_at && i.started_at);

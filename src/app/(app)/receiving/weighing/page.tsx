@@ -10,11 +10,11 @@ import { IconWeight, IconPrint } from "@/components/ui/Icons";
 export const metadata: Metadata = { title: "Pesagem" };
 export const dynamic = "force-dynamic";
 
-export default function WeighingPage() {
-  const weighings = listWeighings();
-  const inbound = listInbound().filter((i) => !["COMPLETED", "CANCELLED"].includes(i.status));
-  const pallets = listPallets().filter((p) => ["AWAITING_PUTAWAY", "STORED"].includes(p.status));
-  const scales = listEquipment({ kind: "BALANCA" }).map((e) => ({ id: e.id, model: e.model }));
+export default async function WeighingPage() {
+  const weighings = await listWeighings();
+  const inbound = (await listInbound()).filter((i) => !["COMPLETED", "CANCELLED"].includes(i.status));
+  const pallets = (await listPallets()).filter((p) => ["AWAITING_PUTAWAY", "STORED"].includes(p.status));
+  const scales = (await listEquipment({ kind: "BALANCA" })).map((e) => ({ id: e.id, model: e.model }));
 
   const targets = [
     ...inbound.map((i) => ({ kind: "INBOUND_ORDER", id: i.id, label: `${i.id} — ${i.supplier_name}`, expected: i.expected_weight_kg })),

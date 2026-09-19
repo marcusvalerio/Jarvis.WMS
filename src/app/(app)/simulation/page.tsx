@@ -17,17 +17,17 @@ export const dynamic = "force-dynamic";
 
 const GROUPS: DocGroup[] = ["entrada", "armazenagem", "saida"];
 
-export default function SimulationPage() {
-  const scenario = getScenario();
-  const progress = scenarioProgress();
-  const events = listEvents(24);
-  const head = headline();
-  const stock = stockByProduct({ onlyWithStock: true });
+export default async function SimulationPage() {
+  const scenario = await getScenario();
+  const progress = await scenarioProgress();
+  const events = await listEvents(24);
+  const head = await headline();
+  const stock = await stockByProduct({ onlyWithStock: true });
 
-  const catalog = DOC_TYPES.map((d) => ({
+  const catalog = await Promise.all(DOC_TYPES.map(async (d) => ({
     type: d.type, label: d.label, group: d.group,
-    format: d.format, simulated: !!d.simulated, count: d.list().length,
-  }));
+    format: d.format, simulated: !!d.simulated, count: (await d.list()).length,
+  })));
   const totalDocs = catalog.reduce((s, c) => s + c.count, 0);
 
   return (
@@ -98,10 +98,10 @@ export default function SimulationPage() {
             <Row label="Estoque inicial" value={`${INITIAL_STOCK.length} posicoes · ${fmtNumber(INITIAL_STOCK.reduce((s, i) => s + i.quantity, 0))} un`} />
             <Row label="Recebimentos" value={`${INBOUND_ORDERS.length} cargas com NF simulada`} />
             <Row label="Pedidos de venda" value={`${SALES_ORDERS.length} pedidos`} />
-            <Row label="Enderecos" value={`${scalar<number>(`SELECT COUNT(*) FROM locations WHERE kind='PALLET'`) ?? 0} posicoes-palete`} />
-            <Row label="Produtos" value={`${scalar<number>(`SELECT COUNT(*) FROM products`) ?? 0} SKUs`} />
-            <Row label="Operadores" value={`${scalar<number>(`SELECT COUNT(*) FROM operators`) ?? 0}`} />
-            <Row label="Equipamentos" value={`${scalar<number>(`SELECT COUNT(*) FROM equipment`) ?? 0}`} />
+            <Row label="Enderecos" value={`${await scalar<number>(`SELECT COUNT(*) FROM locations WHERE kind='PALLET'`) ?? 0} posicoes-palete`} />
+            <Row label="Produtos" value={`${await scalar<number>(`SELECT COUNT(*) FROM products`) ?? 0} SKUs`} />
+            <Row label="Operadores" value={`${await scalar<number>(`SELECT COUNT(*) FROM operators`) ?? 0}`} />
+            <Row label="Equipamentos" value={`${await scalar<number>(`SELECT COUNT(*) FROM equipment`) ?? 0}`} />
           </ul>
 
           <div className="hr my-4" />

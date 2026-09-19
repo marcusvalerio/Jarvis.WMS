@@ -18,7 +18,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
 
 export default async function LoadingDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const data = getLoading(id);
+  const data = await getLoading(id);
   if (!data) notFound();
   const { loading, expected } = data;
   const missing = loading.expected_volumes - loading.loaded_volumes;

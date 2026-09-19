@@ -189,20 +189,31 @@ tests/                     testes de dominio
 **Stack:** Next.js 15 (App Router, server components e server actions), React 19,
 TypeScript em modo estrito, Tailwind CSS 4.
 
-**Persistencia:** SQLite pelo modulo nativo `node:sqlite` — sem servico externo,
-sem credenciais, sem rede. A escolha e deliberada: durante uma apresentacao, o
-sistema precisa subir e funcionar sem depender de nada que possa falhar. O acesso a
-dados e SQL explicito e transacional (`src/lib/db.ts`), o que mantem o caminho de
-migracao para PostgreSQL/Supabase direto caso o projeto saia da simulacao.
+**Persistencia:** PostgreSQL (Neon em producao). O acesso a dados e SQL explicito
+e transacional (`src/lib/db.ts`), com as consultas escritas em um unico dialeto:
+os marcadores `?` sao convertidos para `$n` na propria camada, entao nenhuma query
+do dominio precisa conhecer o driver.
 
-O arquivo do banco fica em `data/wms.db`. O esquema carrega uma assinatura propria:
-se `db/schema.sql` mudar, o banco e reconstruido e o cenario recarregado.
+A conexao vem de `DATABASE_URL`. O driver e escolhido pela URL — o driver
+serverless do Neon para `*.neon.tech`, `pg` para um PostgreSQL comum —, de modo
+que o mesmo codigo roda em desenvolvimento, nos testes e na Vercel.
+
+O esquema (`db/schema.postgres.sql`, embutido em `src/db/schema.ts` para viajar no
+bundle serverless) e idempotente e e aplicado na primeira consulta de cada
+processo, sob lock consultivo. Um banco vazio, portanto, se monta sozinho e carrega
+o cenario SIM-001 — nada de tela em branco na primeira visita.
+
+```bash
+export DATABASE_URL="postgresql://usuario@127.0.0.1:5432/jarvis_wms"
+npm run db:migrate   # aplica o esquema (opcional: a aplicacao tambem aplica)
+npm run db:reset     # carrega/recarrega o cenario SIM-001
+```
 
 ---
 
 ## Testes
 
-**Dominio — 36 testes** (`npm test`, banco isolado em `.test-data/`):
+**Dominio — 36 testes** (`npm test`, banco PostgreSQL separado via `WMS_TEST_DATABASE_URL`):
 fluxo completo de ponta a ponta, divergencia de conferencia, recusa de endereco,
 produto e quantidade na coletora, integridade de saldo, rastreabilidade, auditoria,
 cobertura do reset e reprodutibilidade do cenario.

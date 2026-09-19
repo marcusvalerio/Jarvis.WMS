@@ -21,7 +21,7 @@ function refresh(inboundId?: string) {
 export async function registerArrivalAction(_: ActionState, form: FormData): Promise<ActionState> {
   const id = str(form, "inboundId");
   try {
-    receiving.registerArrival({
+    await receiving.registerArrival({
       inboundId: id,
       dockId: optStr(form, "dockId"),
       vehiclePlate: optStr(form, "vehiclePlate"),
@@ -29,7 +29,7 @@ export async function registerArrivalAction(_: ActionState, form: FormData): Pro
       driverDoc: optStr(form, "driverDoc"),
       operatorId: await currentOperatorId(),
     });
-    logEvent("RECEIVING", `Veiculo chegou para ${id}`, "INBOUND_ORDER", id);
+    await logEvent("RECEIVING", `Veiculo chegou para ${id}`, "INBOUND_ORDER", id);
     refresh(id);
     return ok("Chegada registrada. Veiculo direcionado a doca.");
   } catch (e) { return toError(e); }
@@ -38,8 +38,8 @@ export async function registerArrivalAction(_: ActionState, form: FormData): Pro
 export async function startReceivingAction(_: ActionState, form: FormData): Promise<ActionState> {
   const id = str(form, "inboundId");
   try {
-    receiving.startReceiving(id, await currentOperatorId());
-    logEvent("RECEIVING", `Descarga iniciada em ${id}`, "INBOUND_ORDER", id);
+    await receiving.startReceiving(id, await currentOperatorId());
+    await logEvent("RECEIVING", `Descarga iniciada em ${id}`, "INBOUND_ORDER", id);
     refresh(id);
     return ok("Descarga iniciada.");
   } catch (e) { return toError(e); }
@@ -47,7 +47,7 @@ export async function startReceivingAction(_: ActionState, form: FormData): Prom
 
 export async function weighAction(_: ActionState, form: FormData): Promise<ActionState> {
   try {
-    const id = receiving.registerWeighing({
+    const id = await receiving.registerWeighing({
       refKind: (str(form, "refKind") || "INBOUND_ORDER") as any,
       refId: str(form, "refId"),
       grossKg: num(form, "grossKg"),
@@ -57,7 +57,7 @@ export async function weighAction(_: ActionState, form: FormData): Promise<Actio
       operatorId: await currentOperatorId(),
       notes: optStr(form, "notes"),
     });
-    logEvent("WEIGHING", `Pesagem ${id}`, str(form, "refKind"), str(form, "refId"));
+    await logEvent("WEIGHING", `Pesagem ${id}`, str(form, "refKind"), str(form, "refId"));
     refresh(str(form, "refId"));
     revalidatePath("/receiving/weighing");
     revalidatePath(`/documents/weighing/${id}`);
@@ -68,8 +68,8 @@ export async function weighAction(_: ActionState, form: FormData): Promise<Actio
 export async function startCheckAction(_: ActionState, form: FormData): Promise<ActionState> {
   const id = str(form, "inboundId");
   try {
-    const checkId = receiving.startCheck(id, await currentOperatorId());
-    logEvent("CHECKING", `Conferencia ${checkId} iniciada`, "INBOUND_ORDER", id);
+    const checkId = await receiving.startCheck(id, await currentOperatorId());
+    await logEvent("CHECKING", `Conferencia ${checkId} iniciada`, "INBOUND_ORDER", id);
     refresh(id);
     return ok("Conferencia iniciada.", { checkId });
   } catch (e) { return toError(e); }
@@ -78,7 +78,7 @@ export async function startCheckAction(_: ActionState, form: FormData): Promise<
 export async function checkItemAction(_: ActionState, form: FormData): Promise<ActionState> {
   const inboundId = str(form, "inboundId");
   try {
-    const r = receiving.checkItem({
+    const r = await receiving.checkItem({
       checkId: str(form, "checkId"),
       checkItemId: str(form, "checkItemId"),
       quantity: num(form, "quantity"),
@@ -99,8 +99,8 @@ export async function checkItemAction(_: ActionState, form: FormData): Promise<A
 export async function finishCheckAction(_: ActionState, form: FormData): Promise<ActionState> {
   const inboundId = str(form, "inboundId");
   try {
-    const r = receiving.finishCheck(str(form, "checkId"), await currentOperatorId());
-    logEvent("CHECKING", `Conferencia encerrada com ${r.divergences} divergencia(s)`, "INBOUND_ORDER", inboundId);
+    const r = await receiving.finishCheck(str(form, "checkId"), await currentOperatorId());
+    await logEvent("CHECKING", `Conferencia encerrada com ${r.divergences} divergencia(s)`, "INBOUND_ORDER", inboundId);
     refresh(inboundId);
     revalidatePath("/incidents");
     return ok(
@@ -116,7 +116,7 @@ export async function approveDivergenceAction(_: ActionState, form: FormData): P
   const reason = str(form, "reason");
   if (!reason) return fail("Informe a justificativa do aceite.");
   try {
-    receiving.approveWithDivergence(id, await currentOperatorId(), reason);
+    await receiving.approveWithDivergence(id, await currentOperatorId(), reason);
     refresh(id);
     return ok("Divergencia tratada. Recebimento aprovado.");
   } catch (e) { return toError(e); }
@@ -141,14 +141,14 @@ export async function createPalletAction(_: ActionState, form: FormData): Promis
     }
     if (lines.length === 0) return fail("Informe a quantidade de ao menos um produto para montar o palete.");
 
-    const palletId = receiving.createPallet({
+    const palletId = await receiving.createPallet({
       lines,
       originKind: "RECEIVING",
       originRef: inboundId,
       operatorId: await currentOperatorId(),
       tareKg: form.get("tareKg") ? num(form, "tareKg") : 25,
     });
-    logEvent("PALLETIZING", `Palete ${palletId} montado`, "INBOUND_ORDER", inboundId);
+    await logEvent("PALLETIZING", `Palete ${palletId} montado`, "INBOUND_ORDER", inboundId);
     refresh(inboundId);
     revalidatePath("/warehouse/pallets");
     return ok(`Palete ${palletId} montado e recebido no estoque.`, { palletId });
@@ -158,7 +158,7 @@ export async function createPalletAction(_: ActionState, form: FormData): Promis
 export async function generateStorageOrdersAction(_: ActionState, form: FormData): Promise<ActionState> {
   const id = str(form, "inboundId");
   try {
-    const created = receiving.generateStorageOrders(id, await currentOperatorId());
+    const created = await receiving.generateStorageOrders(id, await currentOperatorId());
     refresh(id);
     return created.length === 0
       ? fail("Nao ha paletes aguardando armazenagem neste recebimento.")
@@ -168,13 +168,13 @@ export async function generateStorageOrdersAction(_: ActionState, form: FormData
 
 export async function executeStorageAction(_: ActionState, form: FormData): Promise<ActionState> {
   try {
-    const r = receiving.executeStorage({
+    const r = await receiving.executeStorage({
       storageOrderId: str(form, "storageOrderId"),
       locationId: str(form, "locationId"),
       operatorId: await currentOperatorId(),
       overrideReason: optStr(form, "overrideReason"),
     });
-    logEvent("STORAGE", `Palete ${r.palletId} armazenado em ${r.locationCode}`, "PALLET", r.palletId);
+    await logEvent("STORAGE", `Palete ${r.palletId} armazenado em ${r.locationCode}`, "PALLET", r.palletId);
     refresh(str(form, "inboundId"));
     revalidatePath("/warehouse");
     return ok(`Palete ${r.palletId} armazenado em ${r.locationCode}.`);
@@ -184,10 +184,10 @@ export async function executeStorageAction(_: ActionState, form: FormData): Prom
 export async function issueInvoiceAction(_: ActionState, form: FormData): Promise<ActionState> {
   const id = str(form, "inboundId");
   try {
-    const io = one<any>(`SELECT * FROM inbound_orders WHERE id = ?`, id);
+    const io = await one<any>(`SELECT * FROM inbound_orders WHERE id = ?`, id);
     if (!io) return fail("Recebimento inexistente.");
     if (io.invoice_id) return fail(`Este recebimento ja possui a nota ${io.invoice_id}.`);
-    const invId = createInboundInvoice({
+    const invId = await createInboundInvoice({
       inboundOrderId: id, supplierId: io.supplier_id,
       warehouseId: io.warehouse_id, actor: await currentOperatorId(),
     });

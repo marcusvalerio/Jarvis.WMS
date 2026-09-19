@@ -11,8 +11,8 @@ export default async function MobilePickingPage({
   searchParams,
 }: { searchParams: Promise<{ id?: string }> }) {
   const sp = await searchParams;
-  const open = listPicking().filter((p) => ["PENDING", "IN_PROGRESS"].includes(p.status));
-  const selected = sp.id ? getPicking(sp.id) : null;
+  const open = (await listPicking()).filter((p) => ["PENDING", "IN_PROGRESS"].includes(p.status));
+  const selected = sp.id ? await getPicking(sp.id) : null;
 
   if (!selected) {
     return (
@@ -45,7 +45,7 @@ export default async function MobilePickingPage({
   }
 
   const { picking, items } = selected;
-  const current = currentItem(picking.id);
+  const current = await currentItem(picking.id);
 
   return (
     <>

@@ -19,8 +19,8 @@ export default async function IncidentsPage({
   searchParams,
 }: { searchParams: Promise<{ status?: string; kind?: string; search?: string }> }) {
   const sp = await searchParams;
-  const rows = listIncidents({ status: sp.status, kind: sp.kind, search: sp.search });
-  const counts = incidentCounts();
+  const rows = await listIncidents({ status: sp.status, kind: sp.kind, search: sp.search });
+  const counts = await incidentCounts();
 
   return (
     <>
@@ -30,8 +30,8 @@ export default async function IncidentsPage({
         description="Registradas automaticamente pelas validacoes da operacao — divergencias de conferencia, picking, inventario, pesagem e expedicao."
         actions={
           <NewIncident
-            products={all<any>(`SELECT id, sku FROM products ORDER BY sku`)}
-            locations={all<any>(`SELECT id, code FROM locations WHERE kind = 'PALLET' ORDER BY code`)}
+            products={await all<any>(`SELECT id, sku FROM products ORDER BY sku`)}
+            locations={await all<any>(`SELECT id, code FROM locations WHERE kind = 'PALLET' ORDER BY code`)}
           />
         }
       />

@@ -12,7 +12,7 @@ export default async function MobileReceivingPage({
   searchParams,
 }: { searchParams: Promise<{ id?: string }> }) {
   const sp = await searchParams;
-  const open = all<any>(
+  const open = await all<any>(
     `SELECT rc.*, io.id AS inbound_id, s.name AS supplier_name,
             (SELECT COUNT(*) FROM receiving_check_items ci WHERE ci.check_id = rc.id AND ci.status = 'PENDING') AS pending
        FROM receiving_checks rc
@@ -21,7 +21,7 @@ export default async function MobileReceivingPage({
       WHERE rc.status = 'IN_PROGRESS' ORDER BY rc.started_at DESC`,
   );
   const selectedCheck = sp.id
-    ? one<any>(`SELECT * FROM receiving_checks WHERE id = ?`, sp.id)
+    ? await one<any>(`SELECT * FROM receiving_checks WHERE id = ?`, sp.id)
     : open.length === 1 ? open[0] : null;
 
   if (!selectedCheck) {
@@ -51,7 +51,7 @@ export default async function MobileReceivingPage({
     );
   }
 
-  const inbound = getInbound(selectedCheck.inbound_order_id);
+  const inbound = await getInbound(selectedCheck.inbound_order_id);
   if (!inbound) return null;
   const pending = inbound.checkItems.filter((i: any) => i.status === "PENDING");
   const current = pending[0];

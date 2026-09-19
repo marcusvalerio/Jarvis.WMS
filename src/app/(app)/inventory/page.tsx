@@ -15,7 +15,7 @@ export default async function InventoryPage({
   searchParams,
 }: { searchParams: Promise<{ search?: string; view?: string }> }) {
   const sp = await searchParams;
-  const lines = stockByProduct({ search: sp.search, onlyWithStock: sp.view === "stocked" });
+  const lines = await stockByProduct({ search: sp.search, onlyWithStock: sp.view === "stocked" });
 
   const totals = lines.reduce(
     (a, l) => ({

@@ -35,10 +35,10 @@ export interface AuditLog {
  * Registro de auditoria. Toda operacao critica passa por aqui.
  * Chamado SEMPRE dentro da mesma transacao da mudanca que descreve.
  */
-export function audit(input: AuditInput): string {
+export async function audit(input: AuditInput): Promise<string> {
   const at = input.occurredAt ?? nowIso();
   const id = `AUD-${at.replace(/[-:.TZ]/g, "")}-${String(++auditSeq).padStart(5, "0")}`;
-  insert("audit_logs", {
+  await insert("audit_logs", {
     id,
     actor: input.actor,
     actor_kind: input.actorKind ?? "OPERATOR",
@@ -54,8 +54,8 @@ export function audit(input: AuditInput): string {
   return id;
 }
 
-export function auditFor(entity: string, entityId: string): AuditLog[] {
-  return all<AuditLog>(
+export async function auditFor(entity: string, entityId: string): Promise<AuditLog[]> {
+  return await all<AuditLog>(
     `SELECT * FROM audit_logs WHERE entity = ? AND entity_id = ? ORDER BY occurred_at DESC, id DESC`,
     entity,
     entityId,
@@ -72,7 +72,7 @@ export interface AuditFilter {
   offset?: number;
 }
 
-export function listAudit(filter: AuditFilter = {}): AuditLog[] {
+export async function listAudit(filter: AuditFilter = {}): Promise<AuditLog[]> {
   const where: string[] = [];
   const params: any[] = [];
   if (filter.entity) { where.push("entity = ?"); params.push(filter.entity); }
@@ -86,10 +86,10 @@ export function listAudit(filter: AuditFilter = {}): AuditLog[] {
   }
   const sql = `SELECT * FROM audit_logs ${where.length ? "WHERE " + where.join(" AND ") : ""}
                ORDER BY occurred_at DESC, id DESC LIMIT ? OFFSET ?`;
-  return all<AuditLog>(sql, ...params, filter.limit ?? 100, filter.offset ?? 0);
+  return await all<AuditLog>(sql, ...params, filter.limit ?? 100, filter.offset ?? 0);
 }
 
-export function countAudit(filter: AuditFilter = {}): number {
+export async function countAudit(filter: AuditFilter = {}): Promise<number> {
   const where: string[] = [];
   const params: any[] = [];
   if (filter.entity) { where.push("entity = ?"); params.push(filter.entity); }
@@ -101,20 +101,20 @@ export function countAudit(filter: AuditFilter = {}): number {
     const q = `%${filter.search}%`;
     params.push(q, q, q);
   }
-  return scalar<number>(
+  return await scalar<number>(
     `SELECT COUNT(*) AS n FROM audit_logs ${where.length ? "WHERE " + where.join(" AND ") : ""}`,
     ...params,
   ) ?? 0;
 }
 
-export function auditDistinct(column: "entity" | "action" | "actor" | "origin"): string[] {
-  return all<{ v: string }>(
+export async function auditDistinct(column: "entity" | "action" | "actor" | "origin"): Promise<string[]> {
+  return (await all<{ v: string }>(
     `SELECT DISTINCT ${column} AS v FROM audit_logs ORDER BY v`,
-  ).map((r) => r.v);
+  )).map((r) => r.v);
 }
 
-export function lastAudit(entity: string, entityId: string): AuditLog | undefined {
-  return one<AuditLog>(
+export async function lastAudit(entity: string, entityId: string): Promise<AuditLog | undefined> {
+  return await one<AuditLog>(
     `SELECT * FROM audit_logs WHERE entity = ? AND entity_id = ?
      ORDER BY occurred_at DESC, id DESC LIMIT 1`,
     entity, entityId,

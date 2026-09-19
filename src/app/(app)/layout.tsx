@@ -10,17 +10,17 @@ export const dynamic = "force-dynamic";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   // Primeira renderizacao carrega o cenario, para que nenhuma tela apareca vazia.
-  ensureSeeded();
+  await ensureSeeded();
 
-  const [operator, operators] = [await currentOperator(), listOperators()];
+  const [operator, operators] = [await currentOperator(), await listOperators()];
   const theme = await currentTheme();
-  const scenario = getScenario();
+  const scenario = await getScenario();
 
   const counts: NavCounts = {
-    incidents: scalar<number>(`SELECT COUNT(*) FROM incidents WHERE status IN ('OPEN','IN_ANALYSIS')`) ?? 0,
-    picking: scalar<number>(`SELECT COUNT(*) FROM picking_orders WHERE status IN ('PENDING','IN_PROGRESS')`) ?? 0,
-    receiving: scalar<number>(`SELECT COUNT(*) FROM inbound_orders WHERE status NOT IN ('COMPLETED','CANCELLED')`) ?? 0,
-    orders: scalar<number>(`SELECT COUNT(*) FROM sales_orders WHERE status NOT IN ('SHIPPED','CANCELLED')`) ?? 0,
+    incidents: await scalar<number>(`SELECT COUNT(*) FROM incidents WHERE status IN ('OPEN','IN_ANALYSIS')`) ?? 0,
+    picking: await scalar<number>(`SELECT COUNT(*) FROM picking_orders WHERE status IN ('PENDING','IN_PROGRESS')`) ?? 0,
+    receiving: await scalar<number>(`SELECT COUNT(*) FROM inbound_orders WHERE status NOT IN ('COMPLETED','CANCELLED')`) ?? 0,
+    orders: await scalar<number>(`SELECT COUNT(*) FROM sales_orders WHERE status NOT IN ('SHIPPED','CANCELLED')`) ?? 0,
   };
 
   return (

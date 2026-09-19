@@ -52,24 +52,24 @@ function pad(n: number, width: number) {
  * Proximo identificador sequencial e deterministico para o prefixo.
  * Usa a tabela id_sequences — reiniciada junto com a simulacao.
  */
-export function nextId(prefix: string): string {
+export async function nextId(prefix: string): Promise<string> {
   const width = WIDTH[prefix] ?? 6;
-  const row = one<{ current: number }>(
+  const row = await one<{ current: number }>(
     "SELECT current FROM id_sequences WHERE prefix = ?",
     prefix,
   );
   const next = (row?.current ?? 0) + 1;
   if (row) {
-    run("UPDATE id_sequences SET current = ? WHERE prefix = ?", next, prefix);
+    await run("UPDATE id_sequences SET current = ? WHERE prefix = ?", next, prefix);
   } else {
-    run("INSERT INTO id_sequences (prefix, current) VALUES (?, ?)", prefix, next);
+    await run("INSERT INTO id_sequences (prefix, current) VALUES (?, ?)", prefix, next);
   }
   return `${prefix}-${pad(next, width)}`;
 }
 
 /** Define o contador (usado pelo seed para IDs determinísticos). */
-export function setSequence(prefix: string, value: number): void {
-  run(
+export async function setSequence(prefix: string, value: number): Promise<void> {
+  await run(
     `INSERT INTO id_sequences (prefix, current) VALUES (?, ?)
      ON CONFLICT(prefix) DO UPDATE SET current = excluded.current`,
     prefix,

@@ -29,7 +29,7 @@ function slug(value: string) {
 }
 
 async function main() {
-  ensureSeeded();
+  await ensureSeeded();
 
   // Confirma que o servidor esta no ar. A primeira compilacao do Next pode
   // demorar, entao vale insistir por alguns segundos antes de desistir.
@@ -63,10 +63,12 @@ async function main() {
     process.exit(1);
   }
 
-  const targets = DOC_TYPES
-    .filter((d) => !groupFilter || d.group === groupFilter)
-    .filter((d) => !typeFilter || d.type === typeFilter)
-    .flatMap((d) => d.list().map((item) => ({ def: d, item })));
+  const targets = (await Promise.all(
+    DOC_TYPES
+      .filter((d) => !groupFilter || d.group === groupFilter)
+      .filter((d) => !typeFilter || d.type === typeFilter)
+      .map(async (d) => (await d.list()).map((item) => ({ def: d, item }))),
+  )).flat();
 
   if (targets.length === 0) {
     console.log("Nenhum documento corresponde ao filtro informado.");

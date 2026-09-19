@@ -24,17 +24,17 @@ export default async function TracePage({
 }: { searchParams: Promise<{ q?: string }> }) {
   const sp = await searchParams;
   const query = sp.q?.trim();
-  const trace = query ? traceAny(query) : null;
+  const trace = query ? await traceAny(query) : null;
 
   const suggestions = {
-    products: all<any>(`SELECT id, sku FROM products ORDER BY sku LIMIT 8`),
-    pallets: all<any>(`SELECT id FROM pallets ORDER BY id LIMIT 6`),
-    orders: all<any>(`SELECT id FROM sales_orders ORDER BY id LIMIT 4`),
-    inbound: all<any>(`SELECT id FROM inbound_orders ORDER BY id LIMIT 4`),
+    products: await all<any>(`SELECT id, sku FROM products ORDER BY sku LIMIT 8`),
+    pallets: await all<any>(`SELECT id FROM pallets ORDER BY id LIMIT 6`),
+    orders: await all<any>(`SELECT id FROM sales_orders ORDER BY id LIMIT 4`),
+    inbound: await all<any>(`SELECT id FROM inbound_orders ORDER BY id LIMIT 4`),
   };
 
   const audit = trace && !trace.notFound
-    ? auditFor(trace.kind.toLowerCase(), trace.id).slice(0, 12)
+    ? (await auditFor(trace.kind.toLowerCase(), trace.id)).slice(0, 12)
     : [];
 
   return (
