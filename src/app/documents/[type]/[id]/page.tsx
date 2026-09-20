@@ -21,7 +21,13 @@ import {
   SalesOrderDoc, PicklistDoc, PackingListDoc, ShippingCheckDoc,
   ManifestDoc, TransportDoc, LoadingChecklistDoc, ShippingReceiptDoc, MovementDoc,
 } from "@/components/doc/outbound";
-import { PalletLabel, LocationLabel, VolumeLabel, ProductLabel } from "@/components/doc/labels";
+import { PalletLabel, LocationLabel, VolumeLabel, InboundVolumeLabel, ProductLabel } from "@/components/doc/labels";
+import {
+  LabelSheet, LABELS_PER_SHEET, VolumeCell, InboundVolumeCell, PalletCell, ProductCell,
+} from "@/components/doc/label-sheet";
+import {
+  volumeLabelSet, inboundVolumeLabelSet, palletLabelSet, productLabelSet,
+} from "@/domain/services/labels";
 
 export const dynamic = "force-dynamic";
 
@@ -49,7 +55,13 @@ export default async function DocumentPage({
     <>
       <PrintBar
         title={`${def.label} · ${id}`}
-        meta={def.format === "ETIQUETA" ? "Etiqueta 100 × 150 mm" : "Folha A4"}
+        meta={
+          def.format === "ETIQUETA"
+            ? "Etiqueta 100 × 150 mm"
+            : type.endsWith("-sheet")
+              ? `Folha A4 · ${LABELS_PER_SHEET} etiquetas por folha · imprimir em escala 100%`
+              : "Folha A4"
+        }
         backHref={backFor(type, id)}
       />
       {node}
@@ -144,9 +156,16 @@ async function render(type: string, id: string) {
       const d = await packingListData(id);
       return d ? <PackingListDoc order={d.order} volumes={d.volumes} /> : null;
     }
-    case "volume-label": {
+    // Caixa de entrada e caixa de saida sao a mesma tabela, mas nao o mesmo
+    // documento: uma aponta para o fornecedor, a outra para o cliente e a
+    // rota. O volume decide, nao a URL — pedir a etiqueta errada devolve a
+    // certa em vez de um documento com metade dos campos vazios.
+    case "volume-label": case "inbound-volume-label": {
       const d = await getVolume(id);
-      return d ? <VolumeLabel volume={d.volume} items={d.items} /> : null;
+      if (!d) return null;
+      return d.volume.inbound_order_id
+        ? <InboundVolumeLabel volume={d.volume} items={d.items} />
+        : <VolumeLabel volume={d.volume} items={d.items} />;
     }
     case "shipping-check": {
       const d = await getShippingCheck(id);
@@ -174,6 +193,59 @@ async function render(type: string, id: string) {
         />
       );
     }
+    // ------------------------------------------- folhas A4 de etiquetas
+    // O conjunto inteiro e UM documento: a folha distribui as etiquetas em
+    // 2 x 3 e quebra a pagina a cada seis. Cada etiqueta continua sendo a
+    // visao de uma entidade real, com o Code 128 do proprio identificador.
+    case "volume-label-sheet": {
+      const set = await volumeLabelSet();
+      if (set.length === 0) return null;
+      return (
+        <LabelSheet
+          items={set}
+          title="Etiquetas de volume (expedicao)"
+          keyOf={(v) => v.volume.id}
+          render={(v) => <VolumeCell volume={v.volume} items={v.items} />}
+        />
+      );
+    }
+    case "inbound-volume-label-sheet": {
+      const set = await inboundVolumeLabelSet();
+      if (set.length === 0) return null;
+      return (
+        <LabelSheet
+          items={set}
+          title="Etiquetas de caixa recebida"
+          keyOf={(v) => v.volume.id}
+          render={(v) => <InboundVolumeCell volume={v.volume} items={v.items} />}
+        />
+      );
+    }
+    case "pallet-label-sheet": {
+      const set = await palletLabelSet();
+      if (set.length === 0) return null;
+      return (
+        <LabelSheet
+          items={set}
+          title="Etiquetas de palete"
+          keyOf={(p) => p.pallet.id}
+          render={(p) => <PalletCell pallet={p.pallet} items={p.items} />}
+        />
+      );
+    }
+    case "product-label-sheet": {
+      const set = await productLabelSet();
+      if (set.length === 0) return null;
+      return (
+        <LabelSheet
+          items={set}
+          title="Etiquetas de produto"
+          keyOf={(p) => p.product.id}
+          render={(p) => <ProductCell product={p.product} barcodes={p.barcodes} />}
+        />
+      );
+    }
+
     default:
       return null;
   }

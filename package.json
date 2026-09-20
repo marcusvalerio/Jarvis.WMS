@@ -10,11 +10,13 @@
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "db:reset": "node --import ./scripts/register.mjs --experimental-strip-types --no-warnings scripts/reset.ts",
+    "docs:prepare": "node --import ./scripts/register.mjs --experimental-strip-types --no-warnings scripts/prepare-demo.ts",
     "docs:pdf": "node --import ./scripts/register.mjs --experimental-strip-types --no-warnings scripts/generate-pdfs.ts",
     "test": "WMS_TEST_DATABASE=1 DATABASE_URL=${WMS_TEST_DATABASE_URL:-postgresql://wms@127.0.0.1:5433/wms_test} node --import ./scripts/register.mjs --experimental-strip-types --no-warnings --test --test-concurrency=1 tests/*.test.ts",
     "test:e2e": "node tests/e2e.mjs",
     "test:smoke": "node tests/smoke.mjs",
     "test:a11y": "node tests/a11y.mjs",
+    "test:labels": "node tests/label-sheets.mjs",
     "db:migrate": "node --import ./scripts/register.mjs --experimental-strip-types --no-warnings scripts/migrate.ts",
     "db:schema": "node --import ./scripts/register.mjs --experimental-strip-types --no-warnings scripts/gen-schema.ts",
     "sim:run": "node --import ./scripts/register.mjs --experimental-strip-types --no-warnings scripts/run-operation.ts"

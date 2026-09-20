@@ -70,7 +70,14 @@ passo(`Estoque: ${(await stockOf("SKU-001")).onHand} shampoos · ${(await stockO
 // ------------------------------------------------------------- expedicao
 for (const rota of ROUTES) {
   console.log(`\n${rota.code} — ${rota.name}`);
-  const manifestId = await shipping.createManifest({
+  // O romaneio pode ja existir: o pacote de documentos da demonstracao o
+  // monta antes, para que a folha seja impressa com as paradas certas.
+  // Reaproveita em vez de cunhar outro — o numero em maos e este.
+  const jaMontado = await all<any>(
+    `SELECT id FROM shipping_manifests WHERE id = ?`, rota.id,
+  );
+  const manifestId = jaMontado.length > 0 ? rota.id : await shipping.createManifest({
+    id: rota.id,
     warehouseId: "CD-01", route: rota.route, carrier: rota.carrier,
     vehiclePlate: rota.vehiclePlate, vehicleKind: rota.vehicleKind,
     driverName: rota.driverName, driverDoc: rota.driverDoc,
@@ -79,7 +86,13 @@ for (const rota of ROUTES) {
 
   const caixas: string[] = [];
   for (const pedido of rota.stops) {
-    await orders.releaseOrder(pedido, SUP);
+    // A preparacao da demonstracao ja reserva o que o estoque inicial cobre.
+    // Aqui a reserva completa o que faltava (o recebimento acabou de entrar)
+    // e, quando nao ha nada a reservar, simplesmente nao faz nada.
+    const res = await all<any>(
+      `SELECT reserved FROM sales_orders WHERE id = ?`, pedido,
+    );
+    if (!res[0]?.reserved) await orders.releaseOrder(pedido, SUP);
 
     const pick = await picking.generatePicklist(pedido, SUP);
     await picking.startPicking(pick, OP, "EQP-0001");
@@ -111,6 +124,7 @@ for (const rota of ROUTES) {
     await shipping.finishShippingCheck(conf, OP);
 
     await shipping.addOrderToManifest({ manifestId, orderId: pedido, actor: SUP });
+
     caixas.push(...doPedido);
     passo(`${pedido}: ${doPedido.length} caixas (${doPedido.join(", ")})`);
   }

@@ -28,11 +28,34 @@ export class ShippingError extends Error {
 export async function startShippingCheck(orderId: string, operatorId: string): Promise<string> {
   return await tx(async () => {
     const at = nowIso();
+    // A folha pode ter sido impressa antes (pacote da demonstracao). Nesse
+    // caso o retrato de coletado/embalado foi tirado quando nada disso tinha
+    // acontecido ainda: reivindica a conferencia e atualiza os numeros.
     const existing = await one<any>(
       `SELECT * FROM shipping_checks WHERE sales_order_id = ? AND status = 'IN_PROGRESS'`,
       orderId,
     );
-    if (existing) return existing.id;
+    if (existing) {
+      const bipado = await scalar<number>(
+        `SELECT COUNT(*) FROM shipping_check_items WHERE check_id = ? AND checked_qty > 0`,
+        existing.id,
+      ) ?? 0;
+      if (bipado === 0) {
+        await run(
+          `UPDATE shipping_check_items ci
+              SET picked_qty = si.picked_qty, packed_qty = si.packed_qty
+             FROM sales_order_items si
+            WHERE ci.check_id = ? AND si.sales_order_id = ?
+              AND si.product_id = ci.product_id`,
+          existing.id, orderId,
+        );
+        await run(
+          `UPDATE shipping_checks SET operator_id = ?, started_at = ?, notes = NULL WHERE id = ?`,
+          operatorId, at, existing.id,
+        );
+      }
+      return existing.id;
+    }
 
     const items = await all<any>(
       `SELECT si.*, p.sku FROM sales_order_items si JOIN products p ON p.id = si.product_id
@@ -79,8 +102,12 @@ export async function getShippingCheck(id: string) {
        JOIN products p ON p.id = ci.product_id WHERE ci.check_id = ?`,
     id,
   );
+  // Inclui volumes PLANNED de proposito: a folha de conferencia impressa
+  // antes da demonstracao precisa listar as caixas que serao bipadas. Quem
+  // impede de conferir uma caixa nao embalada e o `checkVolume`, nao a lista.
   const volumes = await all<any>(
-    `SELECT * FROM volumes WHERE sales_order_id = ? AND status <> 'CANCELLED' ORDER BY sequence`,
+    `SELECT * FROM volumes WHERE sales_order_id = ? AND status <> 'CANCELLED'
+      ORDER BY sequence`,
     check.sales_order_id,
   );
   return { check, items, volumes };
@@ -99,6 +126,17 @@ export async function checkVolume(params: {
     const vol = await one<any>(`SELECT * FROM volumes WHERE id = ?`, code);
     if (!vol) {
       return { ok: false, code: "UNKNOWN_VOLUME", message: `Volume "${code}" nao existe.` };
+    }
+    if (vol.status === "PLANNED") {
+      await audit({
+        actor: params.operatorId, action: "SCAN", entity: "shipping_check", entityId: params.checkId,
+        after: { volume: code, result: "REJECTED" }, origin: "RF",
+        detail: `VOLUME AINDA NAO EMBALADO: ${code}`,
+      });
+      return {
+        ok: false, code: "NOT_PACKED",
+        message: `VOLUME AINDA NAO EMBALADO. A etiqueta ${code} existe, mas a caixa nao passou pela embalagem.`,
+      };
     }
     if (vol.sales_order_id !== check.sales_order_id) {
       await audit({
@@ -237,6 +275,16 @@ export async function createManifest(params: {
 
 export async function addOrderToManifest(params: {
   manifestId: string; orderId: string; actor: string;
+  /**
+   * Monta a parada como ROTEIRIZACAO, nao como carga pronta.
+   *
+   * O romaneio impresso antes da demonstracao precisa listar as paradas e
+   * as caixas de cada uma — e nesse momento nenhum pedido passou pela
+   * conferencia ainda. A dispensa e so do PORTAO de status: o romaneio
+   * continua em DRAFT, nada e liberado, nada e carregado e a expedicao
+   * segue exigindo conferencia concluida.
+   */
+  planned?: boolean;
 }) {
   return await tx(async () => {
     const manifest = await one<any>(`SELECT * FROM shipping_manifests WHERE id = ?`, params.manifestId);
@@ -246,17 +294,24 @@ export async function addOrderToManifest(params: {
     }
     const order = await one<any>(`SELECT * FROM sales_orders WHERE id = ?`, params.orderId);
     if (!order) throw new ShippingError("Pedido inexistente", "NO_ORDER");
-    if (order.status !== "READY_TO_LOAD") {
+    // Pedido ja roteirizado neste romaneio e no-op — inclusive quando a
+    // parada foi montada na preparacao e o pedido so agora ficou pronto.
+    const dup = await one<any>(
+      `SELECT id FROM manifest_orders WHERE manifest_id = ? AND sales_order_id = ?`,
+      params.manifestId, params.orderId,
+    );
+    if (dup) {
+      // A contagem de caixas foi gravada com os volumes planejados; agora
+      // que a embalagem aconteceu, atualiza para o que existe de fato.
+      await atualizarParada(params.manifestId, params.orderId);
+      return;
+    }
+    if (!params.planned && order.status !== "READY_TO_LOAD") {
       throw new ShippingError(
         `Pedido ${params.orderId} nao esta pronto para carregar (status ${order.status}). Conclua a conferencia de expedicao.`,
         "ORDER_NOT_READY",
       );
     }
-    const dup = await one<any>(
-      `SELECT id FROM manifest_orders WHERE manifest_id = ? AND sales_order_id = ?`,
-      params.manifestId, params.orderId,
-    );
-    if (dup) return;
     const elsewhere = await one<any>(
       `SELECT manifest_id FROM manifest_orders WHERE sales_order_id = ?`, params.orderId,
     );
@@ -302,6 +357,21 @@ export async function removeOrderFromManifest(manifestId: string, orderId: strin
       after: { removed: orderId }, detail: `Pedido ${orderId} removido do romaneio`,
     });
   });
+}
+
+/** Reconta caixas e peso de uma parada a partir dos volumes reais. */
+async function atualizarParada(manifestId: string, orderId: string) {
+  const stats = await one<any>(
+    `SELECT COUNT(*) AS n, COALESCE(SUM(gross_weight_kg),0) AS w
+       FROM volumes WHERE sales_order_id = ? AND status <> 'CANCELLED'`,
+    orderId,
+  );
+  await run(
+    `UPDATE manifest_orders SET volumes = ?, weight_kg = ?
+      WHERE manifest_id = ? AND sales_order_id = ?`,
+    stats.n, round3(stats.w), manifestId, orderId,
+  );
+  await recalcManifest(manifestId);
 }
 
 async function recalcManifest(manifestId: string) {
@@ -414,7 +484,8 @@ export async function getManifest(id: string) {
 export async function eligibleOrdersForManifest() {
   return await all<any>(
     `SELECT so.*, c.name AS customer_name, c.city, c.state,
-            (SELECT COUNT(*) FROM volumes v WHERE v.sales_order_id = so.id AND v.status <> 'CANCELLED') AS volume_count
+            (SELECT COUNT(*) FROM volumes v WHERE v.sales_order_id = so.id
+               AND v.status NOT IN ('CANCELLED','PLANNED')) AS volume_count
        FROM sales_orders so JOIN customers c ON c.id = so.customer_id
       WHERE so.status = 'READY_TO_LOAD'
         AND NOT EXISTS (SELECT 1 FROM manifest_orders mo WHERE mo.sales_order_id = so.id)
@@ -436,23 +507,35 @@ export async function startLoading(params: {
       );
     }
     const existing = await one<any>(
-      `SELECT * FROM loading_operations WHERE manifest_id = ? AND status = 'IN_PROGRESS'`,
+      `SELECT * FROM loading_operations WHERE manifest_id = ? AND status IN ('PENDING','IN_PROGRESS')`,
       params.manifestId,
     );
-    if (existing) return existing.id;
+    if (existing?.status === "IN_PROGRESS") return existing.id;
 
     const expected = await scalar<number>(
       `SELECT COUNT(*) FROM volumes v JOIN manifest_orders mo ON mo.sales_order_id = v.sales_order_id
-        WHERE mo.manifest_id = ? AND v.status <> 'CANCELLED'`,
+        WHERE mo.manifest_id = ? AND v.status NOT IN ('CANCELLED','PLANNED')`,
       params.manifestId,
     ) ?? 0;
 
-    const id = await nextId(PREFIX.LOADING);
-    await insert("loading_operations", {
-      id, manifest_id: params.manifestId, dock_id: params.dockId ?? manifest.dock_id,
-      status: "IN_PROGRESS", operator_id: params.operatorId, equipment_id: params.equipmentId ?? null,
-      expected_volumes: expected, loaded_volumes: 0, started_at: at, created_at: at,
-    });
+    // O checklist pode ter sido impresso antes (pacote da demonstracao):
+    // reivindica a operacao PENDING em vez de abrir outra, para que o
+    // numero CAR-xxxxxx da folha em maos continue sendo o desta carga.
+    const id = existing?.id ?? await nextId(PREFIX.LOADING);
+    if (existing) {
+      await run(
+        `UPDATE loading_operations SET status = 'IN_PROGRESS', operator_id = ?, equipment_id = ?,
+                dock_id = ?, expected_volumes = ?, started_at = ?, notes = NULL WHERE id = ?`,
+        params.operatorId, params.equipmentId ?? null,
+        params.dockId ?? manifest.dock_id, expected, at, id,
+      );
+    } else {
+      await insert("loading_operations", {
+        id, manifest_id: params.manifestId, dock_id: params.dockId ?? manifest.dock_id,
+        status: "IN_PROGRESS", operator_id: params.operatorId, equipment_id: params.equipmentId ?? null,
+        expected_volumes: expected, loaded_volumes: 0, started_at: at, created_at: at,
+      });
+    }
     await setManifestStatus(params.manifestId, "LOADING", params.operatorId, {
       dock_id: params.dockId ?? manifest.dock_id,
     });
@@ -495,6 +578,17 @@ export async function scanVolumeForLoading(params: {
         detail: `VOLUME INEXISTENTE: ${code}`,
       });
       return { ok: false, code: "UNKNOWN_VOLUME", message: `VOLUME INEXISTENTE: ${code}.` };
+    }
+    if (vol.status === "PLANNED") {
+      await audit({
+        actor: params.operatorId, action: "SCAN", entity: "loading_operation", entityId: params.loadingId,
+        after: { volume: code, result: "REJECTED" }, origin: "RF",
+        detail: `VOLUME AINDA NAO EMBALADO: ${code}`,
+      });
+      return {
+        ok: false, code: "NOT_PACKED",
+        message: `VOLUME AINDA NAO EMBALADO. A etiqueta ${code} existe, mas a caixa nao passou pela embalagem.`,
+      };
     }
     const belongs = await one<any>(
       `SELECT 1 AS ok FROM manifest_orders WHERE manifest_id = ? AND sales_order_id = ?`,
@@ -655,7 +749,8 @@ export async function shipManifest(manifestId: string, actor: string) {
     const staging = shippingLocation();
     for (const o of orders) {
       const volumes = await all<any>(
-        `SELECT * FROM volumes WHERE sales_order_id = ? AND status <> 'CANCELLED'`, o.sales_order_id,
+        `SELECT * FROM volumes WHERE sales_order_id = ?
+            AND status NOT IN ('CANCELLED','PLANNED')`, o.sales_order_id,
       );
       for (const v of volumes) {
         for (const it of await all<any>(`SELECT * FROM volume_items WHERE volume_id = ?`, v.id)) {
@@ -683,7 +778,8 @@ export async function shipManifest(manifestId: string, actor: string) {
 
       const stats = await one<any>(
         `SELECT COUNT(*) AS n, COALESCE(SUM(gross_weight_kg),0) AS w
-           FROM volumes WHERE sales_order_id = ? AND status <> 'CANCELLED'`,
+           FROM volumes WHERE sales_order_id = ?
+              AND status NOT IN ('CANCELLED','PLANNED')`,
         o.sales_order_id,
       );
       const shipId = await nextId(PREFIX.SHIPMENT);
@@ -692,7 +788,10 @@ export async function shipManifest(manifestId: string, actor: string) {
         status: "SHIPPED", volumes: stats.n, weight_kg: round3(stats.w),
         shipped_at: at, created_at: at,
       });
-      await run(`UPDATE volumes SET shipment_id = ? WHERE sales_order_id = ?`, shipId, o.sales_order_id);
+      await run(
+        `UPDATE volumes SET shipment_id = ? WHERE sales_order_id = ? AND status = 'SHIPPED'`,
+        shipId, o.sales_order_id,
+      );
       await setOrderStatus(o.sales_order_id, "SHIPPED", actor, { shipped_at: at });
     }
 

@@ -5,6 +5,7 @@ import * as counting from "@/domain/services/counting";
 import { resolveIncident, setIncidentStatus, openIncident } from "@/domain/services/incidents";
 import { setEquipmentStatus } from "@/domain/services/equipment";
 import { resetSimulation, seed, logEvent } from "@/domain/services/simulation";
+import { prepareDemoDocuments } from "@/domain/services/demo";
 import { currentOperatorId } from "@/domain/context";
 import { type ActionState, ok, fail, toError, str, num, optStr } from "./result";
 import type { EquipmentStatus, IncidentKind, Severity } from "@/domain/states";
@@ -125,12 +126,37 @@ export async function resetSimulationAction(_: ActionState, form: FormData): Pro
   if (str(form, "confirm") !== "REINICIAR") {
     return fail('Digite REINICIAR para confirmar. A operacao apaga todo o progresso do cenario.');
   }
+  // Sem o campo, o reset preserva o que havia: quem preparou o pacote de
+  // documentos o recebe de volta, quem nao preparou continua com o cenario
+  // cru. Marcado ou desmarcado, a escolha do formulario vence.
+  const escolha = str(form, "demoPack");
+  const demoPack = escolha === "" ? undefined : escolha === "1";
   try {
-    const r = await resetSimulation(await currentOperatorId());
+    const r = await resetSimulation(await currentOperatorId(), { demoPack });
     revalidatePath("/", "layout");
     return ok(
-      `Simulacao reiniciada (reset #${r.resetCount}). Estoque inicial de ${r.initialUnits} unidades restaurado em ${r.pallets} paletes.`,
+      `Simulacao reiniciada (reset #${r.resetCount}). Estoque inicial de ${r.initialUnits} unidades `
+      + `restaurado em ${r.pallets} paletes.`
+      + (r.demoPack ? " Pacote de documentos da demonstracao restaurado." : ""),
     );
+  } catch (e) { return toError(e); }
+}
+
+/** Prepara o pacote de documentos da demonstracao sem reiniciar o cenario. */
+export async function prepareDemoDocumentsAction(_: ActionState, form: FormData): Promise<ActionState> {
+  try {
+    const r = await prepareDemoDocuments();
+    revalidatePath("/", "layout");
+    const falhas = r.checks.filter((c) => !c.ok);
+    return falhas.length === 0
+      ? ok(
+          `Pacote preparado: ${r.documents} documento(s) vinculados a entidades reais. `
+          + "Nenhuma operacao foi executada.",
+        )
+      : fail(
+          `Pacote preparado com ${falhas.length} inconsistencia(s): `
+          + falhas.map((f) => `${f.label} (${f.detail})`).join("; "),
+        );
   } catch (e) { return toError(e); }
 }
 

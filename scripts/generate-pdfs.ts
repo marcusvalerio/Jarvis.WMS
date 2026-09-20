@@ -14,6 +14,8 @@ import fs from "node:fs";
 import path from "node:path";
 import { DOC_TYPES, GROUP_LABEL } from "../src/domain/documents.ts";
 import { ensureSeeded } from "../src/domain/services/simulation.ts";
+import { ensureDemoDocuments, demoPackReport } from "../src/domain/services/demo.ts";
+import { printDemoPackReport } from "./demo-report.ts";
 
 const BASE = process.env.WMS_URL ?? "http://localhost:3000";
 const OUT = process.env.WMS_DOCS_DIR ?? path.join(process.cwd(), "generated-docs");
@@ -30,6 +32,13 @@ function slug(value: string) {
 
 async function main() {
   await ensureSeeded();
+
+  // Prepara o pacote da demonstracao ANTES de sair listando documentos.
+  // Sem isso a maior parte do cenario ainda nao tem entidade: etiquetas de
+  // caixa, picklists, romaneios e checklists so nasceriam durante a
+  // operacao — quando ja e tarde para imprimir. Nada disso executa a
+  // operacao; apenas cria as entidades que os documentos exibem.
+  if (!args.includes("--sem-preparo")) await ensureDemoDocuments();
 
   // Confirma que o servidor esta no ar. A primeira compilacao do Next pode
   // demorar, entao vale insistir por alguns segundos antes de desistir.
@@ -83,8 +92,26 @@ async function main() {
   });
   const page = await browser.newPage();
 
+  // Desde que o sistema passou a exigir sessao, abrir um documento sem
+  // estar autenticado devolve 200 e SO DEPOIS redireciona para /login pelo
+  // roteador. O gerador precisa entrar antes — e conferir folha a folha
+  // que o que saiu e o documento, nao a tela de login (ver abaixo).
+  const { entrar } = await import("../tests/login.mjs");
+  try {
+    await entrar(page, BASE);
+  } catch (err) {
+    console.error(
+      `\nNao foi possivel autenticar em ${BASE}.\n` +
+      `Defina WMS_TEST_EMAIL e WMS_TEST_PASSWORD se as credenciais nao forem as padrao.\n` +
+      `${err instanceof Error ? err.message : String(err)}\n`,
+    );
+    await browser.close();
+    process.exit(1);
+  }
+
   let done = 0;
   const failures: string[] = [];
+  const gerados: string[] = [];
 
   for (const { def, item } of targets) {
     const dir = path.join(OUT, slug(GROUP_LABEL[def.group]), slug(def.label));
@@ -95,6 +122,17 @@ async function main() {
     try {
       const response = await page.goto(url, { waitUntil: "networkidle", timeout: 40000 });
       if (!response || response.status() >= 400) throw new Error(`HTTP ${response?.status()}`);
+
+      // O status 200 nao prova que o documento renderizou: uma sessao
+      // perdida redireciona para /login DEPOIS da resposta, e o PDF sairia
+      // com a tela de login em vez da folha. Confere a URL final e a
+      // presenca da folha antes de imprimir.
+      if (new URL(page.url()).pathname !== new URL(url).pathname) {
+        throw new Error(`redirecionado para ${new URL(page.url()).pathname}`);
+      }
+      const folhas = await page.locator(".doc-sheet").count();
+      if (folhas === 0) throw new Error("nenhuma folha renderizada na pagina");
+
       await page.emulateMedia({ media: "print" });
       await page.pdf({
         path: file,
@@ -106,6 +144,7 @@ async function main() {
         margin: { top: "0", right: "0", bottom: "0", left: "0" },
       });
       done++;
+      gerados.push(file);
       process.stdout.write(`  ${String(done).padStart(3)}/${targets.length}  ${def.label} · ${item.id}\n`);
     } catch (err) {
       failures.push(`${def.label} ${item.id}: ${err instanceof Error ? err.message : String(err)}`);
@@ -113,6 +152,32 @@ async function main() {
   }
 
   await browser.close();
+
+  // Limpa PDFs de execucoes antigas. Um cenario que mudou (SKU removido,
+  // romaneio renumerado) deixaria folhas obsoletas na pasta, e quem for
+  // imprimir nao tem como saber quais. So roda quando nao ha filtro: com
+  // `--group` ou `--type` a pasta contem, de proposito, documentos que esta
+  // execucao nao gerou.
+  if (!groupFilter && !typeFilter) {
+    const mantidos = new Set(gerados);
+    let removidos = 0;
+    for (const grupo of fs.readdirSync(OUT, { withFileTypes: true })) {
+      if (!grupo.isDirectory()) continue;
+      const gDir = path.join(OUT, grupo.name);
+      for (const tipo of fs.readdirSync(gDir, { withFileTypes: true })) {
+        if (!tipo.isDirectory()) continue;
+        const tDir = path.join(gDir, tipo.name);
+        for (const arquivo of fs.readdirSync(tDir)) {
+          const alvo = path.join(tDir, arquivo);
+          if (arquivo.endsWith(".pdf") && !mantidos.has(alvo)) {
+            fs.unlinkSync(alvo);
+            removidos++;
+          }
+        }
+      }
+    }
+    if (removidos > 0) console.log(`\n${removidos} PDF(s) de execucoes anteriores removido(s).`);
+  }
 
   console.log(`\n${done} documento(s) gerado(s) em ${OUT}`);
   if (failures.length) {
@@ -122,6 +187,12 @@ async function main() {
   } else {
     console.log("\nTodos os documentos do cenario estao prontos para impressao.");
   }
+
+  // Relatorio de validacao: confere os numeros do cenario LOG122 e,
+  // sobretudo, se algum documento do pacote ficou sem entidade no banco.
+  const relatorio = await demoPackReport();
+  printDemoPackReport(relatorio);
+  if (relatorio.checks.some((c) => !c.ok)) process.exitCode = 1;
 }
 
 await main();

@@ -31,11 +31,22 @@ export async function generatePicklist(orderId: string, actor: string): Promise<
     const order = await one<any>(`SELECT * FROM sales_orders WHERE id = ?`, orderId);
     if (!order) throw new PickingError("Pedido inexistente", "NOT_FOUND");
 
+    // Uma picklist PENDING em que nada foi coletado pode ter vindo da
+    // preparacao da demonstracao: as linhas sairam de uma PROJECAO (reservas
+    // atuais + o que a ordem de recebimento vai trazer), nao das reservas
+    // definitivas. Reivindica a ordem — o PCK-xxxxxx impresso continua
+    // valendo — e refaz as linhas a partir das reservas reais de agora.
     const existing = await one<any>(
       `SELECT * FROM picking_orders WHERE sales_order_id = ? AND status IN ('PENDING','IN_PROGRESS')`,
       orderId,
     );
-    if (existing) return existing.id;
+    const intocada = existing
+      ? ((await scalar<number>(
+          `SELECT COUNT(*) FROM picking_items WHERE picking_order_id = ? AND picked_qty > 0`,
+          existing.id,
+        )) ?? 0) === 0
+      : false;
+    if (existing && !intocada) return existing.id;
 
     const reservations = await all<any>(
       `SELECT r.*, l.pick_sequence, l.code AS location_code
@@ -46,19 +57,32 @@ export async function generatePicklist(orderId: string, actor: string): Promise<
       orderId,
     );
     if (reservations.length === 0) {
+      // Com a picklist ja emitida (documento pre-impresso), a ausencia de
+      // reserva nao e erro: a folha continua de pe ate que o pedido seja
+      // reservado e a coleta comece.
+      if (existing) return existing.id;
       throw new PickingError(
         "Pedido sem reservas ativas. Libere o pedido (reserva) antes de gerar a picklist.",
         "NO_RESERVATIONS",
       );
     }
 
-    const pickId = await nextId(PREFIX.PICKING_ORDER);
+    const pickId = existing?.id ?? await nextId(PREFIX.PICKING_ORDER);
     const totalUnits = round3(reservations.reduce((s, r) => s + (r.quantity - r.picked_qty), 0));
-    await insert("picking_orders", {
-      id: pickId, sales_order_id: orderId, status: "PENDING", strategy: "FEFO",
-      priority: order.priority, total_lines: reservations.length, done_lines: 0,
-      total_units: totalUnits, picked_units: 0, created_at: at,
-    });
+    if (existing) {
+      await run(`DELETE FROM picking_items WHERE picking_order_id = ?`, pickId);
+      await run(
+        `UPDATE picking_orders SET total_lines = ?, done_lines = 0,
+                total_units = ?, picked_units = 0 WHERE id = ?`,
+        reservations.length, totalUnits, pickId,
+      );
+    } else {
+      await insert("picking_orders", {
+        id: pickId, sales_order_id: orderId, status: "PENDING", strategy: "FEFO",
+        priority: order.priority, total_lines: reservations.length, done_lines: 0,
+        total_units: totalUnits, picked_units: 0, created_at: at,
+      });
+    }
 
     for (const [idx, r] of reservations.entries()) {
       await insert("picking_items", {

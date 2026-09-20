@@ -211,6 +211,11 @@ export const PALLET_STATUS_META: Record<PalletStatus, StateMeta> = {
 
 // ---------------------------------------------------------------- VOLUME
 export const VOLUME_STATUS = {
+  // PLANNED e o volume que existe como linha do banco e como etiqueta
+  // impressa, mas que ainda nao foi embalado. Nenhuma operacao (conferencia,
+  // carregamento, expedicao) enxerga um volume nesse estado: ele so entra no
+  // fluxo quando a embalagem o reivindica e o move para OPEN.
+  PLANNED: "PLANNED",
   OPEN: "OPEN",
   CLOSED: "CLOSED",
   CHECKED: "CHECKED",
@@ -221,6 +226,7 @@ export const VOLUME_STATUS = {
 export type VolumeStatus = keyof typeof VOLUME_STATUS;
 
 export const VOLUME_STATUS_META: Record<VolumeStatus, StateMeta> = {
+  PLANNED: { label: "Planejado", tone: "warning" },
   OPEN: { label: "Aberto", tone: "neutral" },
   CLOSED: { label: "Fechado", tone: "info" },
   CHECKED: { label: "Conferido", tone: "success" },

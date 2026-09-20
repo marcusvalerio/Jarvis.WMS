@@ -1117,3 +1117,41 @@ CREATE TABLE IF NOT EXISTS user_sessions (
 );
 CREATE INDEX IF NOT EXISTS idx_session_user ON user_sessions(user_id);
 CREATE INDEX IF NOT EXISTS idx_session_exp  ON user_sessions(expires_at);
+
+-- ---------------------------------------------------------------------
+-- PACOTE DE DOCUMENTOS DA DEMONSTRACAO
+-- Os volumes passam a poder nascer ANTES da operacao, em estado PLANNED,
+-- para que as etiquetas sejam impressas com antecedencia. O packing
+-- reivindica o volume planejado em vez de cunhar um novo, de modo que a
+-- caixa fisica e a linha do banco sejam a mesma coisa.
+--   status: PLANNED|OPEN|CLOSED|CHECKED|LOADED|SHIPPED|CANCELLED
+--
+-- Volumes de ENTRADA (as 10 caixas recebidas) nao tinham onde se ancorar:
+-- `volumes` so apontava para pedido de venda e ordem de embalagem.
+-- ---------------------------------------------------------------------
+ALTER TABLE volumes ADD COLUMN IF NOT EXISTS inbound_order_id text;
+ALTER TABLE volumes ADD COLUMN IF NOT EXISTS planned          integer NOT NULL DEFAULT 0;
+CREATE INDEX IF NOT EXISTS idx_volume_inbound ON volumes(inbound_order_id);
+CREATE INDEX IF NOT EXISTS idx_volume_planned ON volumes(sales_order_id, status);
+
+-- O palete de recebimento tambem nasce antes: a ordem de armazenagem e a
+-- etiqueta de palete precisam existir para serem impressas. Enquanto
+-- `planned = 1` o palete nao lancou nenhum movimento de estoque; o
+-- recebimento real o reivindica e so entao lanca a entrada.
+ALTER TABLE pallets ADD COLUMN IF NOT EXISTS planned integer NOT NULL DEFAULT 0;
+CREATE INDEX IF NOT EXISTS idx_pallet_planned ON pallets(origin_ref, status);
+
+-- Registro do que o pacote pre-gerou. Nao guarda conteudo de documento
+-- nenhum: guarda o PONTEIRO para a entidade real que o documento exibe.
+-- E o que permite a rotina ser idempotente e o relatorio de validacao
+-- apontar orfaos.
+CREATE TABLE IF NOT EXISTS demo_document_pack (
+  id            text PRIMARY KEY,          -- <doc_type>:<entity_id>
+  scenario_id   text NOT NULL,
+  doc_type      text NOT NULL,             -- volume-label | picklist | manifest ...
+  entity        text NOT NULL,             -- tabela de origem
+  entity_id     text NOT NULL,
+  stage         text NOT NULL,             -- entrada | armazenagem | saida
+  created_at    text NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_demo_pack_type ON demo_document_pack(doc_type);

@@ -111,8 +111,12 @@ try {
   await go("/simulation");
   await page.getByRole("button", { name: /Reiniciar simulacao/i }).click();
   await page.locator('input[name="confirm"]').fill("REINICIAR");
+  // Este percurso e o da operacao CRUA: cada documento nasce no momento em
+  // que a etapa acontece. O pacote pre-gerado da demonstracao e verificado
+  // em tests/demo.test.ts, que executa a mesma operacao por cima dele.
+  await page.locator('input[name="demoPack"]').uncheck().catch(() => {});
   await act('button:has-text("Confirmar reinicio")', { expect: "Simulacao reiniciada" });
-  log(true, "Cenario reiniciado pela interface");
+  log(true, "Cenario reiniciado pela interface (sem o pacote de documentos)");
 
   // ------------------------------------------------------ 1. recebimento
   for (const [orderId, lines] of [["OR-000001", 2], ["OR-000002", 2]]) {
@@ -324,9 +328,9 @@ try {
   await go("/shipping/manifests");
   await act('button:has-text("Novo romaneio")', { ui: true });
   await act('button:has-text("Criar romaneio")', { expect: "ROM-" });
-  log(true, "Romaneio ROM-000018 criado");
+  log(true, "Romaneio ROM-000001 criado");
 
-  await go("/shipping/manifests/ROM-000018");
+  await go("/shipping/manifests/ROM-000001");
   await page.locator(String.raw`select[name="orderId"]`).selectOption({ index: 1 });
   await act('button:has-text("Incluir no romaneio")', { expect: "incluido no romaneio" });
   await act('button:has-text("Liberar romaneio")', { expect: "documento de transporte" });
@@ -354,7 +358,7 @@ try {
   log(true, "Carregamento encerrado com lacre LCR-88421");
 
   // ------------------------------------------------------ 9. expedicao
-  await go("/shipping/manifests/ROM-000018");
+  await go("/shipping/manifests/ROM-000001");
   await act('button:has-text("Expedir carga")', { ui: true });
   await act('button:has-text("Confirmar expedicao")', { expect: "Expedicao concluida" });
   log(true, "Carga expedida e estoque baixado");

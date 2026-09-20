@@ -394,6 +394,14 @@ export async function finishCheck(checkId: string, operatorId: string) {
     const status = divs > 0 ? "DIVERGENCE" : "OK";
     await run(`UPDATE receiving_checks SET status = ?, finished_at = ? WHERE id = ?`, status, at, checkId);
 
+    // As caixas de entrada etiquetadas antes da chegada deixam de ser uma
+    // previsao: a conferencia acabou de passar por elas.
+    await run(
+      `UPDATE volumes SET status = 'CHECKED', checked_at = ?
+        WHERE inbound_order_id = ? AND status = 'PLANNED'`,
+      at, check.inbound_order_id,
+    );
+
     const cur = await one<{ status: InboundStatus }>(
       `SELECT status FROM inbound_orders WHERE id = ?`, check.inbound_order_id,
     );
@@ -445,23 +453,46 @@ export async function createPallet(params: {
   skipReceipt?: boolean;
 }): Promise<string> {
   const at = params.occurredAt ?? nowIso();
-  const palletId = await nextId(PREFIX.PALLET);
   const location = params.locationId ?? receivingLocation();
   if (params.lines.length === 0) throw new ReceivingError("Palete sem itens", "EMPTY");
 
-  await insert("pallets", {
-    id: palletId,
-    kind: "PBR",
-    status: params.originKind === "INITIAL_STOCK" ? "STORED" : "AWAITING_PUTAWAY",
-    location_id: location,
-    origin_kind: params.originKind,
-    origin_ref: params.originRef ?? null,
-    tare_kg: params.tareKg ?? 25,
-    gross_weight_kg: 0,
-    net_weight_kg: 0,
-    created_at: at,
-    created_by: params.operatorId,
-  });
+  // Se a preparacao da demonstracao ja planejou o palete desta carga,
+  // REIVINDICA em vez de cunhar outro: a etiqueta de palete e a ordem de
+  // armazenagem impressas antes apontam para este mesmo PLT. O palete
+  // planejado nao lancou movimento nenhum — a entrada de estoque acontece
+  // agora, no caminho normal abaixo.
+  const planejado = !params.skipReceipt && params.originRef
+    ? await one<any>(
+        `SELECT id FROM pallets WHERE origin_ref = ? AND planned = 1 ORDER BY id LIMIT 1`,
+        params.originRef,
+      )
+    : null;
+  const palletId = planejado?.id ?? await nextId(PREFIX.PALLET);
+
+  if (planejado) {
+    await run(`DELETE FROM pallet_items WHERE pallet_id = ?`, palletId);
+    await run(
+      `UPDATE pallets SET planned = 0, status = ?, location_id = ?, origin_kind = ?,
+              tare_kg = ?, created_at = ?, created_by = ? WHERE id = ?`,
+      "AWAITING_PUTAWAY", location, params.originKind,
+      params.tareKg ?? 25, at, params.operatorId, palletId,
+    );
+  } else {
+    await insert("pallets", {
+      id: palletId,
+      kind: "PBR",
+      status: params.originKind === "INITIAL_STOCK" ? "STORED" : "AWAITING_PUTAWAY",
+      location_id: location,
+      origin_kind: params.originKind,
+      origin_ref: params.originRef ?? null,
+      tare_kg: params.tareKg ?? 25,
+      gross_weight_kg: 0,
+      net_weight_kg: 0,
+      created_at: at,
+      created_by: params.operatorId,
+      planned: 0,
+    });
+  }
 
   let net = 0;
   for (const line of params.lines) {

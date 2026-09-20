@@ -1,4 +1,4 @@
-import { all, one, insert, run, tx } from "@/lib/db";
+import { all, one, insert, run, scalar, tx } from "@/lib/db";
 import { nextId, PREFIX } from "@/lib/ids";
 import { nowIso, round3 } from "@/lib/format";
 import { audit } from "./audit";
@@ -111,7 +111,14 @@ export async function createOutboundInvoice(params: {
       recipient_kind: "CUSTOMER", recipient_id: order.customer_id,
       nature_op: "Venda de mercadoria (SIMULADO)",
       total_products: 0, total_invoice: 0, total_weight_kg: 0,
-      total_volumes: order.total_volumes, sales_order_id: params.salesOrderId,
+      // Antes da embalagem `total_volumes` do pedido ainda e zero. A nota
+      // emitida com antecedencia precisa dizer quantas caixas vao sair, entao
+      // cai para a contagem dos volumes ja planejados para este pedido.
+      total_volumes: order.total_volumes || (await scalar<number>(
+        `SELECT COUNT(*) FROM volumes WHERE sales_order_id = ? AND status <> 'CANCELLED'`,
+        params.salesOrderId,
+      ) ?? 0),
+      sales_order_id: params.salesOrderId,
       simulated: 1, created_at: at,
     });
 
