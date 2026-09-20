@@ -144,8 +144,14 @@ export const DOC_TYPES: DocType[] = [
   {
     type: "movement", label: "Documento de movimentacao", group: "armazenagem", format: "A4",
     description: "Extrato dos movimentos de estoque de um palete.",
-    list: async () => (await all<any>(`SELECT id, status FROM pallets ORDER BY id`))
-      .map((r) => ({ id: r.id, label: r.id, sublabel: "movimentos do palete", status: r.status })),
+    // So o palete que JA se movimentou. O palete planejado pela preparacao
+    // da demonstracao ainda nao lancou entrada nenhuma: um extrato dele
+    // seria uma folha em branco, nao um documento.
+    list: async () => (await all<any>(
+      `SELECT p.id, p.status FROM pallets p
+        WHERE EXISTS (SELECT 1 FROM inventory_movements m WHERE m.pallet_id = p.id)
+        ORDER BY p.id`,
+    )).map((r) => ({ id: r.id, label: r.id, sublabel: "movimentos do palete", status: r.status })),
   },
 
   // ---------------------------------------------------------------- SAIDA
