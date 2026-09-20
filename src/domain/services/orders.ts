@@ -32,7 +32,8 @@ export async function listOrders(filter: { status?: string; search?: string; pri
             (SELECT COALESCE(SUM(quantity),0) FROM sales_order_items si WHERE si.sales_order_id = so.id) AS total_qty,
             (SELECT COALESCE(SUM(reserved_qty),0) FROM sales_order_items si WHERE si.sales_order_id = so.id) AS total_reserved,
             (SELECT COALESCE(SUM(picked_qty),0) FROM sales_order_items si WHERE si.sales_order_id = so.id) AS total_picked,
-            (SELECT COUNT(*) FROM volumes v WHERE v.sales_order_id = so.id AND v.status <> 'CANCELLED') AS volume_count,
+            (SELECT COUNT(*) FROM volumes v WHERE v.sales_order_id = so.id
+               AND v.status NOT IN ('CANCELLED','PLANNED')) AS volume_count,
             (SELECT pk.id FROM picking_orders pk WHERE pk.sales_order_id = so.id ORDER BY pk.created_at DESC LIMIT 1) AS picking_id,
             (SELECT pa.id FROM packing_orders pa WHERE pa.sales_order_id = so.id ORDER BY pa.created_at DESC LIMIT 1) AS packing_id,
             (SELECT mo.manifest_id FROM manifest_orders mo WHERE mo.sales_order_id = so.id LIMIT 1) AS manifest_id

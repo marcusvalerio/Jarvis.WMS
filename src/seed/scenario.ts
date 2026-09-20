@@ -309,7 +309,7 @@ export const BOXES_PER_ORDER = 3;
  */
 export const ROUTES = [
   {
-    id: "ROM-000018",
+    id: "ROM-000001",
     code: "ROTA 01",
     name: "Rota 01 — Zona Oeste",
     route: "Zona Oeste — Santa Cruz / Paciencia / Campo Grande",
@@ -324,7 +324,7 @@ export const ROUTES = [
     stops: ["PED-000125", "PED-000126", "PED-000127"],
   },
   {
-    id: "ROM-000019",
+    id: "ROM-000002",
     code: "ROTA 02",
     name: "Rota 02 — Zona Norte",
     route: "Zona Norte — Iraja / Penha / Bonsucesso",
@@ -345,5 +345,5 @@ export const MANIFEST_SEED = ROUTES[0];
 /** Contadores iniciais para que os IDs batam com os documentos impressos. */
 export const SEQUENCE_SEEDS: Record<string, number> = {
   PED: 124,   // primeiro pedido gerado sera PED-000125
-  ROM: 17,    // primeiro romaneio sera ROM-000018
+  ROM: 0,     // primeiro romaneio sera ROM-000001
 };

@@ -17,11 +17,21 @@ export class PackingError extends Error {
 export async function generatePacking(orderId: string, actor: string): Promise<string> {
   return await tx(async () => {
     const at = nowIso();
+    // Uma ordem de embalagem PENDING em que nada foi embalado ainda pode ter
+    // vindo da preparacao da demonstracao — suas linhas sairam da picklist,
+    // nao da coleta. Reivindica a ordem (o numero impresso continua valendo)
+    // e refaz as linhas a partir do que foi coletado de fato.
     const existing = await one<any>(
       `SELECT * FROM packing_orders WHERE sales_order_id = ? AND status IN ('PENDING','IN_PROGRESS')`,
       orderId,
     );
-    if (existing) return existing.id;
+    const intocada = existing
+      ? ((await scalar<number>(
+          `SELECT COUNT(*) FROM packing_items WHERE packing_order_id = ? AND packed_qty > 0`,
+          existing.id,
+        )) ?? 0) === 0
+      : false;
+    if (existing && !intocada) return existing.id;
 
     const picked = await all<any>(
       `SELECT si.id AS item_id, si.product_id, si.picked_qty, si.packed_qty, p.sku
@@ -30,17 +40,24 @@ export async function generatePacking(orderId: string, actor: string): Promise<s
       orderId,
     );
     if (picked.length === 0) {
+      // Sem coleta nao ha o que embalar. Se a ordem planejada ja existe, ela
+      // fica de pe com as linhas previstas — e o documento pre-impresso.
+      if (existing) return existing.id;
       throw new PackingError(
         "Nada foi coletado neste pedido. Execute o picking antes do packing.",
         "NOTHING_PICKED",
       );
     }
 
-    const id = await nextId(PREFIX.PACKING_ORDER);
-    await insert("packing_orders", {
-      id, sales_order_id: orderId, status: "PENDING", station: "EMB-01",
-      total_volumes: 0, total_weight_kg: 0, created_at: at,
-    });
+    const id = existing?.id ?? await nextId(PREFIX.PACKING_ORDER);
+    if (existing) {
+      await run(`DELETE FROM packing_items WHERE packing_order_id = ?`, id);
+    } else {
+      await insert("packing_orders", {
+        id, sales_order_id: orderId, status: "PENDING", station: "EMB-01",
+        total_volumes: 0, total_weight_kg: 0, created_at: at,
+      });
+    }
     for (const it of picked) {
       // UMA linha de embalagem POR LOTE efetivamente coletado.
       //
@@ -122,8 +139,15 @@ export async function listPacking(filter: { status?: string; search?: string } =
   );
 }
 
+/**
+ * Volumes de SAIDA. As caixas de entrada tambem moram em `volumes`, mas
+ * pertencem a uma ordem de recebimento e nao a um pedido — listar as duas
+ * juntas na tela de embalagem produziria linhas sem cliente e sem pedido.
+ */
 export async function listVolumes(orderId?: string) {
-  const where = orderId ? `WHERE v.sales_order_id = ? AND v.status <> 'CANCELLED'` : "";
+  const where = orderId
+    ? `WHERE v.sales_order_id = ? AND v.status <> 'CANCELLED'`
+    : `WHERE v.inbound_order_id IS NULL AND v.status <> 'CANCELLED'`;
   const params = orderId ? [orderId] : [];
   return await all<any>(
     `SELECT v.*, c.name AS customer_name,
@@ -150,16 +174,28 @@ export async function getVolume(id: string) {
             m.driver_name, mo.stop_sequence,
             (SELECT COUNT(*) FROM volumes vv
               WHERE vv.sales_order_id = v.sales_order_id
-                AND vv.status <> 'CANCELLED') AS order_volumes
+                AND vv.status <> 'CANCELLED') AS order_volumes,
+            -- Caixa de ENTRADA: nao tem pedido nem rota, tem fornecedor e
+            -- nota de entrada. Os dois conjuntos de colunas convivem porque
+            -- um volume e sempre de um lado so.
+            io.carrier AS inbound_carrier, io.purchase_order_id, io.invoice_id,
+            f.name AS supplier_name, nf.number AS invoice_number,
+            (SELECT COUNT(*) FROM volumes vv
+              WHERE vv.inbound_order_id = v.inbound_order_id
+                AND vv.status <> 'CANCELLED') AS inbound_volumes
        FROM volumes v
        LEFT JOIN sales_orders so ON so.id = v.sales_order_id
        LEFT JOIN customers c ON c.id = so.customer_id
        LEFT JOIN manifest_orders mo ON mo.sales_order_id = v.sales_order_id
        LEFT JOIN shipping_manifests m ON m.id = mo.manifest_id
+       LEFT JOIN inbound_orders io ON io.id = v.inbound_order_id
+       LEFT JOIN suppliers f ON f.id = io.supplier_id
+       LEFT JOIN invoices nf ON nf.id = io.invoice_id
       WHERE v.id = ?`,
     id,
   );
   if (!volume) return null;
+  if (volume.inbound_order_id) volume.carrier = volume.inbound_carrier;
   const items = await all<any>(
     `SELECT vi.*, p.sku, p.description, p.unit, lt.code AS lot_code, lt.expires_at
        FROM volume_items vi
@@ -199,6 +235,35 @@ export async function createVolume(params: {
     const at = nowIso();
     const pa = await one<any>(`SELECT * FROM packing_orders WHERE id = ?`, params.packingId);
     if (!pa) throw new PackingError("Ordem de embalagem inexistente", "NOT_FOUND");
+    // Se a preparacao da demonstracao ja planejou volumes para este pedido,
+    // REIVINDICA o proximo em vez de cunhar um ID novo. E o que faz a caixa
+    // fisica — cuja etiqueta foi impressa antes — ser a mesma linha do banco.
+    // Sem volume planejado, o comportamento e o de sempre: cunha um novo.
+    const planejado = await one<any>(
+      `SELECT * FROM volumes
+        WHERE sales_order_id = ? AND status = 'PLANNED'
+        ORDER BY sequence LIMIT 1`,
+      pa.sales_order_id,
+    );
+
+    if (planejado) {
+      // O conteudo planejado era uma PREVISAO — o que vale e o que o
+      // operador realmente puser na caixa. Esvazia antes de abrir para que
+      // `addToVolume` nao some por cima da previsao e dobre a quantidade.
+      await run(`DELETE FROM volume_items WHERE volume_id = ?`, planejado.id);
+      await run(
+        `UPDATE volumes SET status = 'OPEN', packing_order_id = ?, created_by = ?,
+                net_weight_kg = 0, gross_weight_kg = ? WHERE id = ?`,
+        params.packingId, params.operatorId, planejado.tare_kg, planejado.id,
+      );
+      await audit({
+        actor: params.operatorId, action: "PACK", entity: "volume", entityId: planejado.id,
+        after: { order: pa.sales_order_id, sequence: planejado.sequence, planejado: true },
+        detail: `Volume ${planejado.id} aberto para ${pa.sales_order_id} (etiqueta pre-impressa)`,
+      });
+      return planejado.id;
+    }
+
     const seq = (await scalar<number>(
       `SELECT COUNT(*) FROM volumes WHERE sales_order_id = ?`, pa.sales_order_id,
     ) ?? 0) + 1;
@@ -402,6 +467,15 @@ export async function completePacking(packingId: string, actor: string) {
       `SELECT id FROM volumes WHERE packing_order_id = ? AND status = 'OPEN'`, packingId,
     );
     for (const v of open) await closeVolume(v.id, actor);
+
+    // Caixa planejada que ninguem embalou nao pode seguir para a expedicao
+    // como se existisse. Cancela — a etiqueta impressa sobrando fica sem
+    // par, que e exatamente o que aconteceu no chao de fabrica.
+    await run(
+      `UPDATE volumes SET status = 'CANCELLED'
+        WHERE sales_order_id = ? AND status = 'PLANNED'`,
+      pa.sales_order_id,
+    );
 
     const stats = await one<any>(
       `SELECT COUNT(*) AS n, COALESCE(SUM(gross_weight_kg),0) AS w

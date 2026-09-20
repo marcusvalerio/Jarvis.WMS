@@ -32,12 +32,14 @@ primeira execucao — nenhuma tela aparece vazia.
 npm run dev         # sobe o sistema
 npm run build       # build de producao
 npm run typecheck   # verificacao de tipos
-npm test            # 36 testes de dominio (banco isolado)
+npm test            # 64 testes de dominio (banco isolado)
 npm run test:e2e    # percurso completo pela interface (exige npm run dev)
                     # testes de navegador: npx playwright install chromium
 npm run test:smoke  # verifica todas as rotas (exige npm run dev)
 npm run test:a11y   # auditoria WCAG 2.1 AA (exige npm run dev)
 npm run db:reset    # recarrega o cenario pela linha de comando
+npm run db:reset -- --demo   # recarrega JA com o pacote de documentos
+npm run docs:prepare         # prepara o pacote de documentos (sem operar)
 npm run docs:pdf    # gera TODOS os documentos em PDF (exige npm run dev)
 ```
 
@@ -56,7 +58,7 @@ e checksum. **O valor codificado e o proprio identificador da entidade**:
 ```
 PLT-000001    palete          VOL-000001    volume
 END-A020301   endereco        PED-000125    pedido de venda
-SKU-001       produto         ROM-000018    romaneio
+SKU-001       produto         ROM-000001    romaneio
 ```
 
 Enderecos aceitam as duas formas: `A-02-03-01` e `END-A020301`.
@@ -83,14 +85,53 @@ Nenhum documento tem dados proprios. Cada PDF e uma **visao renderizada da entid
 que o WMS usa em operacao: a nota fiscal le os itens da ordem de recebimento, o
 romaneio le os volumes do pedido, a etiqueta do palete le o conteudo real do palete.
 
-Como os identificadores sao deterministicos, o fluxo natural da apresentacao e:
+### Gerar documento nao e executar a operacao
 
-1. **Ensaio** — executar a operacao uma vez, do inicio ao fim.
-2. **Pre-geracao** — `npm run docs:pdf` gera os 107 documentos em `generated-docs/`.
-3. **Impressao** — imprimir etiquetas (100 × 150 mm) e documentos (A4).
-4. **Reset** — `Simulacao → Reiniciar simulacao`.
-5. **Apresentacao** — executar de novo; os papeis impressos continuam validos,
-   porque os IDs se repetem exatamente.
+O sistema separa dois momentos que antes eram um so:
+
+| momento | o que acontece |
+| --- | --- |
+| **geracao do documento** | a entidade nasce PLANEJADA e o papel pode ser impresso |
+| **validade operacional** | a operacao reivindica aquela entidade e a preenche |
+
+`npm run docs:prepare` (ou **Simulacao → Preparar documentos da demonstracao**)
+cria, para o cenario LOG122, as entidades reais em estado planejado: as 10 caixas
+de recebimento, as 18 caixas de saida, as 6 picklists, as 6 ordens de embalagem,
+as 6 notas de saida, as 6 folhas de conferencia, os 2 romaneios, os 2 documentos
+de transporte e os 2 checklists de carregamento.
+
+A rotina e **idempotente** e **nao executa a operacao**: nao baixa estoque, nao
+conclui recebimento, nao embala, nao carrega e nao expede. A unica coisa que muda
+no estoque e a *reserva* dos pedidos — necessaria para que a picklist saiba de
+qual lote cada caixa vai sair. O que o estoque atual nao cobre e projetado a
+partir da ordem de recebimento, que ja declara produto, lote e endereco de
+destino.
+
+Quando a operacao acontece de verdade, cada servico **reivindica** o que foi
+planejado em vez de criar outra coisa:
+
+| planejado | quem reivindica |
+| --- | --- |
+| palete de recebimento | `receiving.createPallet` |
+| picklist | `picking.generatePicklist` |
+| ordem de embalagem | `packing.generatePacking` |
+| caixa de saida (`PLANNED`) | `packing.createVolume` |
+| conferencia de expedicao | `shipping.startShippingCheck` |
+| checklist de carregamento | `shipping.startLoading` |
+
+Uma caixa `PLANNED` nao existe para a operacao: a coletora recusa bipa-la na
+conferencia e no carregamento, e a expedicao nao a enxerga. Ela so entra no fluxo
+quando a embalagem a abre.
+
+Fluxo da apresentacao:
+
+1. **Preparacao** — `npm run db:reset -- --demo` (ou o botao na tela Simulacao).
+2. **Pre-geracao** — `npm run docs:pdf` gera os 168 documentos em `generated-docs/`
+   e imprime, ao final, o relatorio de validacao do pacote.
+3. **Impressao** — etiquetas (100 × 150 mm) e documentos (A4).
+4. **Apresentacao** — executar a operacao; os papeis em maos sao exatamente as
+   entidades que o sistema vai usar.
+5. **Reset** — `Simulacao → Reiniciar simulacao` devolve o pacote se ele existia.
 
 ### Documentos simulados
 
@@ -100,6 +141,7 @@ por funcao local deterministica. Esses documentos trazem, no cabecalho e no roda
 a marcacao obrigatoria:
 
 > **DOCUMENTO SIMULADO — USO ACADEMICO**
+> **SEM VALIDADE FISCAL — SEM EMISSAO SEFAZ**
 
 Os demais (ordens, checklists, romaneio, etiquetas, comprovantes) sao documentos
 operacionais internos, sem natureza fiscal.
@@ -213,12 +255,15 @@ npm run db:reset     # carrega/recarrega o cenario SIM-001
 
 ## Testes
 
-**Dominio — 36 testes** (`npm test`, banco PostgreSQL separado via `WMS_TEST_DATABASE_URL`):
+**Dominio — 64 testes** (`npm test`, banco PostgreSQL separado via `WMS_TEST_DATABASE_URL`):
 fluxo completo de ponta a ponta, divergencia de conferencia, recusa de endereco,
 produto e quantidade na coletora, integridade de saldo, rastreabilidade, auditoria,
-cobertura do reset e reprodutibilidade do cenario.
+cobertura do reset e reprodutibilidade do cenario. Inclui 12 testes do pacote de
+documentos da demonstracao: composicao das caixas, ausencia de orfaos, idempotencia,
+prova de que a preparacao nao executa a operacao e prova de que a operacao
+reivindica exatamente as entidades planejadas.
 
-**Interface — 33 etapas** (`npm run test:e2e`): o mesmo percurso, executado em
+**Interface — 34 etapas** (`npm run test:e2e`): o mesmo percurso, executado em
 navegador real contra a interface, terminando nos saldos previstos pelo roteiro e
 nos KPIs calculados.
 

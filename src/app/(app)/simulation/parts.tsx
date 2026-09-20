@@ -3,11 +3,14 @@
 import { useState } from "react";
 import { ActionForm, SubmitButton } from "@/components/ActionForm";
 import { Field } from "@/components/ui/Primitives";
-import { resetSimulationAction, markScenarioEventAction } from "@/app/actions/control";
-import { IconReset } from "@/components/ui/Icons";
+import {
+  resetSimulationAction, markScenarioEventAction, prepareDemoDocumentsAction,
+} from "@/app/actions/control";
+import { IconReset, IconPrint } from "@/components/ui/Icons";
 
-export function ResetSimulation() {
+export function ResetSimulation({ demoPack }: { demoPack: boolean }) {
   const [open, setOpen] = useState(false);
+  const [comPacote, setComPacote] = useState(demoPack);
 
   if (!open) {
     return (
@@ -32,6 +35,23 @@ export function ResetSimulation() {
           placeholder="REINICIAR" autoComplete="off" spellCheck={false}
         />
       </Field>
+      {/* Gerar documento nao e executar a operacao: o pacote recria as
+          entidades planejadas (etiquetas, picklists, romaneios) sem
+          receber, embalar, carregar ou expedir coisa alguma. */}
+      <label className="flex items-start gap-2 mt-4 text-[12.5px] text-secondary leading-relaxed">
+        <input
+          type="checkbox" name="demoPack" value="1" className="mt-0.5"
+          checked={comPacote} onChange={(e) => setComPacote(e.target.checked)}
+        />
+        <span>
+          Preparar o pacote de documentos da demonstracao (28 etiquetas de caixa,
+          6 picklists, 2 romaneios e demais folhas prontas para impressao, sem
+          executar a operacao).
+        </span>
+      </label>
+      {/* O checkbox desmarcado nao e enviado pelo navegador; este campo
+          garante que "desmarcado" chegue como escolha explicita. */}
+      {!comPacote && <input type="hidden" name="demoPack" value="0" />}
       <div className="flex gap-2 mt-4">
         <SubmitButton className="btn btn-danger" pendingLabel="Reiniciando…">
           Confirmar reinicio
@@ -54,6 +74,20 @@ export function MarkEvent() {
         </Field>
         <SubmitButton className="btn">Registrar marcacao</SubmitButton>
       </div>
+    </ActionForm>
+  );
+}
+
+/**
+ * Prepara o pacote de documentos sem reiniciar o cenario. E idempotente:
+ * rodar de novo nao duplica nada, so completa o que faltar.
+ */
+export function PrepareDemoPack({ pronto }: { pronto: boolean }) {
+  return (
+    <ActionForm action={prepareDemoDocumentsAction}>
+      <SubmitButton className="btn" pendingLabel="Preparando…">
+        <IconPrint size={14} /> {pronto ? "Completar pacote de documentos" : "Preparar documentos da demonstracao"}
+      </SubmitButton>
     </ActionForm>
   );
 }

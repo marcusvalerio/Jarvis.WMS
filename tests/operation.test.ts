@@ -504,7 +504,7 @@ await test("25 · leitura de codigo resolve as entidades da operacao", async () 
   assert.equal((await resolveScan("SKU-001")).kind, "PRODUCT");
   assert.equal((await resolveScan("7896094900011")).id, "SKU-001", "EAN do fabricante tambem resolve");
   assert.equal((await resolveScan("PED-000125")).kind, "SALES_ORDER");
-  assert.equal((await resolveScan("ROM-000018")).kind, "MANIFEST");
+  assert.equal((await resolveScan("ROM-000001")).kind, "MANIFEST");
   assert.equal((await resolveScan("LIXO-123")).found, false);
 });
 

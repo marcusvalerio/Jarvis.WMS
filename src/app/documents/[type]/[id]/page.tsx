@@ -21,7 +21,7 @@ import {
   SalesOrderDoc, PicklistDoc, PackingListDoc, ShippingCheckDoc,
   ManifestDoc, TransportDoc, LoadingChecklistDoc, ShippingReceiptDoc, MovementDoc,
 } from "@/components/doc/outbound";
-import { PalletLabel, LocationLabel, VolumeLabel, ProductLabel } from "@/components/doc/labels";
+import { PalletLabel, LocationLabel, VolumeLabel, InboundVolumeLabel, ProductLabel } from "@/components/doc/labels";
 
 export const dynamic = "force-dynamic";
 
@@ -144,9 +144,16 @@ async function render(type: string, id: string) {
       const d = await packingListData(id);
       return d ? <PackingListDoc order={d.order} volumes={d.volumes} /> : null;
     }
-    case "volume-label": {
+    // Caixa de entrada e caixa de saida sao a mesma tabela, mas nao o mesmo
+    // documento: uma aponta para o fornecedor, a outra para o cliente e a
+    // rota. O volume decide, nao a URL — pedir a etiqueta errada devolve a
+    // certa em vez de um documento com metade dos campos vazios.
+    case "volume-label": case "inbound-volume-label": {
       const d = await getVolume(id);
-      return d ? <VolumeLabel volume={d.volume} items={d.items} /> : null;
+      if (!d) return null;
+      return d.volume.inbound_order_id
+        ? <InboundVolumeLabel volume={d.volume} items={d.items} />
+        : <VolumeLabel volume={d.volume} items={d.items} />;
     }
     case "shipping-check": {
       const d = await getShippingCheck(id);

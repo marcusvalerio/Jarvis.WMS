@@ -33,10 +33,17 @@ export function DocHeader({
 }) {
   return (
     <header className="avoid-break">
+      {/* Documento fiscal simulado nunca pode ser confundido com o real —
+          a tarja diz as quatro coisas por extenso, no topo da folha. */}
       {simulated && (
-        <p className="text-center text-[9pt] tracking-[0.22em] font-bold border-2 border-black py-1.5 mb-4">
-          DOCUMENTO SIMULADO — USO ACADEMICO
-        </p>
+        <div className="border-2 border-black py-1.5 mb-4">
+          <p className="text-center text-[9pt] tracking-[0.22em] font-bold">
+            DOCUMENTO SIMULADO — USO ACADEMICO
+          </p>
+          <p className="text-center text-[7.5pt] tracking-[0.16em] font-bold mt-0.5">
+            SEM VALIDADE FISCAL — SEM EMISSAO SEFAZ
+          </p>
+        </div>
       )}
       <div className="flex items-start justify-between gap-8 pb-3 border-b-2 border-black">
         <div className="flex items-start gap-3">
@@ -200,7 +207,7 @@ export function DocFooter({
         {note ? ` · ${note}` : ""}
       </span>
       <span className="flex-none">
-        {simulated ? "SIMULADO — USO ACADEMICO" : "Uso interno"}
+        {simulated ? "SIMULADO — SEM VALIDADE FISCAL" : "Uso interno"}
       </span>
     </footer>
   );

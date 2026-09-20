@@ -7,6 +7,7 @@ import { INITIAL_PASSWORD } from "@/seed/credentials";
 import { createPallet, ensureLot } from "./receiving";
 import { createInboundInvoice } from "./invoices";
 import { createOrder } from "./orders";
+import { demoPackReady, prepareDemoDocuments } from "./demo";
 import {
   SCENARIO_ID, SCENARIO_NAME, WAREHOUSE, ZONES, LAYOUT, DOCKS, USERS, OPERATORS,
   SUPPLIERS, CUSTOMERS, PRODUCTS, EQUIPMENT, INITIAL_STOCK, PURCHASE_ORDERS,
@@ -22,6 +23,7 @@ export const NAO_RESETADAS: string[] = ["user_sessions"];
 
 /** Tabelas limpas no reset, na ordem inversa das dependencias. */
 export const TABLES: string[] = [
+  "demo_document_pack",
   "scan_events", "simulation_events", "simulation_scenarios",
   "audit_logs", "incidents",
   "loading_scans", "loading_operations", "transport_documents",
@@ -362,9 +364,16 @@ export async function seed(actor = "SISTEMA"): Promise<SeedResult> {
  * Restaura estoque, pedidos, recebimentos, paletes, volumes, estados,
  * movimentacoes e auditoria ao estado inicial do cenario.
  */
-export async function resetSimulation(actor = "SISTEMA"): Promise<SeedResult & { resetCount: number }> {
+export async function resetSimulation(
+  actor = "SISTEMA",
+  options: { demoPack?: boolean } = {},
+): Promise<SeedResult & { resetCount: number; demoPack: boolean }> {
   const previous = await one<any>(`SELECT reset_count FROM simulation_scenarios WHERE id = ?`, SCENARIO_ID);
   const count = (previous?.reset_count ?? 0) + 1;
+  // Se os documentos da demonstracao ja estavam preparados, o reset os
+  // devolve. O contrario tambem vale: quem nunca preparou o pacote
+  // continua recebendo o cenario cru, e a operacao comeca do zero.
+  const comPacote = options.demoPack ?? await demoPackReady();
   const result = await seed(actor);
   const at = nowIso();
   await run(
@@ -377,7 +386,8 @@ export async function resetSimulation(actor = "SISTEMA"): Promise<SeedResult & {
     detail: `Simulacao reiniciada (reset #${count})`, occurredAt: at,
   });
   await logEvent("RESET", `Simulacao reiniciada (reset #${count})`, "SCENARIO", SCENARIO_ID);
-  return { ...result, resetCount: count };
+  if (comPacote) await prepareDemoDocuments();
+  return { ...result, resetCount: count, demoPack: comPacote };
 }
 
 /** Garante que o banco esteja carregado antes de qualquer leitura de tela. */

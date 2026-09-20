@@ -65,6 +65,14 @@ export const DOC_TYPES: DocType[] = [
     )).map((r) => ({ id: r.id, label: r.id, sublabel: r.name, status: r.status })),
   },
   {
+    type: "inbound-volume-label", label: "Etiqueta de caixa recebida", group: "entrada", format: "ETIQUETA",
+    description: "Identificacao da caixa que chega na doca, com fornecedor, nota de entrada e conteudo.",
+    list: async () => (await all<any>(
+      `SELECT id, status, inbound_order_id FROM volumes
+        WHERE status <> 'CANCELLED' AND inbound_order_id IS NOT NULL ORDER BY id`,
+    )).map((r) => ({ id: r.id, label: r.id, sublabel: r.inbound_order_id, status: r.status })),
+  },
+  {
     type: "product-label", label: "Etiqueta de produto", group: "entrada", format: "ETIQUETA",
     description: "Identificacao do SKU com codigo interno Code 128 e EAN do fabricante.",
     list: async () => (await all<any>(`SELECT id, sku, description FROM products ORDER BY sku`))
@@ -131,7 +139,8 @@ export const DOC_TYPES: DocType[] = [
     type: "volume-label", label: "Etiqueta de volume", group: "saida", format: "ETIQUETA",
     description: "Etiqueta de expedicao com destinatario, conteudo e peso.",
     list: async () => (await all<any>(
-      `SELECT id, status, sales_order_id FROM volumes WHERE status <> 'CANCELLED' ORDER BY id`,
+      `SELECT id, status, sales_order_id FROM volumes
+        WHERE status <> 'CANCELLED' AND inbound_order_id IS NULL ORDER BY id`,
     )).map((r) => ({ id: r.id, label: r.id, sublabel: r.sales_order_id, status: r.status })),
   },
   {
@@ -165,10 +174,16 @@ export const DOC_TYPES: DocType[] = [
   {
     type: "shipping-receipt", label: "Comprovante de expedicao", group: "saida", format: "A4",
     description: "Comprovante final do embarque, com volumes e declaracao de baixa.",
+    // Tambem os pedidos ja roteirizados, nao so os expedidos: o comprovante
+    // e assinado na doca, entao precisa sair da impressora ANTES do embarque.
+    // Os campos de data e baixa aparecem em branco enquanto a saida nao
+    // aconteceu — o documento nunca afirma um embarque que nao houve.
     list: async () => (await all<any>(
       `SELECT so.id, so.status, c.name FROM sales_orders so
          JOIN customers c ON c.id = so.customer_id
-        WHERE so.status = 'SHIPPED' ORDER BY so.id`,
+        WHERE so.status = 'SHIPPED'
+           OR EXISTS (SELECT 1 FROM manifest_orders mo WHERE mo.sales_order_id = so.id)
+        ORDER BY so.id`,
     )).map((r) => ({ id: r.id, label: r.id, sublabel: r.name, status: r.status })),
   },
 ];

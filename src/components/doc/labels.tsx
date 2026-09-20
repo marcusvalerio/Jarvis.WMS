@@ -188,6 +188,78 @@ export function VolumeLabel({ volume, items }: { volume: any; items: any[] }) {
   );
 }
 
+// -------------------------------------------- caixa recebida (entrada)
+/**
+ * Etiqueta da caixa que CHEGA no recebimento. Nao tem destinatario nem
+ * rota — tem fornecedor, nota de entrada e conteudo declarado. E impressa
+ * antes da carga chegar para que a conferencia fisica ja tenha o que bipar.
+ */
+export function InboundVolumeLabel({ volume, items }: { volume: any; items: any[] }) {
+  return (
+    <Label>
+      <LabelHeader kind="Caixa recebida" />
+      <div className="flex items-start justify-between gap-2">
+        <div>
+          <p className="text-[21pt] font-bold leading-none" style={{ fontFamily: "var(--font-familjen)" }}>
+            {volume.id}
+          </p>
+          <p className="text-[8.5pt] mt-1">
+            {volume.container_kind} {String(volume.sequence).padStart(2, "0")}
+            {volume.inbound_volumes ? `/${String(volume.inbound_volumes).padStart(2, "0")}` : ""}
+          </p>
+        </div>
+        <div className="text-right">
+          <p className="text-[6.8pt] tracking-[0.1em] uppercase text-[#555]">Recebimento</p>
+          <p className="text-[12pt] font-bold leading-tight">{volume.inbound_order_id}</p>
+        </div>
+      </div>
+
+      <div className="flex justify-center my-2">
+        <Barcode value={volume.id} height={50} moduleWidth={2.1} fontSize={9} />
+      </div>
+
+      <div className="border-2 border-black px-2 py-1.5 mb-1.5">
+        <p className="text-[6.8pt] tracking-[0.1em] uppercase text-[#555]">Fornecedor</p>
+        <p className="text-[11pt] font-bold leading-tight">{volume.supplier_name ?? "—"}</p>
+        <p className="text-[8pt] leading-snug mt-0.5">
+          NF de entrada {volume.invoice_number ?? volume.invoice_id ?? "—"}
+          {volume.purchase_order_id ? ` · Pedido ${volume.purchase_order_id}` : ""}
+        </p>
+      </div>
+
+      <table className="w-full border-collapse text-[8pt] mb-2">
+        <thead>
+          <tr className="bg-[#EDEDED]">
+            <th className="border border-[#999] px-1 py-0.5 text-left text-[6.8pt] uppercase">SKU</th>
+            <th className="border border-[#999] px-1 py-0.5 text-left text-[6.8pt] uppercase">Lote</th>
+            <th className="border border-[#999] px-1 py-0.5 text-right text-[6.8pt] uppercase">Qtd</th>
+          </tr>
+        </thead>
+        <tbody>
+          {items.map((i: any) => (
+            <tr key={i.id}>
+              <td className="border border-[#999] px-1 py-0.5">{i.sku}</td>
+              <td className="border border-[#999] px-1 py-0.5">{i.lot_code ?? "—"}</td>
+              <td className="border border-[#999] px-1 py-0.5 text-right tnum">{fmtNumber(i.quantity)} {i.unit}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
+      <div className="mt-auto">
+        <Line label="Peso bruto previsto" value={fmtWeight(volume.gross_weight_kg, 3)} big />
+        <Line label="Transportadora" value={volume.carrier ?? "—"} />
+        <div className="border-2 border-black mt-2 px-2 py-2">
+          <p className="text-[6.8pt] tracking-[0.1em] uppercase text-[#555]">Conferido por</p>
+          <div className="h-[9mm] border-b border-black" />
+          <p className="text-[6.8pt] tracking-[0.1em] uppercase text-[#555] mt-1.5">Data / hora</p>
+          <div className="h-[6mm] border-b border-black" />
+        </div>
+      </div>
+    </Label>
+  );
+}
+
 // -------------------------------------------------------------- produto
 export function ProductLabel({ product, barcodes }: { product: any; barcodes: any[] }) {
   const primary = barcodes.find((b: any) => b.is_primary) ?? barcodes[0];

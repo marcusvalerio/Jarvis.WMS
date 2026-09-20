@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { getScenario, scenarioProgress, listEvents } from "@/domain/services/simulation";
+import { demoPackReady, demoPackReport } from "@/domain/services/demo";
 import { DOC_TYPES, GROUP_LABEL, type DocGroup } from "@/domain/documents";
 import { stockByProduct } from "@/domain/services/inventory";
 import { headline } from "@/domain/services/kpi";
@@ -8,7 +9,7 @@ import { scalar } from "@/lib/db";
 import { SCENARIO_ID, SALES_ORDERS, INBOUND_ORDERS, INITIAL_STOCK } from "@/seed/scenario";
 import { PageHeader, Card, CardHeader, Metric, Progress, MetaItem, EmptyState } from "@/components/ui/Primitives";
 import { Badge } from "@/components/ui/Badge";
-import { ResetSimulation, MarkEvent } from "./parts";
+import { ResetSimulation, MarkEvent, PrepareDemoPack } from "./parts";
 import { fmtNumber, fmtDateTime, fmtPercent, fmtTime } from "@/lib/format";
 import { IconCheck, IconPrint, IconArrowRight, IconPlay } from "@/components/ui/Icons";
 
@@ -23,6 +24,8 @@ export default async function SimulationPage() {
   const events = await listEvents(24);
   const head = await headline();
   const stock = await stockByProduct({ onlyWithStock: true });
+  const pacotePronto = await demoPackReady();
+  const pacote = pacotePronto ? await demoPackReport() : null;
 
   const catalog = await Promise.all(DOC_TYPES.map(async (d) => ({
     type: d.type, label: d.label, group: d.group,
@@ -198,13 +201,45 @@ export default async function SimulationPage() {
             )}
           </Card>
 
+          {/* ------------------------------- pacote de documentos */}
+          <Card>
+            <CardHeader
+              title="Documentos da demonstracao"
+              subtitle="Gerar documento nao e executar a operacao"
+            />
+            <p className="text-[12.5px] text-secondary leading-relaxed mb-3">
+              {pacote
+                ? `${pacote.documents} documento(s) pre-gerados, cada um ligado a uma entidade real `
+                  + "do banco. A operacao reivindica essas mesmas entidades quando acontecer — a "
+                  + "etiqueta impressa e a caixa fisica sao a mesma linha."
+                : "Prepara as entidades do cenario em estado planejado para que TODAS as folhas e "
+                  + "etiquetas possam ser impressas antes da apresentacao. Nao baixa estoque, nao "
+                  + "conclui recebimento, nao embala, nao carrega e nao expede."}
+            </p>
+            {pacote && (
+              <ul className="text-[12.5px] mb-3 space-y-1">
+                {pacote.checks.filter((c) => !c.ok).slice(0, 4).map((c) => (
+                  <li key={c.label} className="text-error-fg">
+                    {c.label}: {c.detail}
+                  </li>
+                ))}
+                {pacote.checks.every((c) => c.ok) && (
+                  <li className="text-success-fg">
+                    {pacote.checks.length} verificacoes de integridade passaram — nenhum documento orfao.
+                  </li>
+                )}
+              </ul>
+            )}
+            <PrepareDemoPack pronto={pacotePronto} />
+          </Card>
+
           {/* --------------------------------------------- reset */}
           <Card className="border-error-line">
             <CardHeader
               title="Reiniciar simulacao"
               subtitle="Restaura o cenario para executar a apresentacao novamente"
             />
-            <ResetSimulation />
+            <ResetSimulation demoPack={pacotePronto} />
           </Card>
         </div>
       </div>
