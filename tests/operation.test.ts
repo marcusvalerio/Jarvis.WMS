@@ -17,7 +17,7 @@ import { dashboardKpis } from "../src/domain/services/kpi.ts";
 import { locationIdFromCode } from "../src/lib/ids.ts";
 import { BOXES_PER_ORDER, ROUTES } from "../src/seed/scenario.ts";
 import { all, one } from "../src/lib/db.ts";
-import { TABLES } from "../src/domain/services/simulation.ts";
+import { TABLES, NAO_RESETADAS } from "../src/domain/services/simulation.ts";
 
 const OP = "OPR-0002";
 const SUP = "OPR-0001";
@@ -574,7 +574,10 @@ await test("29 · o reset cobre TODAS as tabelas do esquema", async () => {
     `SELECT table_name AS name FROM information_schema.tables
       WHERE table_schema = 'public' AND table_type = 'BASE TABLE'`,
   )).map((r) => r.name).sort();
-  const missing = schema.filter((t) => !TABLES.includes(t));
+  // NAO_RESETADAS sao tabelas que deliberadamente sobrevivem ao reset
+  // (sessao de login). O teste segue garantindo que nenhuma tabela DO
+  // CENARIO fique de fora e deixe residuo entre execucoes.
+  const missing = schema.filter((t) => !TABLES.includes(t) && !NAO_RESETADAS.includes(t));
   assert.deepEqual(
     missing, [],
     `tabelas fora do reset deixariam residuo entre execucoes: ${missing.join(", ")}`,

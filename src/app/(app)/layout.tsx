@@ -1,7 +1,8 @@
 import { Sidebar, type NavCounts } from "@/components/shell/Sidebar";
 import { Topbar } from "@/components/shell/Topbar";
 import { Toaster } from "@/components/Toaster";
-import { currentOperator, listOperators } from "@/domain/context";
+import { currentOperator } from "@/domain/context";
+import { requireProfile } from "@/domain/guard";
 import { currentTheme } from "@/domain/theme.server";
 import { ensureSeeded, getScenario } from "@/domain/services/simulation";
 import { scalar } from "@/lib/db";
@@ -10,9 +11,10 @@ export const dynamic = "force-dynamic";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   // Primeira renderizacao carrega o cenario, para que nenhuma tela apareca vazia.
+  const perfil = await requireProfile();
   await ensureSeeded();
 
-  const [operator, operators] = [await currentOperator(), await listOperators()];
+  const operator = await currentOperator();
   const theme = await currentTheme();
   const scenario = await getScenario();
 
@@ -29,7 +31,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       <div className="flex-1 min-w-0 flex flex-col">
         <Topbar
           operator={operator}
-          operators={operators}
+          profile={perfil}
           theme={theme}
           scenario={scenario ? { id: scenario.id, name: scenario.name, status: scenario.status } : null}
         />

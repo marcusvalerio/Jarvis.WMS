@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { ensureSeeded, getScenario } from "@/domain/services/simulation";
 import { currentOperator } from "@/domain/context";
+import { requireProfile } from "@/domain/guard";
 import { IconArrowRight } from "@/components/ui/Icons";
 import { Toaster } from "@/components/Toaster";
 
@@ -16,6 +17,7 @@ export const metadata: Metadata = {
  * alvo unico por tela, texto grande, alto contraste e area de toque ampla.
  */
 export default async function MobileLayout({ children }: { children: React.ReactNode }) {
+  await requireProfile();
   await ensureSeeded();
   const operator = await currentOperator();
   const scenario = await getScenario();

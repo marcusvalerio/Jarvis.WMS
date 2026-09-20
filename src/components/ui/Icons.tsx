@@ -111,3 +111,6 @@ export const IconSun = (p: P) => (
 export const IconMoon = (p: P) => (
   <Svg {...p}><path d="M13.5 9.4A5.8 5.8 0 0 1 6.6 2.5a5.9 5.9 0 1 0 6.9 6.9Z" /></Svg>
 );
+export const IconLogout = (p: P) => (
+  <Svg {...p}><path d="M6 14H3.5A1.5 1.5 0 0 1 2 12.5v-9A1.5 1.5 0 0 1 3.5 2H6" /><path d="M10.5 11 14 8l-3.5-3" /><path d="M14 8H6" /></Svg>
+);
