@@ -5,6 +5,7 @@
  * o mesmo que a aplicacao usa, para que o HTML ja chegue no tema auditado.
  */
 import { chromium } from "playwright";
+import { entrar } from "./login.mjs";
 import { createRequire } from "node:module";
 
 const require = createRequire(import.meta.url);
@@ -12,6 +13,7 @@ const axePath = require.resolve("axe-core/axe.min.js");
 const BASE = process.env.BASE ?? "http://localhost:3000";
 
 const PAGES = [
+  "/login",
   "/dashboard", "/operations", "/receiving", "/receiving/OR-000001",
   "/inventory", "/warehouse", "/shipping/orders", "/shipping/orders/PED-000125",
   "/picking", "/packing", "/documents", "/incidents", "/equipment",
@@ -35,6 +37,7 @@ for (const theme of THEMES) {
     { name: "wms_theme", value: theme, domain: hostname, path: "/" },
   ]);
   const page = await context.newPage();
+  await entrar(page, BASE);   // todas as telas exigem sessao
 
   for (const route of PAGES) {
     await page.goto(BASE + route, { waitUntil: "networkidle", timeout: 40000 });

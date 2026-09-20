@@ -5,6 +5,7 @@
  * carregamento → expedicao.
  */
 import { chromium } from "playwright";
+import { entrar, USUARIO_PADRAO as USUARIO } from "./login.mjs";
 
 const BASE = process.env.BASE ?? "http://localhost:3000";
 
@@ -102,6 +103,10 @@ async function cellValue(rowText, nth) {
 }
 
 try {
+  // ------------------------------------------------------ 0. login
+  await entrar(page, BASE);
+  log(true, `Autenticado como ${USUARIO}`);
+
   // ------------------------------------------------------ 0. reset
   await go("/simulation");
   await page.getByRole("button", { name: /Reiniciar simulacao/i }).click();

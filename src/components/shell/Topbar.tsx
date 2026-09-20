@@ -3,17 +3,17 @@
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { CommandMenu } from "./CommandMenu";
-import { setOperator } from "@/app/actions/session";
-import { IconChevron, IconScan } from "@/components/ui/Icons";
+import { signOutAction } from "@/app/actions/auth";
+import { IconChevron, IconScan, IconLogout } from "@/components/ui/Icons";
 import { ThemeControl } from "@/components/ThemeControl";
-import type { Operator } from "@/domain/context";
 import type { Theme } from "@/domain/theme";
+import type { Profile } from "@/domain/auth";
 
 export function Topbar({
-  operator, operators, theme, scenario,
+  operator, profile, theme, scenario,
 }: {
-  operator: Operator;
-  operators: Operator[];
+  operator: { id: string; name: string };
+  profile: Profile;
   theme: Theme;
   scenario: { id: string; name: string; status: string } | null;
 }) {
@@ -69,31 +69,21 @@ export function Topbar({
                 className="absolute right-0 top-10 z-20 w-60 card-elevated p-1.5 shadow-2xl"
                 role="menu"
               >
-                <p className="eyebrow px-2.5 py-1.5">Operador em sessao</p>
-                {operators.map((op) => (
-                  <button
-                    key={op.id}
-                    type="button"
-                    role="menuitemradio"
-                    aria-checked={op.id === operator.id}
-                    onClick={() => {
-                      setOpen(false);
-                      startTransition(() => { void setOperator(op.id); });
-                    }}
-                    className={`w-full flex items-center gap-2.5 px-2.5 h-9 rounded-md text-left transition-colors ${
-                      op.id === operator.id ? "bg-elevated-hover" : "hover:bg-subtle"
-                    }`}
-                  >
-                    <span className="w-[22px] h-[22px] rounded bg-bg border border-border flex items-center justify-center text-[10px] font-semibold text-secondary">
-                      {initials(op.name)}
-                    </span>
-                    <span className="min-w-0 flex-1">
-                      <span className="block text-[12.5px] text-primary truncate">{op.name}</span>
-                      <span className="block text-[11px] text-faint">{op.id} · {op.shift}</span>
-                    </span>
-                    {op.id === operator.id && <span className="w-1.5 h-1.5 rounded-full bg-accent" aria-hidden />}
-                  </button>
-                ))}
+                <p className="eyebrow px-2.5 py-1.5">Voce esta operando como</p>
+                <div className="px-2.5 pb-2">
+                  <p className="text-[13px] text-primary leading-tight">{profile.name}</p>
+                  <p className="text-[11.5px] text-secondary leading-snug mt-0.5">
+                    {profile.jobTitle ?? profile.role}
+                    {profile.sector ? ` · ${profile.sector}` : ""}
+                  </p>
+                  <p className="text-[11px] text-faint leading-snug mt-1">
+                    {profile.email}
+                  </p>
+                  <p className="text-[11px] text-faint leading-snug">
+                    <span className="chip-id">{profile.operatorId}</span>
+                  </p>
+                </div>
+
                 <div className="hr my-1.5" />
                 <p className="eyebrow px-2.5 py-1.5">Tema da interface</p>
                 <div className="px-1.5 pb-1.5">
@@ -101,8 +91,18 @@ export function Topbar({
                 </div>
                 <div className="hr my-1.5" />
                 <p className="px-2.5 py-1 text-[11px] text-faint leading-relaxed">
-                  Toda movimentacao e conferencia e registrada em auditoria no nome do operador selecionado.
+                  Toda movimentacao e conferencia fica registrada em auditoria no seu nome.
                 </p>
+                <div className="hr my-1.5" />
+                <form action={signOutAction}>
+                  <button
+                    type="submit"
+                    className="w-full flex items-center gap-2.5 px-2.5 h-9 rounded-md text-left text-[12.5px] text-error-fg hover:bg-error-soft transition-colors"
+                  >
+                    <IconLogout size={14} />
+                    Sair do sistema
+                  </button>
+                </form>
               </div>
             </>
           )}

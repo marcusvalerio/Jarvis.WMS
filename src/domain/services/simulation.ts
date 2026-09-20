@@ -2,6 +2,8 @@ import { all, one, run, insert, exec, scalar, tx } from "@/lib/db";
 import { nextId, setSequence, PREFIX, locationIdFromCode, buildLocationCode } from "@/lib/ids";
 import { nowIso, addDays, addMinutes, round3 } from "@/lib/format";
 import { audit } from "./audit";
+import { hashPassword } from "@/domain/auth";
+import { INITIAL_PASSWORD } from "@/seed/credentials";
 import { createPallet, ensureLot } from "./receiving";
 import { createInboundInvoice } from "./invoices";
 import { createOrder } from "./orders";
@@ -10,6 +12,13 @@ import {
   SUPPLIERS, CUSTOMERS, PRODUCTS, EQUIPMENT, INITIAL_STOCK, PURCHASE_ORDERS,
   INBOUND_ORDERS, SALES_ORDERS, SEQUENCE_SEEDS,
 } from "@/seed/scenario";
+
+/**
+ * Tabelas que NAO pertencem ao cenario e por isso ficam fora do reset.
+ * Sessao de login e identidade de quem esta operando, nao dado da
+ * simulacao: reiniciar o SIM-001 nao pode expulsar a equipe do sistema.
+ */
+export const NAO_RESETADAS: string[] = ["user_sessions"];
 
 /** Tabelas limpas no reset, na ordem inversa das dependencias. */
 export const TABLES: string[] = [
@@ -141,7 +150,14 @@ export async function seed(actor = "SISTEMA"): Promise<SeedResult> {
 
     // ----------------------------------------------------------- cadastros
     for (const u of USERS) {
-      await insert("users", { id: u.id, name: u.name, email: u.email, role: u.role, active: 1, created_at: now });
+      await insert("users", {
+        id: u.id, name: u.name, email: u.email, role: u.role,
+        job_title: u.jobTitle, sector: u.sector,
+        // O reset recarrega os perfis COM a credencial: reiniciar o cenario
+        // nao pode deixar a equipe sem conseguir entrar.
+        password_hash: await hashPassword(INITIAL_PASSWORD),
+        active: 1, created_at: now,
+      });
     }
     for (const o of OPERATORS) {
       await insert("operators", {

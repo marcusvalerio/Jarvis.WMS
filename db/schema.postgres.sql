@@ -1094,3 +1094,26 @@ EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 DO $$ BEGIN
   ALTER TABLE simulation_events ADD CONSTRAINT fk_simulation_events_scenario_id FOREIGN KEY (scenario_id) REFERENCES simulation_scenarios(id);
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+-- ---------------------------------------------------------------------
+-- AUTENTICACAO
+-- Colunas acrescentadas a `users` por ALTER: o bloco CREATE TABLE usa
+-- IF NOT EXISTS e seria ignorado por inteiro num banco que ja tem a
+-- tabela, entao colunas novas nunca chegariam por la.
+-- ---------------------------------------------------------------------
+ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash text;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS job_title text;   -- cargo: Gestor, Operadora...
+ALTER TABLE users ADD COLUMN IF NOT EXISTS sector    text;   -- setor: Recebimento, Picking...
+
+-- Sessoes: token opaco, verificado no servidor a cada requisicao.
+-- Deliberadamente FORA do reset do cenario (ver TABLES em simulation.ts):
+-- reiniciar a simulacao nao deve expulsar quem esta operando.
+CREATE TABLE IF NOT EXISTS user_sessions (
+  token         text PRIMARY KEY,           -- 32 bytes aleatorios, base64url
+  user_id       text NOT NULL,
+  created_at    text NOT NULL,
+  expires_at    text NOT NULL,
+  last_seen_at  text
+);
+CREATE INDEX IF NOT EXISTS idx_session_user ON user_sessions(user_id);
+CREATE INDEX IF NOT EXISTS idx_session_exp  ON user_sessions(expires_at);

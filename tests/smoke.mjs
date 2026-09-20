@@ -4,6 +4,7 @@
  * central de documentos, entao o teste acompanha o estado real da operacao.
  */
 import { chromium } from "playwright";
+import { entrar } from "./login.mjs";
 
 const BASE = process.env.BASE ?? "http://localhost:3000";
 
@@ -26,6 +27,7 @@ const browser = await chromium.launch({
   executablePath: process.env.CHROMIUM_PATH || undefined,
 });
 const page = await browser.newPage({ viewport: { width: 1400, height: 900 } });
+await entrar(page, BASE);   // todas as telas exigem sessao
 
 const problems = [];
 let current = "";

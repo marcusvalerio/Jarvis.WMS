@@ -57,18 +57,34 @@ export const DOCKS = [
   { id: "DOCA-04", name: "Doca 04 — Expedicao", kind: "OUTBOUND" },
 ];
 
+/**
+ * A equipe da operacao. Cada pessoa tem um usuario (identidade, login) e um
+ * operador (ator das movimentacoes e da auditoria), ligados 1:1 por
+ * operators.user_id. OPR-0001 e OPR-0002 mantem os papeis de supervisao e
+ * operacao que os testes ja exercitam.
+ *
+ * A senha inicial NAO mora aqui: e provisionada por scripts/seed-users.ts,
+ * que grava apenas o hash scrypt.
+ */
 export const USERS = [
-  { id: "USR-0001", name: "Marcus Valerio", email: "supervisor@log122.sim", role: "ADMIN" },
-  { id: "USR-0002", name: "Carlos Andrade", email: "carlos.andrade@log122.sim", role: "SUPERVISOR" },
-  { id: "USR-0003", name: "Marina Lopes", email: "marina.lopes@log122.sim", role: "OPERATOR" },
+  { id: "USR-0001", name: "Marcus",    email: "marcus@log122.com",    role: "ADMIN",      jobTitle: "Gestor",              sector: "Gestao / Documentacao" },
+  { id: "USR-0002", name: "Danilo",    email: "danilo@log122.com",    role: "SUPERVISOR", jobTitle: "Lider da Operacao",   sector: "Operacao / Coleta" },
+  { id: "USR-0003", name: "Luiza",     email: "luiza@log122.com",     role: "OPERATOR",   jobTitle: "Operadora",           sector: "Recebimento" },
+  { id: "USR-0004", name: "Gabie",     email: "gabie@log122.com",     role: "OPERATOR",   jobTitle: "Operadora",           sector: "Pesagem" },
+  { id: "USR-0005", name: "Ana Carla", email: "anacarla@log122.com",  role: "OPERATOR",   jobTitle: "Operadora",           sector: "Staging" },
+  { id: "USR-0006", name: "Joice",     email: "joice@log122.com",     role: "OPERATOR",   jobTitle: "Operadora",           sector: "Armazenagem" },
+  { id: "USR-0007", name: "Cristiane", email: "cristiane@log122.com", role: "OPERATOR",   jobTitle: "Operadora",           sector: "Picking" },
+  { id: "USR-0008", name: "Deiv",      email: "deiv@log122.com",      role: "OPERATOR",   jobTitle: "Operador",            sector: "Conferencia" },
+  { id: "USR-0009", name: "Mayra",     email: "mayra@log122.com",     role: "OPERATOR",   jobTitle: "Operadora",           sector: "Packing" },
+  { id: "USR-0010", name: "Marcio",    email: "marcio@log122.com",    role: "OPERATOR",   jobTitle: "Operador",            sector: "Roteirizacao / Pre-Expedicao" },
+  { id: "USR-0011", name: "Max",       email: "max@log122.com",       role: "OPERATOR",   jobTitle: "Operador",            sector: "Expedicao" },
 ];
 
-export const OPERATORS = [
-  { id: "OPR-0001", userId: "USR-0002", name: "Carlos Andrade", badge: "OPR-0001", shift: "MANHA" },
-  { id: "OPR-0002", userId: "USR-0003", name: "Marina Lopes", badge: "OPR-0002", shift: "MANHA" },
-  { id: "OPR-0003", userId: null, name: "Diego Ferreira", badge: "OPR-0003", shift: "TARDE" },
-  { id: "OPR-0004", userId: null, name: "Juliana Castro", badge: "OPR-0004", shift: "TARDE" },
-];
+/** Um operador por usuario. O cracha (Code 128) segue sendo o proprio ID. */
+export const OPERATORS = USERS.map((u, i) => {
+  const id = `OPR-${String(i + 1).padStart(4, "0")}`;
+  return { id, userId: u.id, name: u.name, badge: id, shift: i % 2 === 0 ? "MANHA" : "TARDE" };
+});
 
 export const SUPPLIERS = [
   {
