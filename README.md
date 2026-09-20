@@ -127,7 +127,7 @@ quando a embalagem a abre.
 Fluxo da apresentacao:
 
 1. **Preparacao** — `npm run db:reset -- --demo` (ou o botao na tela Simulacao).
-2. **Pre-geracao** — `npm run docs:pdf` gera os 172 documentos em `generated-docs/`
+2. **Pre-geracao** — `npm run docs:pdf` gera os 170 documentos em `generated-docs/`
    e imprime, ao final, o relatorio de validacao do pacote. O gerador autentica
    antes de abrir os documentos e confere folha a folha que o que saiu e o
    documento — um 200 seguido de redirecionamento para `/login` imprimiria a
