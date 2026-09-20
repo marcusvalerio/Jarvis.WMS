@@ -16,6 +16,7 @@
     "test:e2e": "node tests/e2e.mjs",
     "test:smoke": "node tests/smoke.mjs",
     "test:a11y": "node tests/a11y.mjs",
+    "test:labels": "node tests/label-sheets.mjs",
     "db:migrate": "node --import ./scripts/register.mjs --experimental-strip-types --no-warnings scripts/migrate.ts",
     "db:schema": "node --import ./scripts/register.mjs --experimental-strip-types --no-warnings scripts/gen-schema.ts",
     "sim:run": "node --import ./scripts/register.mjs --experimental-strip-types --no-warnings scripts/run-operation.ts"

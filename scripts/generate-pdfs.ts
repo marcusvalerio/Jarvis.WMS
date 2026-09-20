@@ -92,6 +92,23 @@ async function main() {
   });
   const page = await browser.newPage();
 
+  // Desde que o sistema passou a exigir sessao, abrir um documento sem
+  // estar autenticado devolve 200 e SO DEPOIS redireciona para /login pelo
+  // roteador. O gerador precisa entrar antes — e conferir folha a folha
+  // que o que saiu e o documento, nao a tela de login (ver abaixo).
+  const { entrar } = await import("../tests/login.mjs");
+  try {
+    await entrar(page, BASE);
+  } catch (err) {
+    console.error(
+      `\nNao foi possivel autenticar em ${BASE}.\n` +
+      `Defina WMS_TEST_EMAIL e WMS_TEST_PASSWORD se as credenciais nao forem as padrao.\n` +
+      `${err instanceof Error ? err.message : String(err)}\n`,
+    );
+    await browser.close();
+    process.exit(1);
+  }
+
   let done = 0;
   const failures: string[] = [];
   const gerados: string[] = [];
@@ -105,6 +122,17 @@ async function main() {
     try {
       const response = await page.goto(url, { waitUntil: "networkidle", timeout: 40000 });
       if (!response || response.status() >= 400) throw new Error(`HTTP ${response?.status()}`);
+
+      // O status 200 nao prova que o documento renderizou: uma sessao
+      // perdida redireciona para /login DEPOIS da resposta, e o PDF sairia
+      // com a tela de login em vez da folha. Confere a URL final e a
+      // presenca da folha antes de imprimir.
+      if (new URL(page.url()).pathname !== new URL(url).pathname) {
+        throw new Error(`redirecionado para ${new URL(page.url()).pathname}`);
+      }
+      const folhas = await page.locator(".doc-sheet").count();
+      if (folhas === 0) throw new Error("nenhuma folha renderizada na pagina");
+
       await page.emulateMedia({ media: "print" });
       await page.pdf({
         path: file,

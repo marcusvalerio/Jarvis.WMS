@@ -32,11 +32,12 @@ primeira execucao — nenhuma tela aparece vazia.
 npm run dev         # sobe o sistema
 npm run build       # build de producao
 npm run typecheck   # verificacao de tipos
-npm test            # 64 testes de dominio (banco isolado)
+npm test            # 66 testes de dominio (banco isolado)
 npm run test:e2e    # percurso completo pela interface (exige npm run dev)
                     # testes de navegador: npx playwright install chromium
 npm run test:smoke  # verifica todas as rotas (exige npm run dev)
 npm run test:a11y   # auditoria WCAG 2.1 AA (exige npm run dev)
+npm run test:labels # folhas A4 de etiquetas: grade, PDF e paginacao
 npm run db:reset    # recarrega o cenario pela linha de comando
 npm run db:reset -- --demo   # recarrega JA com o pacote de documentos
 npm run docs:prepare         # prepara o pacote de documentos (sem operar)
@@ -126,12 +127,54 @@ quando a embalagem a abre.
 Fluxo da apresentacao:
 
 1. **Preparacao** — `npm run db:reset -- --demo` (ou o botao na tela Simulacao).
-2. **Pre-geracao** — `npm run docs:pdf` gera os 168 documentos em `generated-docs/`
-   e imprime, ao final, o relatorio de validacao do pacote.
-3. **Impressao** — etiquetas (100 × 150 mm) e documentos (A4).
+2. **Pre-geracao** — `npm run docs:pdf` gera os 172 documentos em `generated-docs/`
+   e imprime, ao final, o relatorio de validacao do pacote. O gerador autentica
+   antes de abrir os documentos e confere folha a folha que o que saiu e o
+   documento — um 200 seguido de redirecionamento para `/login` imprimiria a
+   tela de login em vez da nota fiscal.
+3. **Impressao** — folhas A4 de etiquetas (6 por pagina) e documentos A4.
 4. **Apresentacao** — executar a operacao; os papeis em maos sao exatamente as
    entidades que o sistema vai usar.
 5. **Reset** — `Simulacao → Reiniciar simulacao` devolve o pacote se ele existia.
+
+### Etiquetas em folha A4
+
+Uma etiqueta por folha desperdicaria 18 folhas so nas caixas de saida. As
+etiquetas de **volume**, **caixa recebida**, **palete** e **produto** tambem
+saem em folha A4 com **6 por pagina**, em grade de 2 colunas x 3 linhas:
+
+```
+┌───────────────┬───────────────┐
+│   ETIQUETA 1  │   ETIQUETA 2  │
+├───────────────┼───────────────┤
+│   ETIQUETA 3  │   ETIQUETA 4  │
+├───────────────┼───────────────┤
+│   ETIQUETA 5  │   ETIQUETA 6  │
+└───────────────┴───────────────┘
+```
+
+Geometria: margem de 10 mm, espaco de 4 mm entre etiquetas, celula de
+93 x 86 mm. O numero de paginas e `ceil(total / 6)` e a proxima etiqueta
+ocupa sempre a proxima posicao livre — sem buraco na grade. Cada tipo sai
+em um documento proprio, para que a pilha impressa ja venha separada:
+
+| documento | etiquetas | folhas |
+| --- | ---: | ---: |
+| Folha A4 · etiquetas de caixa recebida | 10 | 2 |
+| Folha A4 · etiquetas de volume | 18 | 3 |
+| Folha A4 · etiquetas de palete | 6 | 1 |
+| Folha A4 · etiquetas de produto | 2 | 1 |
+
+O PDF sai com margem zero e a medida vem do proprio documento, em
+milimetros: **imprimir em escala 100%**, sem "ajustar a pagina". O Code 128
+usa modulo de 0,476 mm — acima do minimo de leitura e estreito o bastante
+para caber na celula. As etiquetas individuais de 100 x 150 mm continuam
+existindo, para quem imprime em impressora termica.
+
+`npm run test:labels` valida o resultado no PDF, nao so no HTML: tamanho A4,
+numero de paginas, 6 por folha, 2 colunas, 3 linhas, nenhum conteudo ou
+codigo de barras cortado. E `npm test` decodifica o simbolo de volta a
+partir da geometria do SVG, nos dois tamanhos de modulo.
 
 ### Documentos simulados
 
@@ -255,7 +298,7 @@ npm run db:reset     # carrega/recarrega o cenario SIM-001
 
 ## Testes
 
-**Dominio — 64 testes** (`npm test`, banco PostgreSQL separado via `WMS_TEST_DATABASE_URL`):
+**Dominio — 66 testes** (`npm test`, banco PostgreSQL separado via `WMS_TEST_DATABASE_URL`):
 fluxo completo de ponta a ponta, divergencia de conferencia, recusa de endereco,
 produto e quantidade na coletora, integridade de saldo, rastreabilidade, auditoria,
 cobertura do reset e reprodutibilidade do cenario. Inclui 12 testes do pacote de

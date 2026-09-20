@@ -4,7 +4,8 @@
  * documento com dados proprios. O catalogo define como localizar as
  * entidades disponiveis para cada tipo.
  */
-import { all } from "@/lib/db";
+import { all, scalar } from "@/lib/db";
+import { SCENARIO_ID } from "@/seed/scenario";
 
 export type DocGroup = "entrada" | "armazenagem" | "saida";
 
@@ -19,6 +20,23 @@ export interface DocType {
   simulated?: boolean;
   /** Entidades disponiveis para este tipo. */
   list: () => Promise<{ id: string; label: string; sublabel?: string; status?: string }[]>;
+}
+
+/**
+ * Folha A4 com 6 etiquetas (2 x 3). O documento e UM so, com quantas
+ * paginas forem necessarias — ceil(total / 6) —, e nao um arquivo por
+ * etiqueta. `list()` devolve um unico item porque o conjunto inteiro e o
+ * documento; o sublabel diz quantas etiquetas e quantas folhas saem.
+ */
+async function folhaDeEtiquetas(sql: string, ...params: any[]) {
+  const total = Number(await scalar<number>(sql, ...params) ?? 0);
+  if (total === 0) return [];
+  const folhas = Math.ceil(total / 6);
+  return [{
+    id: SCENARIO_ID,
+    label: `${total} etiqueta(s)`,
+    sublabel: `${folhas} folha(s) A4 · 6 por folha`,
+  }];
 }
 
 export const DOC_TYPES: DocType[] = [
@@ -73,6 +91,20 @@ export const DOC_TYPES: DocType[] = [
     )).map((r) => ({ id: r.id, label: r.id, sublabel: r.inbound_order_id, status: r.status })),
   },
   {
+    type: "inbound-volume-label-sheet", label: "Folha A4 · etiquetas de caixa recebida",
+    group: "entrada", format: "A4",
+    description: "Seis etiquetas de caixa recebida por folha A4, em 2 colunas x 3 linhas.",
+    list: () => folhaDeEtiquetas(
+      `SELECT COUNT(*) FROM volumes WHERE status <> 'CANCELLED' AND inbound_order_id IS NOT NULL`,
+    ),
+  },
+  {
+    type: "product-label-sheet", label: "Folha A4 · etiquetas de produto",
+    group: "entrada", format: "A4",
+    description: "Seis etiquetas de produto por folha A4, em 2 colunas x 3 linhas.",
+    list: () => folhaDeEtiquetas(`SELECT COUNT(*) FROM products`),
+  },
+  {
     type: "product-label", label: "Etiqueta de produto", group: "entrada", format: "ETIQUETA",
     description: "Identificacao do SKU com codigo interno Code 128 e EAN do fabricante.",
     list: async () => (await all<any>(`SELECT id, sku, description FROM products ORDER BY sku`))
@@ -94,6 +126,12 @@ export const DOC_TYPES: DocType[] = [
       `SELECT pl.id, pl.status, l.code FROM pallets pl
          LEFT JOIN locations l ON l.id = pl.location_id ORDER BY pl.id`,
     )).map((r) => ({ id: r.id, label: r.id, sublabel: r.code ?? "sem endereco", status: r.status })),
+  },
+  {
+    type: "pallet-label-sheet", label: "Folha A4 · etiquetas de palete",
+    group: "armazenagem", format: "A4",
+    description: "Seis etiquetas de palete por folha A4, em 2 colunas x 3 linhas.",
+    list: () => folhaDeEtiquetas(`SELECT COUNT(*) FROM pallets`),
   },
   {
     type: "location-label", label: "Etiqueta de endereco", group: "armazenagem", format: "ETIQUETA",
@@ -142,6 +180,14 @@ export const DOC_TYPES: DocType[] = [
       `SELECT id, status, sales_order_id FROM volumes
         WHERE status <> 'CANCELLED' AND inbound_order_id IS NULL ORDER BY id`,
     )).map((r) => ({ id: r.id, label: r.id, sublabel: r.sales_order_id, status: r.status })),
+  },
+  {
+    type: "volume-label-sheet", label: "Folha A4 · etiquetas de volume",
+    group: "saida", format: "A4",
+    description: "Seis etiquetas de volume por folha A4, em 2 colunas x 3 linhas.",
+    list: () => folhaDeEtiquetas(
+      `SELECT COUNT(*) FROM volumes WHERE status <> 'CANCELLED' AND inbound_order_id IS NULL`,
+    ),
   },
   {
     type: "shipping-check", label: "Conferencia de expedicao", group: "saida", format: "A4",

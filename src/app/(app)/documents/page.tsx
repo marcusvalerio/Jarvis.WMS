@@ -46,12 +46,12 @@ export default async function DocumentsPage({
 
       <div className="flex flex-wrap gap-2 mb-5">
         <Link href="/documents" className={`badge ${!active ? "badge-accent" : "badge-neutral"}`}>
-          Todos <span className="tnum opacity-90">{catalog.length}</span>
+          Todos <span className="tnum">{catalog.length}</span>
         </Link>
         {GROUPS.map((g) => (
           <Link key={g} href={`/documents?group=${g}`} className={`badge ${active === g ? "badge-accent" : "badge-neutral"}`}>
             {GROUP_LABEL[g]}
-            <span className="tnum opacity-90">{catalog.filter((c) => c.group === g).length}</span>
+            <span className="tnum">{catalog.filter((c) => c.group === g).length}</span>
           </Link>
         ))}
       </div>
