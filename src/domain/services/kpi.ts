@@ -82,6 +82,18 @@ export async function divergenceIndex() {
 }
 
 // ------------------------------------------------- produtividade de picking
+/**
+ * Uma taxa por hora so tem sentido quando o intervalo medido tem resolucao
+ * suficiente. Rodando o cenario via `sim:run` (CLI), as linhas sao
+ * concluidas a milissegundos umas das outras — minutes fica perto de zero
+ * e items.length/minutes*60 explode para um numero absurdo. Abaixo de 1
+ * minuto de intervalo total, a amostra nao sustenta uma taxa: tratamos
+ * como indisponivel, do mesmo jeito que os demais KPIs sem base de calculo.
+ * Numa apresentacao real, com tempo de parede entre as leituras, essa
+ * guarda nunca e acionada.
+ */
+const MIN_INTERVAL_MINUTES = 1;
+
 export async function pickingProductivity() {
   const items = await all<any>(
     `SELECT started_at, completed_at, picked_qty FROM picking_items
@@ -91,14 +103,60 @@ export async function pickingProductivity() {
     (s, i) => s + Math.max(0, minutesBetween(i.started_at, i.completed_at) ?? 0), 0,
   );
   const units = items.reduce((s, i) => s + (i.picked_qty ?? 0), 0);
+  const hasRate = minutes >= MIN_INTERVAL_MINUTES;
   return {
     lines: items.length,
     units,
     minutes,
-    linesPerHour: minutes > 0 ? (items.length / minutes) * 60 : null,
-    unitsPerHour: minutes > 0 ? (units / minutes) * 60 : null,
+    linesPerHour: hasRate ? (items.length / minutes) * 60 : null,
+    unitsPerHour: hasRate ? (units / minutes) * 60 : null,
     avgLineMinutes: items.length ? minutes / items.length : null,
   };
+}
+
+/** Picks concluidos por hora, ultimas `hours` horas — serie para a sparkline de produtividade. */
+export async function pickingActivitySeries(hours = 12) {
+  const now = Date.now();
+  const hourMs = 3_600_000;
+  const start = Math.floor(now / hourMs) * hourMs - (hours - 1) * hourMs;
+
+  const buckets = Array.from({ length: hours }, (_, i) => ({
+    bucket: i, at: new Date(start + i * hourMs).toISOString(), picks: 0,
+  }));
+
+  const rows = await all<{ occurred_at: string }>(
+    `SELECT occurred_at FROM inventory_movements WHERE kind = 'PICK' AND occurred_at >= ?`,
+    new Date(start).toISOString(),
+  );
+  for (const r of rows) {
+    const idx = Math.floor((new Date(r.occurred_at).getTime() - start) / hourMs);
+    if (idx < 0 || idx >= hours) continue;
+    buckets[idx].picks++;
+  }
+  return buckets;
+}
+
+// ------------------------------------------------- tempo medio de picking/conferencia
+/** Duracao completa da ordem de separacao — para comparar com os demais processos. */
+export async function avgPickingMinutes(): Promise<{ value: number | null; sample: number }> {
+  const rows = await all<any>(
+    `SELECT started_at, completed_at FROM picking_orders
+      WHERE started_at IS NOT NULL AND completed_at IS NOT NULL`,
+  );
+  const values = rows.map((r) => minutesBetween(r.started_at, r.completed_at) ?? 0);
+  return { value: avg(values), sample: values.length };
+}
+
+/** Conferencias de entrada e saida combinadas — mesma etapa "Conferencia" do fluxo. */
+export async function avgCheckMinutes(): Promise<{ value: number | null; sample: number }> {
+  const recv = await all<any>(
+    `SELECT started_at, finished_at FROM receiving_checks WHERE finished_at IS NOT NULL`,
+  );
+  const ship = await all<any>(
+    `SELECT started_at, finished_at FROM shipping_checks WHERE finished_at IS NOT NULL`,
+  );
+  const values = [...recv, ...ship].map((r) => minutesBetween(r.started_at, r.finished_at) ?? 0);
+  return { value: avg(values), sample: values.length };
 }
 
 // ------------------------------------------------- ciclos
@@ -214,7 +272,7 @@ export async function dashboardKpis(): Promise<Kpi[]> {
       sample: `${prod.lines} linhas em ${round2(prod.minutes)} min`,
     },
     {
-      key: "otif", label: "OTIF",
+      key: "otif", label: "OTIF (No prazo e completo)",
       value: ot.value === null ? null : round2(ot.value), unit: "%",
       hint: "Pedidos entregues no prazo e completos",
       target: { good: 98, warn: 95, direction: "higher" },
