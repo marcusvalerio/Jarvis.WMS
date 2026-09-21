@@ -25,6 +25,7 @@ const FOLHAS = [
   { type: "inbound-volume-label-sheet", label: "Etiquetas de caixa recebida", etiquetas: 10 },
   { type: "pallet-label-sheet", label: "Etiquetas de palete", etiquetas: 6 },
   { type: "product-label-sheet", label: "Etiquetas de produto", etiquetas: 2 },
+  { type: "location-label-sheet", label: "Etiquetas de localizacao", etiquetas: 2 },
 ];
 
 const POR_FOLHA = 6;

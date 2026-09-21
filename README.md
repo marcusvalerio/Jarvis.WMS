@@ -32,7 +32,7 @@ primeira execucao — nenhuma tela aparece vazia.
 npm run dev         # sobe o sistema
 npm run build       # build de producao
 npm run typecheck   # verificacao de tipos
-npm test            # 66 testes de dominio (banco isolado)
+npm test            # 75 testes de dominio (banco isolado)
 npm run test:e2e    # percurso completo pela interface (exige npm run dev)
                     # testes de navegador: npx playwright install chromium
 npm run test:smoke  # verifica todas as rotas (exige npm run dev)
@@ -42,6 +42,7 @@ npm run db:reset    # recarrega o cenario pela linha de comando
 npm run db:reset -- --demo   # recarrega JA com o pacote de documentos
 npm run docs:prepare         # prepara o pacote de documentos (sem operar)
 npm run docs:pdf    # gera TODOS os documentos em PDF (exige npm run dev)
+npm run docs:demo   # UM PDF so, pronto para imprimir: sobe o sistema sozinho se preciso
 ```
 
 ---
@@ -124,18 +125,55 @@ Uma caixa `PLANNED` nao existe para a operacao: a coletora recusa bipa-la na
 conferencia e no carregamento, e a expedicao nao a enxerga. Ela so entra no fluxo
 quando a embalagem a abre.
 
-Fluxo da apresentacao:
+Fluxo da apresentacao, no dia:
+
+```bash
+npm run docs:demo
+```
+
+Uma acao so. Garante o cenario carregado e o pacote preparado, sobe o sistema
+sozinha se ele nao estiver no ar, renderiza cada documento pela mesma tela que
+qualquer usuario usaria para imprimir e junta tudo — capa, mapa da simulacao,
+divisorias por secao, documentos e indice final — em UM PDF, na ordem fisica
+de uso:
+
+```
+generated/demo/JARVIS_WMS_LOG122_DEMO_PACK.pdf         # imprimir isto
+generated/demo/JARVIS_WMS_LOG122_DOCUMENT_INDEX.pdf     # so o indice
+generated/demo/individual/                              # cada documento em separado
+```
+
+O terminal termina com o relatorio da montagem: quantas paginas, quantos
+documentos, e as mesmas verificacoes de rastreabilidade de `docs:prepare` —
+sem orfao, sem duplicata, toda pagina em A4. `npm run docs:demo -- --sem-servidor`
+pula a tentativa de subir `npm run dev` quando o sistema ja esta rodando em
+outro terminal.
+
+Passo a passo equivalente, se preferir rodar cada etapa a parte:
 
 1. **Preparacao** — `npm run db:reset -- --demo` (ou o botao na tela Simulacao).
-2. **Pre-geracao** — `npm run docs:pdf` gera os 170 documentos em `generated-docs/`
-   e imprime, ao final, o relatorio de validacao do pacote. O gerador autentica
-   antes de abrir os documentos e confere folha a folha que o que saiu e o
-   documento — um 200 seguido de redirecionamento para `/login` imprimiria a
-   tela de login em vez da nota fiscal.
+2. **Pre-geracao** — `npm run docs:pdf` gera TODOS os documentos do catalogo em
+   `generated-docs/` (inclui os individuais de 100×150 mm, fora do pacote mestre),
+   e imprime o relatorio de validacao do pacote. O gerador autentica antes de
+   abrir os documentos e confere folha a folha que o que saiu e o documento —
+   um 200 seguido de redirecionamento para `/login` imprimiria a tela de login
+   em vez da nota fiscal.
 3. **Impressao** — folhas A4 de etiquetas (6 por pagina) e documentos A4.
 4. **Apresentacao** — executar a operacao; os papeis em maos sao exatamente as
    entidades que o sistema vai usar.
 5. **Reset** — `Simulacao → Reiniciar simulacao` devolve o pacote se ele existia.
+
+### O pacote mestre (`docs:demo`)
+
+`src/domain/services/demo-pack.ts` organiza os documentos do catalogo
+(`src/domain/documents.ts`) — sem inventar nenhum novo — em 13 secoes, na
+ordem fisica de uso: Compras/Recebimento, Identificacao de recebimento,
+Armazenagem, Vendas, Separacao, Etiquetas de expedicao, Packing, Conferencia,
+Notas fiscais de saida, Romaneios, Documentos de transporte, Carregamento e
+Expedicao. `scripts/docs-demo.ts` renderiza capa, mapa da simulacao, uma
+divisoria por secao, cada documento e o indice final pela mesma tela de
+impressao do sistema (Playwright), e junta tudo com `pdf-lib` em um PDF so —
+todas as paginas em A4, cada documento comecando na sua propria pagina.
 
 ### Etiquetas em folha A4
 

@@ -23,10 +23,10 @@ import {
 } from "@/components/doc/outbound";
 import { PalletLabel, LocationLabel, VolumeLabel, InboundVolumeLabel, ProductLabel } from "@/components/doc/labels";
 import {
-  LabelSheet, LABELS_PER_SHEET, VolumeCell, InboundVolumeCell, PalletCell, ProductCell,
+  LabelSheet, LABELS_PER_SHEET, VolumeCell, InboundVolumeCell, PalletCell, ProductCell, LocationCell,
 } from "@/components/doc/label-sheet";
 import {
-  volumeLabelSet, inboundVolumeLabelSet, palletLabelSet, productLabelSet,
+  volumeLabelSet, inboundVolumeLabelSet, palletLabelSet, productLabelSet, locationLabelSet,
 } from "@/domain/services/labels";
 
 export const dynamic = "force-dynamic";
@@ -242,6 +242,18 @@ async function render(type: string, id: string) {
           title="Etiquetas de produto"
           keyOf={(p) => p.product.id}
           render={(p) => <ProductCell product={p.product} barcodes={p.barcodes} />}
+        />
+      );
+    }
+    case "location-label-sheet": {
+      const set = await locationLabelSet();
+      if (set.length === 0) return null;
+      return (
+        <LabelSheet
+          items={set}
+          title="Etiquetas de localizacao"
+          keyOf={(l) => l.location.id}
+          render={(l) => <LocationCell location={l.location} />}
         />
       );
     }

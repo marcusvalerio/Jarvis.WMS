@@ -2,7 +2,7 @@
   "name": "jarvis-wms",
   "version": "1.0.0",
   "private": true,
-  "description": "WMS Operacional \u2014 sistema de gestao de armazem para operacao logistica simulada",
+  "description": "WMS Operacional — sistema de gestao de armazem para operacao logistica simulada",
   "scripts": {
     "dev": "next dev -p 3000",
     "build": "next build",
@@ -12,6 +12,7 @@
     "db:reset": "node --import ./scripts/register.mjs --experimental-strip-types --no-warnings scripts/reset.ts",
     "docs:prepare": "node --import ./scripts/register.mjs --experimental-strip-types --no-warnings scripts/prepare-demo.ts",
     "docs:pdf": "node --import ./scripts/register.mjs --experimental-strip-types --no-warnings scripts/generate-pdfs.ts",
+    "docs:demo": "node --import ./scripts/register.mjs --experimental-strip-types --no-warnings scripts/docs-demo.ts",
     "test": "WMS_TEST_DATABASE=1 DATABASE_URL=${WMS_TEST_DATABASE_URL:-postgresql://wms@127.0.0.1:5433/wms_test} node --import ./scripts/register.mjs --experimental-strip-types --no-warnings --test --test-concurrency=1 tests/*.test.ts",
     "test:e2e": "node tests/e2e.mjs",
     "test:smoke": "node tests/smoke.mjs",
@@ -24,6 +25,7 @@
   "dependencies": {
     "@neondatabase/serverless": "^0.10.4",
     "next": "15.5.25",
+    "pdf-lib": "^1.17.1",
     "pg": "^8.13.1",
     "react": "19.3.0",
     "react-dom": "19.3.0",

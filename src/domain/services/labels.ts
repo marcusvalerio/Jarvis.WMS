@@ -104,6 +104,24 @@ export async function palletLabelSet() {
   }));
 }
 
+/**
+ * Etiquetas de localizacao usadas pelo pacote da demonstracao: os enderecos
+ * que a armazenagem planejada (`storage_orders`) ja sugeriu para os dois
+ * recebimentos. Nao e o mapa inteiro do armazem — e o subconjunto que a
+ * apresentacao fisica de fato vai usar.
+ */
+export async function locationLabelSet() {
+  const locations = await all<any>(
+    `SELECT DISTINCT l.id, l.code, z.name AS zone_name, z.kind AS zone_kind
+       FROM storage_orders so
+       JOIN locations l ON l.id = so.suggested_location_id
+       JOIN zones z ON z.id = l.zone_id
+      WHERE so.suggested_location_id IS NOT NULL
+      ORDER BY l.code`,
+  );
+  return locations.map((l) => ({ location: l }));
+}
+
 /** Etiquetas de produto, com os codigos de barras cadastrados. */
 export async function productLabelSet() {
   const products = await all<any>(`SELECT * FROM products ORDER BY sku`);

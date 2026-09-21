@@ -142,6 +142,15 @@ export const DOC_TYPES: DocType[] = [
     )).map((r) => ({ id: r.id, label: r.code, sublabel: r.name })),
   },
   {
+    type: "location-label-sheet", label: "Folha A4 · etiquetas de localizacao",
+    group: "armazenagem", format: "A4",
+    description: "Seis etiquetas de endereco por folha A4, em 2 colunas x 3 linhas — os enderecos sugeridos pela armazenagem planejada.",
+    list: () => folhaDeEtiquetas(
+      `SELECT COUNT(DISTINCT so.suggested_location_id) FROM storage_orders so
+        WHERE so.suggested_location_id IS NOT NULL`,
+    ),
+  },
+  {
     type: "movement", label: "Documento de movimentacao", group: "armazenagem", format: "A4",
     description: "Extrato dos movimentos de estoque de um palete.",
     // So o palete que JA se movimentou. O palete planejado pela preparacao
