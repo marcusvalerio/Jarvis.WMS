@@ -166,17 +166,17 @@ export interface SeedProduct {
  */
 export const PRODUCTS: SeedProduct[] = [
   {
-    id: "SKU-001", sku: "SKU-001", description: "Shampoo Pantene 400ml",
+    id: "SKU-001", sku: "SKU-001", description: "Shampoo Pantene 350ml",
     category: "Higiene e Beleza", unit: "UN", ncm: "33051000", cfopIn: "1102", cfopOut: "5102",
     unitWeight: 0.42, unitGross: 0.45, l: 6.5, w: 6.5, h: 21,
-    unitsPerPallet: 120, unitPrice: 24.9, shelfLifeDays: 1080, minStock: 48, abc: "A",
+    unitsPerPallet: 120, unitPrice: 12.36, shelfLifeDays: 1080, minStock: 48, abc: "A",
     barcode: "7896094900011",
   },
   {
-    id: "SKU-002", sku: "SKU-002", description: "Condicionador Pantene 400ml",
+    id: "SKU-002", sku: "SKU-002", description: "Condicionador Pantene 175ml",
     category: "Higiene e Beleza", unit: "UN", ncm: "33059000", cfopIn: "1102", cfopOut: "5102",
     unitWeight: 0.44, unitGross: 0.47, l: 6.5, w: 6.5, h: 21,
-    unitsPerPallet: 120, unitPrice: 26.5, shelfLifeDays: 1080, minStock: 48, abc: "A",
+    unitsPerPallet: 120, unitPrice: 9.48, shelfLifeDays: 1080, minStock: 48, abc: "A",
     barcode: "7896094900028",
   },
 ];
