@@ -71,7 +71,7 @@ export function CameraScanner({
           if (cancelled) return;
           const current = videoRef.current;
 
-          if (current && current.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA && !busyRef.current) {
+          if (current && current.readyState >= 2 && !busyRef.current) {
             busyRef.current = true;
             try {
               const codes = await detector.detect(current);
