@@ -280,6 +280,31 @@ export function PalletCell({ pallet, items }: { pallet: any; items: any[] }) {
   );
 }
 
+// ---------------------------------------------------------- localizacao
+export function LocationCell({ location }: { location: any }) {
+  return (
+    <Cell kind="Localizacao">
+      <div className="flex items-baseline justify-between gap-1">
+        <p className="text-[15pt] font-bold leading-none" style={{ fontFamily: "var(--font-familjen)" }}>
+          {location.code}
+        </p>
+        <p className="text-[7.5pt] font-bold uppercase">{location.zone_kind}</p>
+      </div>
+
+      <CellBarcode value={location.id} />
+
+      <Campo label="Zona" value={location.zone_name} />
+      <Campo label="Endereco" value={location.code} />
+
+      <div className="mt-auto pt-[1mm] border-t border-black">
+        <p className="text-[6.5pt] text-[#555] leading-tight">
+          Placa de porta-palete — o codigo lido pela coletora e o proprio endereco.
+        </p>
+      </div>
+    </Cell>
+  );
+}
+
 // -------------------------------------------------------------- produto
 export function ProductCell({ product, barcodes }: { product: any; barcodes: any[] }) {
   // O codigo interno e o que a coletora resolve; o EAN vem impresso na
