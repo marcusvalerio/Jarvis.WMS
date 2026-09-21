@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { PrintBar } from "@/components/doc/PrintBar";
 import { AutoPrint } from "@/components/doc/AutoPrint";
-import { IconPrint } from "@/components/ui/Icons";
 import PackCoverPage from "../cover/page";
 import PackSummaryPage from "../summary/page";
 import PackDividerPage from "../divider/[code]/page";
@@ -39,9 +38,6 @@ export default async function DemoPackPrintPage({
                 {WAREHOUSE.tradeName} · {SCENARIO_ID} · todos os documentos na ordem operacional.
               </p>
             </div>
-            <button type="button" className="btn btn-sm btn-primary" onClick={() => window.print()}>
-              <IconPrint size={13} /> Imprimir / salvar PDF
-            </button>
           </div>
         </div>
 
@@ -49,7 +45,7 @@ export default async function DemoPackPrintPage({
           <PackCoverPage />
         </div>
 
-        <div className="pack-page">
+        <div className="pack-page pack-break">
           <PackSummaryPage />
         </div>
 
@@ -57,7 +53,7 @@ export default async function DemoPackPrintPage({
           <PackSectionBlock key={section.code} section={section} />
         ))}
 
-        <section className="pack-page">
+        <section className="pack-page pack-break">
           <div className="doc-sheet bg-white text-black mx-auto my-6 px-[20mm] py-[18mm]" style={{ width: "210mm", minHeight: "297mm" }}>
             <p className="text-[24pt] font-bold leading-tight">Indice do pacote</p>
             <p className="text-[10pt] mt-2 text-[#555]">{SCENARIO_ID} · {totalDocuments} documentos</p>
@@ -75,6 +71,13 @@ export default async function DemoPackPrintPage({
           </div>
         </section>
       </main>
+      <style>{`
+        @media print {
+          .pack-break { break-before: page; page-break-before: always; }
+          .pack-print .doc-sheet { box-shadow: none !important; }
+          .pack-print .pack-page { break-inside: avoid; }
+        }
+      `}</style>
     </>
   );
 }
@@ -93,7 +96,7 @@ async function PackSectionBlock({ section }: { section: PackSection }) {
       </div>
 
       {rendered.map(({ entry, node }) => (
-        <div className="pack-page" key={`${entry.docType}-${entry.id}`}>
+        <div className="pack-page pack-break" key={`${entry.docType}-${entry.id}`}>
           {node}
         </div>
       ))}
