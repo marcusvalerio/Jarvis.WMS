@@ -31,8 +31,8 @@ export default async function DocumentsPage({
         title="Central de documentos"
         description="Todos os documentos sao renderizados a partir das entidades do sistema — o papel impresso corresponde exatamente ao registro no WMS."
         actions={
-          <Link href="/simulation#documentos" className="btn btn-sm btn-primary">
-            <IconPrint size={13} /> Pre-geracao para a apresentacao
+          <Link href="/documents/pack/print?auto=1" className="btn btn-sm btn-primary">
+            <IconPrint size={13} /> Gerar PDF completo
           </Link>
         }
       />
