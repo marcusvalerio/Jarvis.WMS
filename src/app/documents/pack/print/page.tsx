@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { PrintBar } from "@/components/doc/PrintBar";
 import { AutoPrint } from "@/components/doc/AutoPrint";
 import PackCoverPage from "../cover/page";
@@ -75,7 +74,6 @@ export default async function DemoPackPrintPage({
         @media print {
           .pack-break { break-before: page; page-break-before: always; }
           .pack-print .doc-sheet { box-shadow: none !important; }
-          .pack-print .pack-page { break-inside: avoid; }
         }
       `}</style>
     </>
@@ -91,7 +89,7 @@ async function PackSectionBlock({ section }: { section: PackSection }) {
 
   return (
     <section className="pack-section">
-      <div className="pack-page">
+      <div className="pack-page pack-break">
         <PackDividerPage params={Promise.resolve({ code: section.code })} />
       </div>
 
