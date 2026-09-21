@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
 import type { ActionState } from "@/app/actions/result";
 import { IconScan, IconCheck, IconAlert, IconArrowRight } from "@/components/ui/Icons";
+import { CameraScanner } from "@/components/rf/CameraScanner";
 
 /**
  * INTERFACE DA COLETORA.
@@ -19,6 +20,7 @@ export function ScanField({
 }) {
   const ref = useRef<HTMLInputElement>(null);
   const { pending } = useFormStatus();
+  const [cameraOpen, setCameraOpen] = useState(false);
 
   // Mantem o foco no campo — o leitor digita onde o cursor estiver.
   useEffect(() => {
@@ -31,26 +33,53 @@ export function ScanField({
     return () => { clearInterval(t); window.removeEventListener("click", keep); };
   }, [disabled, autoFocus, pending]);
 
+  const handleCameraDetected = (value: string) => {
+    const input = ref.current;
+    if (!input) return;
+    input.value = value;
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    setCameraOpen(false);
+    input.form?.requestSubmit();
+  };
+
   return (
-    <label className="block">
-      <span className="block text-[13px] tracking-[0.06em] uppercase text-secondary mb-2.5 font-[family-name:var(--font-editorial)]">
-        {label}
-      </span>
-      <span className="relative block">
-        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-accent-fg pointer-events-none">
-          <IconScan size={24} />
+    <>
+      <label className="block">
+        <span className="block text-[13px] tracking-[0.06em] uppercase text-secondary mb-2.5 font-[family-name:var(--font-editorial)]">
+          {label}
         </span>
-        <input
-          ref={ref}
-          name={name}
-          className="w-full h-16 pl-14 pr-4 rounded-xl bg-bg border-2 border-border focus:border-accent outline-none
-                     text-[22px] tracking-[0.04em] text-primary placeholder:text-faint font-[family-name:var(--font-mono)]"
-          placeholder={placeholder}
-          autoComplete="off" spellCheck={false} disabled={disabled || pending} required
-          inputMode="text"
+        <span className="relative block">
+          <span className="absolute left-4 top-1/2 -translate-y-1/2 text-accent-fg pointer-events-none">
+            <IconScan size={24} />
+          </span>
+          <input
+            ref={ref}
+            name={name}
+            className="w-full h-16 pl-14 pr-4 rounded-xl bg-bg border-2 border-border focus:border-accent outline-none
+                       text-[22px] tracking-[0.04em] text-primary placeholder:text-faint font-[family-name:var(--font-mono)]"
+            placeholder={placeholder}
+            autoComplete="off" spellCheck={false} disabled={disabled || pending} required
+            inputMode="text"
+          />
+        </span>
+        <button
+          type="button"
+          onClick={() => setCameraOpen(true)}
+          disabled={disabled || pending}
+          className="mt-2.5 h-11 w-full rounded-lg border border-border text-[13px] font-medium text-secondary
+                     hover:bg-elevated-hover disabled:opacity-40 flex items-center justify-center gap-2"
+        >
+          <IconScan size={16} />
+          Ler com camera
+        </button>
+      </label>
+      {cameraOpen && (
+        <CameraScanner
+          onDetected={handleCameraDetected}
+          onClose={() => setCameraOpen(false)}
         />
-      </span>
-    </label>
+      )}
+    </>
   );
 }
 

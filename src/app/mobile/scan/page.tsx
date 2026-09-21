@@ -10,7 +10,7 @@ export default function ScanPage() {
         Consulta livre
       </h1>
       <p className="text-[13.5px] text-secondary mb-5 leading-snug">
-        Bipe qualquer etiqueta: endereco, palete, produto, volume, pedido, romaneio ou operador.
+        Bipe com a coletora ou leia com a camera do celular qualquer etiqueta: endereco, palete, produto, volume, pedido, romaneio ou operador.
       </p>
       <LookupTerminal />
     </>

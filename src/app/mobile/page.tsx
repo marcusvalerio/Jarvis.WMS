@@ -22,7 +22,7 @@ export default async function MobileHome() {
         Operacoes
       </h1>
       <p className="text-[13.5px] text-secondary mb-5 leading-snug">
-        Selecione a operacao. O leitor USB funciona como teclado — basta bipar.
+        Selecione a operacao. A coletora USB funciona como teclado — ou use a camera do celular para ler o codigo.
       </p>
 
       <nav className="flex flex-col gap-2.5">
