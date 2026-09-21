@@ -233,36 +233,32 @@ export function WeighingDoc({ weighing }: { weighing: any }) {
       <DocSection title="Aferição">
         <div className="grid grid-cols-3 gap-4 my-4">
           {[
-            { label: "Peso bruto", value: weighing.gross_kg },
-            { label: "Tara", value: weighing.tare_kg },
-            { label: "Peso liquido", value: weighing.net_kg, strong: true },
+            { label: "Peso bruto", strong: false },
+            { label: "Tara", strong: false },
+            { label: "Peso liquido", strong: true },
           ].map((b) => (
             <div key={b.label} className={`border-2 ${b.strong ? "border-black" : "border-[#999]"} p-3 text-center`}>
               <p className="text-[7pt] tracking-[0.12em] uppercase text-[#555]">{b.label}</p>
-              <p className={`${b.strong ? "text-[24pt]" : "text-[19pt]"} font-bold leading-none mt-1.5`}
-                style={{ fontFamily: "var(--font-familjen)", fontVariantNumeric: "tabular-nums" }}>
-                {fmtNumber(b.value, 3)}
+              <p
+                className={`${b.strong ? "text-[24pt]" : "text-[19pt]"} font-bold leading-none mt-1.5`}
+                style={{ fontFamily: "var(--font-familjen)", fontVariantNumeric: "tabular-nums" }}
+              >
+                __________________
               </p>
               <p className="text-[8pt] mt-0.5">kg</p>
             </div>
           ))}
         </div>
         <p className="text-[8pt] text-center">
-          Peso liquido = peso bruto − tara = {fmtNumber(weighing.gross_kg, 3)} − {fmtNumber(weighing.tare_kg, 3)} ={" "}
-          <b>{fmtNumber(weighing.net_kg, 3)} kg</b>
+          Peso liquido = peso bruto − tara = __________ − __________ = __________ kg
         </p>
       </DocSection>
 
       <DocSection title="Conferencia com o previsto">
         <DocFields cols={3} fields={[
-          { label: "Peso previsto", value: weighing.expected_kg ? fmtWeight(weighing.expected_kg, 3) : "nao informado" },
-          { label: "Peso aferido", value: fmtWeight(weighing.net_kg, 3) },
-          {
-            label: "Divergencia",
-            value: weighing.expected_kg
-              ? <b>{weighing.divergence_kg > 0 ? "+" : ""}{fmtNumber(weighing.divergence_kg, 3)} kg</b>
-              : "—",
-          },
+          { label: "Peso previsto", value: "________________ kg" },
+          { label: "Peso aferido", value: "________________ kg" },
+          { label: "Divergencia", value: "________________ kg" },
         ]} />
       </DocSection>
 
@@ -332,28 +328,34 @@ export function ReceivingChecklistDoc({
       </DocSection>
 
       <DocSection title="2. Pesagem">
-        {weighings.length === 0 ? (
-          <p className="text-[8.5pt]">Nenhuma pesagem registrada. Bruto ________ kg · Tara ________ kg · Liquido ________ kg</p>
-        ) : (
-          <DocTable head={[
-            { label: "Documento", width: "26mm" }, { label: "Bruto (kg)", align: "right" },
-            { label: "Tara (kg)", align: "right" }, { label: "Liquido (kg)", align: "right" },
-            { label: "Previsto (kg)", align: "right" }, { label: "Divergencia", align: "right" },
-            { label: "Data" },
-          ]}>
-            {weighings.map((w: any) => (
-              <tr key={w.id}>
-                <Td bold>{w.id}</Td>
-                <Td align="right">{fmtNumber(w.gross_kg, 3)}</Td>
-                <Td align="right">{fmtNumber(w.tare_kg, 3)}</Td>
-                <Td align="right" bold>{fmtNumber(w.net_kg, 3)}</Td>
-                <Td align="right">{w.expected_kg ? fmtNumber(w.expected_kg, 3) : "—"}</Td>
-                <Td align="right">{fmtNumber(w.divergence_kg, 3)}</Td>
-                <Td>{fmtDateTime(w.weighed_at)}</Td>
-              </tr>
-            ))}
-          </DocTable>
-        )}
+        <DocTable head={[
+          { label: "Documento", width: "26mm" }, { label: "Bruto (kg)", align: "right" },
+          { label: "Tara (kg)", align: "right" }, { label: "Liquido (kg)", align: "right" },
+          { label: "Previsto (kg)", align: "right" }, { label: "Divergencia", align: "right" },
+          { label: "Data" },
+        ]}>
+          {weighings.length ? weighings.map((w: any) => (
+            <tr key={w.id}>
+              <Td bold>{w.id}</Td>
+              <Td align="right">________</Td>
+              <Td align="right">________</Td>
+              <Td align="right" bold>________</Td>
+              <Td align="right">________</Td>
+              <Td align="right">________</Td>
+              <Td>{fmtDateTime(w.weighed_at)}</Td>
+            </tr>
+          )) : (
+            <tr>
+              <Td bold>________</Td>
+              <Td align="right">________</Td>
+              <Td align="right">________</Td>
+              <Td align="right" bold>________</Td>
+              <Td align="right">________</Td>
+              <Td align="right">________</Td>
+              <Td>________</Td>
+            </tr>
+          )}
+        </DocTable>
       </DocSection>
 
       <DocSection title="3. Paletizacao">
