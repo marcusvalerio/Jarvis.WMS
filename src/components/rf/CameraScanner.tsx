@@ -2,15 +2,13 @@
 
 import { useEffect, useRef, useState } from "react";
 
-type Detector = {
-  detect: (source: ImageBitmapSource) => Promise<Array<{ rawValue?: string }>>;
+type BarcodeDetectorLike = {
+  detect: (source: HTMLVideoElement) => Promise<Array<{ rawValue?: string }>>;
 };
-
-type DetectorCtor = new (options?: { formats?: string[] }) => Detector;
 
 declare global {
   interface Window {
-    BarcodeDetector?: DetectorCtor;
+    BarcodeDetector?: new (options?: { formats?: string[] }) => BarcodeDetectorLike;
   }
 }
 
