@@ -48,7 +48,7 @@ export default async function DocumentPage({
   const def = docType(type);
   if (!def) notFound();
 
-  const node = await render(type, id);
+  const node = await renderDocument(type, id);
   if (!node) notFound();
 
   return (
@@ -84,7 +84,7 @@ function backFor(type: string, id: string): string {
   }
 }
 
-async function render(type: string, id: string) {
+export async function renderDocument(type: string, id: string) {
   switch (type) {
     // ------------------------------------------------------------ entrada
     case "purchase-order": {
