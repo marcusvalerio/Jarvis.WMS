@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
 import type { ActionState } from "@/app/actions/result";
 import { IconScan, IconCheck, IconAlert, IconArrowRight } from "@/components/ui/Icons";
+import { CameraScanner } from "@/components/rf/CameraScanner";
 
 /**
  * INTERFACE DA COLETORA.
@@ -19,6 +20,7 @@ export function ScanField({
 }) {
   const ref = useRef<HTMLInputElement>(null);
   const { pending } = useFormStatus();
+  const [cameraOpen, setCameraOpen] = useState(false);
 
   // Mantem o foco no campo — o leitor digita onde o cursor estiver.
   useEffect(() => {
@@ -31,7 +33,17 @@ export function ScanField({
     return () => { clearInterval(t); window.removeEventListener("click", keep); };
   }, [disabled, autoFocus, pending]);
 
+  const handleCameraDetected = (value: string) => {
+    const input = ref.current;
+    if (!input) return;
+    input.value = value;
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    setCameraOpen(false);
+    input.form?.requestSubmit();
+  };
+
   return (
+    <>
     <label className="block">
       <span className="block text-[13px] tracking-[0.06em] uppercase text-secondary mb-2.5 font-[family-name:var(--font-editorial)]">
         {label}
