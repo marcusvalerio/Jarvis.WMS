@@ -214,7 +214,7 @@ export async function dashboardKpis(): Promise<Kpi[]> {
       sample: `${prod.lines} linhas em ${round2(prod.minutes)} min`,
     },
     {
-      key: "otif", label: "OTIF",
+      key: "otif", label: "OTIF (No prazo e completo)",
       value: ot.value === null ? null : round2(ot.value), unit: "%",
       hint: "Pedidos entregues no prazo e completos",
       target: { good: 98, warn: 95, direction: "higher" },

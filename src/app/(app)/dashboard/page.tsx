@@ -1,20 +1,21 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import {
-  dashboardKpis, headline, operationalPulse, movementSeries, divergenceIndex,
+  dashboardKpis, headline, operationalPulse, movementSeries, operationSnapshot,
 } from "@/domain/services/kpi";
-import { occupancy, listDocks } from "@/domain/services/warehouse";
-import { availability } from "@/domain/services/equipment";
+import { occupancy, listDocks, locationMap, listZones } from "@/domain/services/warehouse";
 import { incidentCounts } from "@/domain/services/incidents";
 import { listInbound } from "@/domain/services/receiving";
 import { listOrders } from "@/domain/services/orders";
 import { scenarioProgress } from "@/domain/services/simulation";
 import { KpiCard } from "@/components/KpiCard";
 import { MovementChart } from "@/components/MovementChart";
-import { Card, CardHeader, PageHeader, EmptyState, Progress, IdChip } from "@/components/ui/Primitives";
+import { OperationalFlow } from "@/components/OperationalFlow";
+import { WarehouseMap } from "../warehouse/map";
+import { Card, CardHeader, PageHeader, EmptyState, Progress, IdChip, MetaItem } from "@/components/ui/Primitives";
 import { Badge, StatusBadge } from "@/components/ui/Badge";
 import { INBOUND_STATUS_META, SHIPPING_STATUS_META, PRIORITY_META } from "@/domain/states";
-import { fmtNumber, fmtTime, fmtPercent, relativeTime, fmtDateTime, isOverdue } from "@/lib/format";
+import { fmtNumber, fmtTime, fmtPercent, fmtDateTime, relativeTime, isOverdue } from "@/lib/format";
 import { IconArrowRight, IconAlert, IconCheck } from "@/components/ui/Icons";
 
 export const metadata: Metadata = { title: "Dashboard" };
@@ -26,17 +27,21 @@ export default async function DashboardPage() {
   const pulse = await operationalPulse(14);
   const occ = await occupancy();
   const docks = await listDocks();
-  const eq = await availability();
   const inc = await incidentCounts();
-  const div = await divergenceIndex();
   const series = await movementSeries(12);
+  const flow = await operationSnapshot();
   const inbound = (await listInbound()).filter((i) => i.status !== "COMPLETED" && i.status !== "CANCELLED").slice(0, 5);
   const orders = (await listOrders()).filter((o) => o.status !== "SHIPPED" && o.status !== "CANCELLED").slice(0, 6);
   const progress = await scenarioProgress();
 
-  const featured = ["accuracy", "divergence", "occupancy", "productivity", "otif"];
+  const zones = (await listZones()).filter((z) => ["PICKING", "STORAGE"].includes(z.kind));
+  const mapLocations = (await locationMap()).filter((l) => l.kind === "PALLET");
+
+  const featured = ["accuracy", "occupancy", "otif", "equipment", "divergence"];
   const primary = kpis.filter((k) => featured.includes(k.key));
   const secondary = kpis.filter((k) => !featured.includes(k.key));
+
+  const operationActive = head.pickingRunning > 0 || head.inboundToday > 0;
 
   return (
     <>
@@ -44,6 +49,18 @@ export default async function DashboardPage() {
         eyebrow="Centro de distribuicao · CD-01"
         title="Dashboard operacional"
         description="Indicadores calculados a partir das operacoes registradas — movimentos, conferencias e tempos de tarefa. Nenhum valor e fixo."
+        meta={
+          <>
+            <MetaItem label="Data" value={fmtDateTime(new Date().toISOString())} />
+            <span className="flex items-center gap-1.5 text-[13px] text-primary">
+              <span
+                className={`w-1.5 h-1.5 rounded-full ${operationActive ? "bg-accent pulse-dot" : "bg-neutral"}`}
+                aria-hidden
+              />
+              {operationActive ? "Operacao em andamento" : "Operacao parada"}
+            </span>
+          </>
+        }
         actions={
           <>
             <Link href="/operations" className="btn btn-sm">Painel de operacao</Link>
@@ -74,18 +91,31 @@ export default async function DashboardPage() {
         {secondary.map((k) => <KpiCard key={k.key} kpi={k} />)}
       </section>
 
+      {/* ------------------------------------------------ fluxo operacional */}
+      <Card className="mb-5" padded={false}>
+        <div className="p-5 pb-3">
+          <CardHeader
+            title="Fluxo operacional"
+            subtitle="Recebimento → armazenagem → picking → conferencia → expedicao — volume em execucao agora, por etapa"
+          />
+        </div>
+        <div className="px-2 pb-3">
+          <OperationalFlow stages={flow} />
+        </div>
+      </Card>
+
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-5 mb-5 items-start">
-        {/* --------------------------------------------- pulso operacional */}
+        {/* --------------------------------------------- atividade recente */}
         <Card className="xl:col-span-2">
           <CardHeader
-            title="Pulso operacional"
+            title="Atividade recente"
             subtitle="Ultimos eventos registrados pela operacao"
             action={<Link href="/audit" className="btn btn-sm btn-ghost">Auditoria <IconArrowRight size={13} /></Link>}
           />
           {pulse.length === 0 ? (
             <EmptyState
               title="Nenhum evento ainda"
-              description="Execute uma etapa da operacao — recebimento, armazenagem ou separacao — para o pulso comecar a registrar."
+              description="Execute uma etapa da operacao — recebimento, armazenagem ou separacao — para o registro comecar."
               action={<Link href="/receiving" className="btn btn-sm btn-primary">Abrir recebimento</Link>}
             />
           ) : (
@@ -142,18 +172,21 @@ export default async function DashboardPage() {
         </Card>
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-5 mb-5 items-start">
-        {/* --------------------------------------------- movimentacao */}
-        <Card className="xl:col-span-2">
-          <CardHeader
-            title="Movimentacao de estoque"
-            subtitle={`${fmtNumber(head.movements)} movimentos registrados no cenario`}
-            action={<Link href="/inventory/movements" className="btn btn-sm btn-ghost">Ver todos <IconArrowRight size={13} /></Link>}
+      {/* ------------------------------------------------ mapa do armazem */}
+      <div className="grid grid-cols-1 xl:grid-cols-4 gap-5 mb-5 items-start">
+        <div className="xl:col-span-3">
+          <WarehouseMap
+            locations={mapLocations.map((l) => ({
+              id: l.id, code: l.code, zoneId: l.zone_id, zoneName: l.zone_name,
+              aisle: l.aisle, rack: l.rack, level: l.level, status: l.status,
+              sku: l.sku, description: l.description, qty: l.qty, reserved: l.reserved,
+              lot: l.lot_code, expires: l.expires_at, pallet: l.pallet_id,
+              capacity: l.capacity_units, skuCount: l.sku_count,
+            }))}
+            zones={zones.map((z) => ({ id: z.id, name: z.name, kind: z.kind }))}
           />
-          <MovementChart data={series} />
-        </Card>
+        </div>
 
-        {/* --------------------------------------------- ocupacao + docas */}
         <Card>
           <CardHeader title="Ocupacao do armazem" subtitle={`${occ.occupied} de ${occ.totalPositions} posicoes-palete`} />
           <div className="flex items-end gap-3 mb-4">
@@ -202,6 +235,16 @@ export default async function DashboardPage() {
           </ul>
         </Card>
       </div>
+
+      {/* ------------------------------------------------ movimentacao */}
+      <Card className="mb-5">
+        <CardHeader
+          title="Movimentacao de estoque"
+          subtitle={`${fmtNumber(head.movements)} movimentos registrados no cenario`}
+          action={<Link href="/inventory/movements" className="btn btn-sm btn-ghost">Ver todos <IconArrowRight size={13} /></Link>}
+        />
+        <MovementChart data={series} />
+      </Card>
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-5 items-start">
         {/* --------------------------------------------- recebimentos */}
